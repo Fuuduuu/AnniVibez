@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="et">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Säde</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;color:#1a1a1a;background:#f5f3ef}
+.tabs{display:flex;gap:2px;padding:14px 16px 0;max-width:430px;margin:0 auto;border-bottom:1px solid #e0dcd6}
+.tb{flex:1;padding:9px;border:none;background:none;font-size:13px;cursor:pointer;color:#888;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tb.on{color:#1a1a1a;border-color:#1a1a1a;font-weight:500}
+.wrap{max-width:430px;margin:0 auto;padding:0 16px 60px}
+.view{display:none}.view.on{display:block}
+.slabel{font-size:11px;letter-spacing:.08em;color:#999;text-transform:uppercase;margin:20px 0 8px}
+.card{background:#fff;border:1px solid #e8e4df;border-radius:12px;padding:14px 16px;margin-bottom:8px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pill{border:1px solid #ddd;border-radius:20px;padding:5px 13px;font-size:13px;cursor:pointer;background:#f5f3ef;color:#666;transition:all .15s}
+.pill.on{background:#1D9E75;border-color:#1D9E75;color:#fff}
+.dep-row{display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #f0ece8}
+.dep-row:last-child{border-bottom:none}
+.dep-time{font-size:22px;font-weight:500;font-variant-numeric:tabular-nums;min-width:62px}
+.dep-badge{background:#E1F5EE;color:#0F6E56;font-size:11px;font-weight:500;border-radius:4px;padding:2px 8px;margin-right:10px;white-space:nowrap;flex-shrink:0}
+.dep-dir{font-size:13px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note{font-size:11px;color:#aaa;margin-top:10px;padding-top:10px;border-top:1px solid #f0ece8}
+select{width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a;font-size:14px;margin-top:10px}
+.btn-gps{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #ddd;border-radius:10px;background:#f5f3ef;cursor:pointer;font-size:13px;color:#666;width:100%;transition:background .15s}
+.dot{width:8px;height:8px;border-radius:50%;background:#1D9E75;flex-shrink:0}
+.dot.s{background:#EF9F27;animation:pu 1s infinite}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.3}}
+.empty{color:#aaa;font-size:13px;padding:12px 0;text-align:center}
+.sname{font-size:17px;font-weight:500}
+.ssub{font-size:12px;color:#aaa;margin-top:3px}
+.btn-open{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 0;margin-top:10px;border:none;border-top:1px solid #f0ece8;background:none;cursor:pointer;font-size:13px;color:#666}
+.hb-stop{font-size:14px;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.hb-dot{width:7px;height:7px;border-radius:50%;background:#EF9F27;flex-shrink:0;transition:background .3s}
+</style>
+</head>
+<body>
+<script type="application/json" id="_d">{"groups":[{"name":"Bussijaam","lat":59.3491,"lon":26.3615,"codes":["5900055-1"]},{"name":"Karja","lat":59.3451,"lon":26.3685,"codes":["5900209-1","5900210-1"]},{"name":"Kauba","lat":59.3524,"lon":26.3665,"codes":["5900220-1","5901245-1"]},{"name":"Kesk","lat":59.3541,"lon":26.3512,"codes":["5900229-1","5900230-1"]},{"name":"Keskuse","lat":59.3555,"lon":26.3268,"codes":["5900255-1"]},{"name":"Keskväljak","lat":59.3482,"lon":26.3591,"codes":["5900232-1"]},{"name":"Kivi","lat":59.3435,"lon":26.3812,"codes":["5900286-1","5900287-1"]},{"name":"Kungla","lat":59.3412,"lon":26.3715,"codes":["5900310-1","5900311-1"]},{"name":"Laada","lat":59.3495,"lon":26.3622,"codes":["5900338-1"]},{"name":"Lai","lat":59.3495,"lon":26.3572,"codes":["5900346-1"]},{"name":"Lääne","lat":59.3551,"lon":26.3415,"codes":["5900415-1","5900416-1"]},{"name":"Mäe","lat":59.3365,"lon":26.3555,"codes":["5900464-1","5900465-1"]},{"name":"Narva","lat":59.3585,"lon":26.3751,"codes":["5900484-1","5900485-1"]},{"name":"Näituse","lat":59.3685,"lon":26.3312,"codes":["5900505-1","5901194-1"]},{"name":"Näpi","lat":59.3651,"lon":26.3851,"codes":["5900508-1"]},{"name":"Palermo","lat":59.3335,"lon":26.3565,"codes":["5900381-1","5900382-1"]},{"name":"Piira","lat":59.3308,"lon":26.3578,"codes":["5900565-1"]},{"name":"Piiri","lat":59.3425,"lon":26.3755,"codes":["5900566-1","5900567-1"]},{"name":"Polikliinik","lat":59.3465,"lon":26.3651,"codes":["5900576-1","5900577-1"]},{"name":"Põhja","lat":59.3625,"lon":26.3455,"codes":["5900596-1","5900597-1"]},{"name":"Põhjakeskus","lat":59.3732,"lon":26.3268,"codes":["5900598-1"]},{"name":"Raudteejaam","lat":59.3582,"lon":26.3611,"codes":["5900635-1","5901241-1"]},{"name":"Rohu","lat":59.3515,"lon":26.3415,"codes":["5900653-1","5900655-1"]},{"name":"Rägavere tee","lat":59.3425,"lon":26.3885,"codes":["5900670-1"]},{"name":"Saueaugu","lat":59.3465,"lon":26.3355,"codes":["5900709-1","5900710-1"]},{"name":"Seminari","lat":59.3458,"lon":26.3712,"codes":["5900726-1","5900727-1"]},{"name":"Side","lat":59.3425,"lon":26.3655,"codes":["5900728-1","5900729-1"]},{"name":"Tartu","lat":59.3405,"lon":26.3575,"codes":["5900794-1","5900795-1"]},{"name":"Tarva","lat":59.3425,"lon":26.3515,"codes":["5900796-1","5900797-1"]},{"name":"Teater","lat":59.3521,"lon":26.3485,"codes":["5900800-1","5900801-1"]},{"name":"Võidu","lat":59.3515,"lon":26.3555,"codes":["5900979-1","5900980-1"]}],"lines":[{"line":"1","service":"E-R","direction":"Piira - Näpi","stops":[{"seq":9,"name":"Bussijaam","code":"5900055-1"},{"seq":10,"name":"Laada","code":"5900338-1"},{"seq":5,"name":"Karja","code":"5900209-1"}],"trips":[{"id":"01","stop_times":[{"seq":9,"time":"06:30"},{"seq":10,"time":"06:31"},{"seq":5,"time":"06:25"}]},{"id":"13","stop_times":[{"seq":9,"time":"14:40"},{"seq":10,"time":"14:41"},{"seq":5,"time":"14:35"}]},{"id":"15","stop_times":[{"seq":9,"time":"16:40"},{"seq":10,"time":"16:41"},{"seq":5,"time":"16:35"}]},{"id":"17","stop_times":[{"seq":9,"time":"18:40"},{"seq":10,"time":"18:41"},{"seq":5,"time":"18:35"}]}]},{"line":"5","service":"E-R","direction":"Rägavere tee → Põhjakeskus","variant":"A","stops":[{"seq":4,"name":"Kungla","code":"5900310-1"},{"seq":6,"name":"Keskväljak","code":"5900232-1"}],"trips":[{"id":"01","stop_times":[{"seq":4,"time":"06:49"},{"seq":6,"time":"06:58"}]},{"id":"09","stop_times":[{"seq":4,"time":"12:03"},{"seq":6,"time":"12:12"}]},{"id":"13","stop_times":[{"seq":4,"time":"14:03"},{"seq":6,"time":"14:12"}]},{"id":"17","stop_times":[{"seq":4,"time":"16:03"},{"seq":6,"time":"16:12"}]},{"id":"19","stop_times":[{"seq":4,"time":"19:03"},{"seq":6,"time":"19:12"}]}]},{"line":"1","service":"L","direction":"Piira - Näpi-Piira","stops":[{"seq":9,"name":"Bussijaam","code":"5900055-1"}],"trips":[{"id":"01","stop_times":[{"seq":9,"time":"08:40"}]},{"id":"03","stop_times":[{"seq":9,"time":"10:40"}]},{"id":"05","stop_times":[{"seq":9,"time":"12:40"}]}]},{"line":"1","service":"P","direction":"Piira - Näpi-Piira","stops":[{"seq":9,"name":"Bussijaam","code":"5900055-1"}],"trips":[{"id":"01","stop_times":[{"seq":9,"time":"10:40"}]},{"id":"03","stop_times":[{"seq":9,"time":"12:40"}]},{"id":"05","stop_times":[{"seq":9,"time":"14:40"}]}]}]}</script>
+<script type="application/json" id="_s">[{"name":"Kodu","lat":59.3491,"lon":26.3615},{"name":"Kool","lat":59.3458,"lon":26.3571},{"name":"Trenn","lat":59.3521,"lon":26.3485}]</script>
+
+<div class="tabs">
+  <button class="tb on" id="tb-kodu" onclick="showTab('kodu')">Kodu</button>
+  <button class="tb" id="tb-buss" onclick="showTab('buss')">Buss</button>
+</div>
+<div class="wrap">
+  <div class="view on" id="view-kodu">
+    <p class="slabel">Bussid</p>
+    <div class="card">
+      <div class="hb-stop"><span class="hb-dot" id="hb-dot"></span><span id="hb-stop">Otsin peatust…</span></div>
+      <div id="hb-deps"><div class="empty">Laen…</div></div>
+      <div class="note" id="hb-note" style="display:none">Ajad plaani järgi</div>
+      <button class="btn-open" onclick="showTab('buss')"><span>Ava bussivaade</span><span>→</span></button>
+    </div>
+  </div>
+  <div class="view" id="view-buss">
+    <p class="slabel">Asukoht</p>
+    <button class="btn-gps" onclick="gpsClick()">
+      <span class="dot" id="b-dot"></span><span id="b-lbl">Leia lähim peatus GPS-iga</span>
+    </button>
+    <div class="pills" id="b-pills"></div>
+    <p class="slabel">Peatus</p>
+    <div class="card">
+      <div class="sname" id="b-sname">Vali peatus</div>
+      <div class="ssub" id="b-ssub">GPS või valik allpool</div>
+      <select id="b-sel" onchange="onSel(this.value)"><option value="">— vali käsitsi —</option></select>
+    </div>
+    <p class="slabel">Järgmised bussid</p>
+    <div class="card">
+      <div class="empty" id="b-empty">Vali peatus</div>
+      <div id="b-deps"></div>
+      <div class="note" id="b-note" style="display:none">Ajad plaani järgi — reaalajas jälgimist ei ole</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BusLib=(()=>{
+  const raw=JSON.parse(document.getElementById('_d').textContent);
+  const saved=JSON.parse(document.getElementById('_s').textContent);
+  const {groups,lines}=raw;
+  function weekdayType(){const d=new Date().getDay();return d===0?'P':d===6?'L':'E-R';}
+  function hav(a,b,c,e){const R=6371000,p=Math.PI/180,f=Math.sin((c-a)*p/2)**2+Math.cos(a*p)*Math.cos(c*p)*Math.sin((e-b)*p/2)**2;return 2*R*Math.asin(Math.sqrt(f));}
+  function nearestGroup(lat,lon){let best=null,bd=Infinity;for(const g of groups){const d=hav(lat,lon,g.lat,g.lon);if(d<bd){bd=d;best=g;}}return best?{...best,dist:Math.round(bd)}:null;}
+  function nextDepartures(codes,limit=3){
+    if(!codes||!codes.length)return[];
+    const svc=weekdayType(),n=new Date();
+    const now=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+    const res=[];
+    for(const ln of lines){
+      if(ln.service!==svc)continue;
+      for(const s of ln.stops){
+        if(!codes.includes(s.code))continue;
+        for(const t of ln.trips)for(const st of t.stop_times)if(st.seq===s.seq&&st.time>=now)res.push({line:ln.line,v:ln.variant||'',dir:ln.direction,time:st.time});
+        break;
+      }
+    }
+    res.sort((a,b)=>a.time.localeCompare(b.time));
+    const seen=new Set(),out=[];
+    for(const r of res){const k=r.line+r.v+r.time;if(!seen.has(k)){seen.add(k);out.push(r);}if(out.length>=limit)break;}
+    return out;
+  }
+  function getGPS(ok,fail,ms=6000){
+    if(!navigator.geolocation){fail('no-gps');return;}
+    navigator.geolocation.getCurrentPosition(p=>{ok(nearestGroup(p.coords.latitude,p.coords.longitude));},()=>fail('denied'),{timeout:ms,enableHighAccuracy:true});
+  }
+  function depHTML(deps,lim){return deps.slice(0,lim).map(d=>'<div class="dep-row"><span class="dep-time">'+d.time+'</span><span class="dep-badge">'+d.line+(d.v?'·'+d.v:'')+'</span><span class="dep-dir">'+d.dir+'</span></div>').join('');}
+  return{saved,groups,weekdayType,nearestGroup,nextDepartures,getGPS,depHTML};
+})();
+
+function showTab(name){
+  ['kodu','buss'].forEach(t=>{document.getElementById('view-'+t).classList.toggle('on',t===name);document.getElementById('tb-'+t).classList.toggle('on',t===name);});
+  if(name==='buss')refreshBuss();
+}
+
+function renderHome(g){
+  const dot=document.getElementById('hb-dot');
+  document.getElementById('hb-stop').textContent=g?g.name+(g.dist!=null?' · '+g.dist+' m':''):'Peatus puudub';
+  if(!g){document.getElementById('hb-deps').innerHTML='<div class="empty">GPS puudub</div>';document.getElementById('hb-note').style.display='none';dot.style.background='#E24B4A';return;}
+  dot.style.background='#1D9E75';
+  const deps=BusLib.nextDepartures(g.codes,2);
+  if(!deps.length){document.getElementById('hb-deps').innerHTML='<div class="empty">Täna enam busse pole · '+BusLib.weekdayType()+'</div>';document.getElementById('hb-note').style.display='none';}
+  else{document.getElementById('hb-deps').innerHTML=BusLib.depHTML(deps,2);document.getElementById('hb-note').style.display='';}
+}
+
+(function initHome(){
+  const fb=setTimeout(()=>{const s=BusLib.saved[0];if(s)renderHome(BusLib.nearestGroup(s.lat,s.lon));},5000);
+  BusLib.getGPS(g=>{clearTimeout(fb);renderHome(g);},()=>{clearTimeout(fb);const s=BusLib.saved[0];renderHome(s?BusLib.nearestGroup(s.lat,s.lon):null);},5000);
+  setInterval(()=>{const el=document.getElementById('hb-stop');const name=el.textContent.split(' · ')[0];const g=BusLib.groups.find(g=>g.name===name);if(g)renderHome(g);},60000);
+})();
+
+let bCodes=[];
+function setBussStop(g){bCodes=g.codes;document.getElementById('b-sname').textContent=g.name;document.getElementById('b-ssub').textContent=g.dist!=null?'Lähim · '+g.dist+' m':'Valitud käsitsi';document.getElementById('b-sel').value='';refreshBuss();}
+function refreshBuss(){
+  if(!bCodes.length)return;
+  const deps=BusLib.nextDepartures(bCodes,3);
+  const em=document.getElementById('b-empty'),dl=document.getElementById('b-deps'),nt=document.getElementById('b-note');
+  if(!deps.length){em.textContent='Täna enam busse pole · '+BusLib.weekdayType();em.style.display='';dl.innerHTML='';nt.style.display='none';}
+  else{em.style.display='none';nt.style.display='';dl.innerHTML=BusLib.depHTML(deps,3);}
+}
+function gpsClick(){
+  const dot=document.getElementById('b-dot'),lbl=document.getElementById('b-lbl');
+  dot.className='dot s';lbl.textContent='Otsib asukohta…';
+  BusLib.getGPS(g=>{dot.className='dot';lbl.textContent='GPS: '+g.name+' ('+g.dist+' m)';setBussStop(g);hiPill(null);},e=>{dot.className='dot';lbl.textContent=e==='no-gps'?'GPS ei ole saadaval':'GPS luba puudub — vali käsitsi';});
+}
+function onSel(n){if(!n)return;const g=BusLib.groups.find(g=>g.name===n);if(g)setBussStop({...g,dist:null});hiPill(null);}
+function hiPill(n){document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('on',p.dataset.n===n));}
+document.getElementById('b-pills').innerHTML=BusLib.saved.map(s=>'<button class="pill" data-n="'+s.name+'" onclick="onPill(this,'+s.lat+','+s.lon+')">'+s.name+'</button>').join('');
+document.getElementById('b-sel').innerHTML='<option value="">— vali käsitsi —</option>'+BusLib.groups.map(g=>'<option value="'+g.name+'">'+g.name+'</option>').join('');
+function onPill(el,lat,lon){const g=BusLib.nearestGroup(lat,lon);setBussStop({...g,dist:null});hiPill(el.dataset.n);}
+</script>
+</body></html>
