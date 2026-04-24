@@ -137,6 +137,25 @@ Sisu:
 - follow-up remains open:
   - Cloudflare Git-backed deploy path previously built old commit `165d23e`
 
+### 11. Pass 10 Cloudflare Git-backed deploy path verification/fix
+**Staatus:** accepted
+
+Sisu:
+- GitHub latest `main` commit verified:
+  - `121a8e2fb1f3299f9b6046d6669a5c0c36e29ab1`
+- Cloudflare Pages source verified:
+  - GitHub repo `Fuuduuu/AnniVibez`
+  - branch `main`
+- latest production deployment verified:
+  - short id `238aef14`
+  - trigger `github:push`
+  - status `success`
+- production deployment used latest `main` commit:
+  - `121a8e2fb1f3299f9b6046d6669a5c0c36e29ab1`
+- future automatic deploys: `GO`
+- manual Wrangler deploy remains fallback only
+- old commit drift issue (`165d23e`) is downgraded from active blocker to monitor-only history note
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
@@ -144,7 +163,6 @@ Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut 
 - `OPENAI_API_KEY` not yet configured in Pages runtime; current `source=local` fallback is expected
 - optional real Android Chrome same-Wi-Fi physical-device smoke remains recommended
 - optional docs-only setup note for server-side secret handling
-- Cloudflare Git-backed deploy path must be re-verified/fixed (old commit `165d23e` issue)
 
 ## Rejected / quarantine
 
@@ -164,15 +182,19 @@ Põhjus:
 
 ## Praegune aktiivne faas
 
-- Pass 9 manual deploy verification checkpoint completed (docs-only)
-- järgmine on PASS 10 narrow follow-up selection
+- Pass 10 Cloudflare Git-backed deploy verification/fix completed
+- järgmine on PASS 11 BUS_LOGIC_PASS (destination/upcoming sequence logic)
 
 ## Järgmine lubatud samm
 
-- PASS 10: vali üks kitsas järgmistest
-  - Cloudflare Git integration verification/fix (preferred)
-  - või Buss destination/upcoming sequence logic jätk
-- mõlemat ei tohi teha korraga samas passis
+- PASS 11: BUS_LOGIC_PASS (kitsas implementation pass)
+  - `src/utils/bus.js`
+  - `src/components/BussTab.jsx`
+- preserve:
+  - nearest stop-point logic
+  - `BUS_DATA.patterns`
+  - Õie/Tulika stopId distinction
+  - `docs/BUS_LOGIC_LOCK.md` rules
 - no feature work
 - no Trends
 - no redesign
@@ -181,5 +203,5 @@ Põhjus:
 
 ## Implementation pass status
 
-- Pass 9 docs-checkpoint pass accepted and closed
+- Pass 10 deploy verification/fix pass accepted and closed
 - broad implementation pass ilma kitsa lockita: keelatud

@@ -12,7 +12,8 @@ https://annivibe.pages.dev
 ## Current state
 
 Latest accepted baseline:
-- Cloudflare manual Wrangler deploy verified
+- Cloudflare Git-backed deploy verified working
+- Cloudflare manual Wrangler deploy fallback verified
 - app live and smoke-tested
 - pattern-aware Rakvere bus data added
 - nearest bus stop now uses stop-points, not group centroid
@@ -50,8 +51,8 @@ BUS_LOGIC_PASS - destination/upcoming sequence logic.
 
 ## Active risks
 
-- Cloudflare Git-backed deploy previously built old commit 165d23e.
-- Manual Wrangler deploy works.
+- Cloudflare Git-backed deploy old commit 165d23e issue is now historical; monitor-only.
+- Manual Wrangler deploy remains fallback only.
 - Destination/upcoming logic is not yet completed.
 - Do not regress busData patterns or nearest stop-point logic.
 

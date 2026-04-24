@@ -10,39 +10,40 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**Pass 9 (deploy verification + manual Wrangler deploy checkpoint) on tehtud ja accepted.**
+**Pass 10 (Cloudflare Git-backed deploy verification/fix) on tehtud ja accepted.**
 
-Pass 9 tulemus:
-- verification workdir: `C:\Users\Kasutaja\Desktop\AnniVibez_clean`
-- `git status --short` clean
-- `npm run build` succeeded
-- manual deploy verified: `https://b9e6bc21.annivibe.pages.dev`
-- production alias verified: `https://annivibe.pages.dev`
-- `/api/ullata` POST returned JSON with `idea` and `source` (`local`)
-- GO for current deploy validation baseline
-- known follow-up retained:
-  - Git-backed Cloudflare deploy had old commit issue (`165d23e`)
+Pass 10 tulemus:
+- GitHub latest `main` commit:
+  - `121a8e2fb1f3299f9b6046d6669a5c0c36e29ab1`
+- Cloudflare source verified:
+  - GitHub `Fuuduuu/AnniVibez`, branch `main`
+- latest production deployment:
+  - `238aef14`
+  - trigger `github:push`
+  - status `success`
+- deployment used latest `main` commit
+- future automatic deploys: `GO`
+- manual Wrangler deploy: fallback only
+- old `165d23e` drift is downgraded to monitor-only history note
 
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 10 — narrow follow-up selection**
-- vali täpselt üks:
-  - Cloudflare Git integration verification/fix (preferred)
-  - või Buss destination/upcoming sequence logic jätk
-- ära ava mõlemat korraga
+- **PASS 11 — BUS_LOGIC_PASS**
+- destination/upcoming sequence logic only
 - hoia pass kitsas ja kontrollitav
 
 ## Selles passis lubatud
 
-- kui valik on deploy:
-  - Cloudflare Git integration probleemi verifitseerimine/parandus
-  - deploy-verification ja docs-checkpoint
-- kui valik on buss:
-  - ainult destination/upcoming sequence logic kitsal pinnal
-  - failid: `src/utils/bus.js`, `src/components/BussTab.jsx`
-- optional real Android Chrome physical-device smoke documentation
-- optional OPENAI_API_KEY setup/check documentation
+- ainult bussi destination/upcoming sequence loogika
+- failid:
+  - `src/utils/bus.js`
+  - `src/components/BussTab.jsx`
+- vajalik säilitada:
+  - nearest stop-point logic
+  - `BUS_DATA.patterns`
+  - Õie/Tulika stopId distinction
+  - `docs/BUS_LOGIC_LOCK.md` rules
 
 ## Selles passis mitte lubatud
 
@@ -51,12 +52,13 @@ Praegune lukustatud järgmine faas:
 - no redesign
 - no broad refactor
 - no secrets in repo
+- no deploy settings changes
 
 ## Decision gate
 
-Pass 10 loetakse lõpetatuks ainult siis, kui:
-1. valitud kitsas rada (deploy või buss) on tehtud lõpuni
-2. teise raja scope ei avata samas passis
+Pass 11 loetakse lõpetatuks ainult siis, kui:
+1. destination logic kasutab pattern/stopId suuna reeglit
+2. no-destination käitumine jääb alles
 3. build/verification tulemus on kirjas
 4. docs-checkpoint on uuendatud
 5. feature/redesign/Trends/broad-refactor scope ei avane
