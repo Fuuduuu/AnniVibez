@@ -27,15 +27,6 @@
       "purpose": "any maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "/screenshots/kodu.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "AnniVibe kodu"
-    }
-  ],
   "categories": ["lifestyle", "education"],
   "prefer_related_applications": false
 }
