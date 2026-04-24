@@ -46,6 +46,9 @@ G. Remaining risks / open questions
 
 Use for documentation creation/update only.
 
+Required reads:
+- `docs/SESSION_BOOT.md`
+
 ```text
 Template: DOCS_ONLY_PASS
 
@@ -74,6 +77,11 @@ Use the shared output contract.
 ## 2. DOCS_CHECKPOINT_PASS
 
 Use after a completed bugfix, QA, deploy, or docs pass.
+
+Required reads:
+- `docs/SESSION_BOOT.md`
+- `docs/ACCEPTED_CHECKPOINTS.md`
+- `docs/ACTIVE_SCOPE_LOCK.md`
 
 ```text
 Template: DOCS_CHECKPOINT_PASS
@@ -107,6 +115,10 @@ Validation:
 
 Use for one concrete live/user-reported bug.
 
+Required reads:
+- `docs/SESSION_BOOT.md`
+- relevant lock doc for the touched surface
+
 ```text
 Template: BUGFIX_PASS
 
@@ -136,6 +148,10 @@ Use the shared output contract.
 ## 4. BUS_DATA_PASS
 
 Use for restoring or normalizing bus source data.
+
+Required reads:
+- `docs/SESSION_BOOT.md`
+- `docs/BUS_LOGIC_LOCK.md`
 
 ```text
 Template: BUS_DATA_PASS
@@ -174,6 +190,10 @@ Use the shared output contract.
 
 Use for bus behavior after data is locked.
 
+Required reads:
+- `docs/SESSION_BOOT.md`
+- `docs/BUS_LOGIC_LOCK.md`
+
 ```text
 Template: BUS_LOGIC_PASS
 
@@ -209,6 +229,9 @@ Use the shared output contract.
 
 Use for local, mobile, or live smoke testing.
 
+Required reads:
+- `docs/SESSION_BOOT.md`
+
 ```text
 Template: QA_PASS
 
@@ -240,6 +263,10 @@ Output must include:
 ## 7. DEPLOY_PASS
 
 Use for Cloudflare Pages deploy or deploy verification.
+
+Required reads:
+- `docs/SESSION_BOOT.md`
+- `docs/POST_DEPLOY_FOLLOWUPS.md`
 
 ```text
 Template: DEPLOY_PASS
@@ -279,6 +306,10 @@ Output must include:
 ## 8. POST_DEPLOY_PASS
 
 Use for optional post-deploy documentation only.
+
+Required reads:
+- `docs/SESSION_BOOT.md`
+- `docs/POST_DEPLOY_FOLLOWUPS.md`
 
 ```text
 Template: POST_DEPLOY_PASS
@@ -385,6 +416,14 @@ Document OPENAI_API_KEY setup status and test result.
 
 Do not commit secrets.
 ```
+
+---
+
+## Checkpoint archive rule
+
+- Keep only active/recent checkpoints in `docs/ACCEPTED_CHECKPOINTS.md`.
+- Move older history later to `docs/archive/CHECKPOINTS_history.md`.
+- Do not archive during a pass unless explicitly requested.
 
 ---
 

@@ -6,34 +6,25 @@ Status: root AI working rules for AnniVibe.
 
 Always read first:
 
-1. `docs/PROJECT_MEMORY.md`
-2. `docs/TRUTH_INDEX.md`
-3. `docs/ACTIVE_SCOPE_LOCK.md`
-4. `docs/ACCEPTED_CHECKPOINTS.md`
+1. `docs/SESSION_BOOT.md`
 
-Then read when present:
+Then read only what the task needs:
 
-5. `docs/CODEBASE_MAP.md`
-6. `docs/CHANGE_SURFACES.md`
-
-## Conditional read order
-
-If the task touches bus logic, also read:
-
-- `docs/BUS_LOGIC_LOCK.md`
-
-If the task touches deploy, post-deploy checks, or API key setup, also read:
-
-- `docs/POST_DEPLOY_FOLLOWUPS.md`
-
-If the task needs visual/project orientation, also read:
-
-- `docs/PROJECT_MAP.md`
-- `docs/PROJECT_MINI_MAP.md`
-
-If the task is about writing, shortening, or standardizing Codex prompts, also read:
-
-- `docs/PROMPT_TEMPLATES.md`
+- Docs checkpoint / lock updates:
+  - `docs/ACCEPTED_CHECKPOINTS.md`
+  - `docs/ACTIVE_SCOPE_LOCK.md`
+- Bus logic or bus data:
+  - `docs/BUS_LOGIC_LOCK.md`
+- Deploy or post-deploy:
+  - `docs/POST_DEPLOY_FOLLOWUPS.md`
+- Prompt/template standardization:
+  - `docs/PROMPT_TEMPLATES.md`
+- Visual/project orientation:
+  - `docs/PROJECT_MAP.md`
+  - `docs/PROJECT_MINI_MAP.md`
+- Long-term truth or conflict escalation:
+  - `docs/PROJECT_MEMORY.md`
+  - `docs/TRUTH_INDEX.md`
 
 ## Working rules
 
@@ -59,6 +50,14 @@ If the task is about writing, shortening, or standardizing Codex prompts, also r
   - deploy
   - post-deploy
 
+## Conflict rule
+
+- Active lock and current session state win for current work.
+- `docs/SESSION_BOOT.md` is the operational current-state entrypoint.
+- `docs/PROJECT_MEMORY.md` is long-term project truth.
+- `docs/BUS_LOGIC_LOCK.md` wins for bus logic.
+- If conflict remains after these rules, stop and report before changing anything.
+
 ## Bus-specific rule
 
 For bus work, `docs/BUS_LOGIC_LOCK.md` is the canonical rule source.
@@ -82,6 +81,12 @@ Do not add or reopen:
 - unrelated deployment changes
 
 Any new feature requires a new active scope lock first.
+
+## Mandatory session-end ritual
+
+1. Update `docs/SESSION_BOOT.md`.
+2. Update `docs/ACCEPTED_CHECKPOINTS.md` if a pass was accepted.
+3. Check `docs/ACTIVE_SCOPE_LOCK.md` and update only if the next pass changed.
 
 ## Completion rule
 
