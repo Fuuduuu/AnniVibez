@@ -104,6 +104,18 @@ Sisu:
 - GO decision recorded
 - no critical deploy blockers remain
 
+### 9. Pass 8 Mermaid docs mapping pass
+**Staatus:** accepted
+
+Sisu:
+- Mermaid project mapping pass accepted
+- `docs/PROJECT_MAP.md` added
+- `docs/PROJECT_MINI_MAP.md` added
+- commit: `825af77` (`Add Mermaid project maps`)
+- scope did not change
+- no code/runtime/deploy settings changed
+- post-commit `git status --short` was clean
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
@@ -130,21 +142,21 @@ Põhjus:
 
 ## Praegune aktiivne faas
 
-- Pass 7 Cloudflare Pages deploy completed (GO)
-- järgmine on PASS 8 docs-only post-deploy follow-up planning
+- Pass 8 Mermaid docs mapping pass completed (docs-only)
+- järgmine on PASS 9 optional post-deploy follow-up (docs-only)
 
 ## Järgmine lubatud samm
 
-- Pass 8: post-deploy hardening / optional follow-up planning (docs-only)
-  - optional OPENAI_API_KEY setup documentation (server-side only)
-  - optional real-device smoke documentation
-  - no feature work unless explicitly unlocked
-  - no redesign
+- Pass 9: optional post-deploy follow-up only (docs-only)
+  - optional real Android Chrome physical-device smoke documentation
+  - optional OPENAI_API_KEY Cloudflare setup documentation/check
+  - no feature work
   - no Trends
+  - no redesign
   - no broad refactor
-  - no secrets committed to repo
+  - no secrets in repo
 
 ## Implementation pass status
 
-- Pass 7 implementation pass accepted and closed
+- Pass 8 docs-checkpoint pass accepted and closed
 - broad implementation pass ilma kitsa lockita: keelatud

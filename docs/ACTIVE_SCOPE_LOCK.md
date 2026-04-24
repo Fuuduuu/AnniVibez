@@ -10,61 +10,46 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**Pass 7 (Cloudflare Pages deploy) on tehtud ja accepted.**
+**Pass 8 (Mermaid docs mapping) on tehtud ja accepted.**
 
-Pass 7 tulemus:
-- Cloudflare auth töötas
-- Pages projekt `annivibe` olemas
-- GitHub source ühendatud: `Fuuduuu/AnniVibez`, branch `main`
-- build command: `npm run build`
-- output dir: `dist`
-- root dir: repo root (`/`)
-- functions directory: `functions`
-- production deploy õnnestus
-- live URL: `https://annivibe.pages.dev`
-- deployment URL: `https://3a1eeec4.annivibe.pages.dev`
-- mobile viewport smoke (`390x844`) läbis
-- app opens, bottom nav works
-- `Kodu` / `Buss` / `Loo` / `Päevik` / `Tugi` / `Seaded` passed
-- `Loo -> Joonistamise nipid` count `17` passed
-- `Loo -> Üllata` returned idea/fallback passed
-- `/api/ullata` POST returned JSON with `idea` and `source`
-- `/api/ullata` source currently = `local`
-- console errors/warnings/page errors = `0/0/0`
-- GO otsus on fikseeritud
+Pass 8 tulemus:
+- Mermaid project mapping pass accepted
+- `docs/PROJECT_MAP.md` added
+- `docs/PROJECT_MINI_MAP.md` added
+- commit: `825af77` (`Add Mermaid project maps`)
+- scope did not change
+- no code/runtime/deploy settings changed
+- post-commit `git status --short` was clean
 
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 8 — post-deploy hardening / optional follow-up planning**
-- docs-only planning
-- optional OPENAI_API_KEY setup documentation
-- optional real-device smoke documentation
+- **PASS 9 — optional post-deploy follow-up only**
+- optional real Android Chrome physical-device smoke documentation
+- optional OPENAI_API_KEY Cloudflare setup documentation/check
+- docs-only updates
 
 ## Selles passis lubatud
 
-- docs-only planning
-- optional OPENAI_API_KEY setup documentation (server-side only)
-- optional real Android Chrome same-Wi-Fi smoke documentation
-- kitsas follow-up/riski dokumenteerimine
+- optional real Android Chrome physical-device smoke documentation
+- optional OPENAI_API_KEY Cloudflare setup documentation/check
+- docs-only updates
 
 ## Selles passis mitte lubatud
 
+- no feature work
 - no Trends
 - no redesign
 - no broad refactor
-- no new feature scope
-- no code changes unless explicitly unlocked
-- no secret committed to repo
+- no secrets in repo
 
 ## Decision gate
 
-Pass 8 loetakse lõpetatuks ainult siis, kui:
-1. post-deploy follow-up plaan on kitsalt dokumenteeritud
-2. OPENAI_API_KEY puudumine on märgitud non-blocking seisuna
-3. optional real-device smoke staatus on dokumenteeritud
-4. no critical deploy blockers remain
-5. feature/redesign/Trends/broad-refactor scope ei avane
+Pass 9 loetakse lõpetatuks ainult siis, kui:
+1. optional follow-up docs on uuendatud kitsalt
+2. optional real-device smoke staatus on dokumenteeritud (kui tehtud)
+3. OPENAI_API_KEY Cloudflare setup/check staatus on dokumenteeritud (kui tehtud)
+4. feature/redesign/Trends/broad-refactor scope ei avane
 
 ## Hooldusreegel
 
