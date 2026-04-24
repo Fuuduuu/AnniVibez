@@ -46,15 +46,43 @@ Sisu:
 - `docs/CHANGE_SURFACES.md` created
 - blocker state documented without code changes
 
+### 5. Pass 3 restore build runtime baseline
+**Staatus:** accepted
+
+Sisu:
+- `index.html` restored
+- `functions/api/ullata.js` restored
+- `npm run build` succeeded
+- `git status --short` clean
+- `main` is synced with `origin/main` (`0 0`)
+
+### 6. Pass 4 manifest screenshot cleanup
+**Staatus:** accepted
+
+Sisu:
+- `public/manifest.webmanifest` `screenshots` section removed
+- `/screenshots/kodu.png` manifest blocker closed
+- `npm run build` succeeded after change
+
+### 7. Pass 5 mobile QA / pre-deploy smoke test
+**Staatus:** accepted
+
+Sisu:
+- `npm run build` succeeded
+- local dev server smoke test passed
+- bottom nav passed
+- `Kodu` / `Buss` / `Loo` / `Päevik` / `Tugi` / `Seaded` passed
+- `Loo -> Joonistamise nipid` count `17` passed
+- `Loo -> Üllata` returned idea/fallback passed
+- console runtime critical errors/warnings = `0`
+- GO decision recorded
+- limitation: real Android Chrome same-Wi-Fi physical device smoke test was not completed in this Codex session
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
 
-- puuduv `index.html` taastamine
-- puuduv `functions/api/ullata.js` taastamine
-- buildi taastamine roheliseks
-- manifest screenshot asset korrastus (`public/screenshots/kodu.png`)
-- lõplik mobiili QA
+- real Android Chrome same-Wi-Fi smoke test (optional/recommended before deploy)
 - lõplik deploy pass
 
 ## Rejected / quarantine
@@ -75,17 +103,20 @@ Põhjus:
 
 ## Praegune aktiivne faas
 
-- Pass 2 docs-only integrity completed
-- järgmine on kitsas restore implementation pass
+- Pass 5 mobile QA / pre-deploy smoke test completed (GO)
+- järgmine on kitsas deploy-prep verification pass
 
 ## Järgmine lubatud samm
 
-- Pass 3: narrow restore pass
-  - restore `index.html`
-  - restore `functions/api/ullata.js`
-  - rerun `npm run build`
+- Pass 6: narrow deploy-prep verification
+  - real Android Chrome smoke test if device is available
+  - deploy-prep sanity
+  - no feature work
+  - no redesign
+  - no Trends
+  - no broad refactor
 
 ## Implementation pass status
 
-- uus implementation pass ei ole veel alustatud
+- Pass 5 implementation pass accepted and closed
 - broad implementation pass ilma kitsa lockita: keelatud

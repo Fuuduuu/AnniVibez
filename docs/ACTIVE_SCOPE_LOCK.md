@@ -10,48 +10,56 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**Pass 2 (docs-only integrity) on tehtud.**
+**Pass 5 (mobile QA / pre-deploy smoke test) on tehtud ja accepted.**
 
-Pass 2 tulemus:
-- clean repo buildability on kontrollitud
-- blockerid on dokumenteeritud
-- `docs/CODEBASE_MAP.md` ja `docs/CHANGE_SURFACES.md` on loodud
+Pass 5 tulemus:
+- `npm run build` läheb läbi
+- local dev smoke test läbib
+- bottom nav läbib
+- `Kodu` / `Buss` / `Loo` / `Päevik` / `Tugi` / `Seaded` läbisid
+- `Loo -> Joonistamise nipid` count `17` läbib
+- `Loo -> Üllata` tagastas idee/fallbacki
+- console runtime critical errors/warnings = `0`
+- GO otsus on fikseeritud
+- limitation: real Android Chrome same-Wi-Fi physical device test ei olnud selles Codex sessioonis tehtud
 
 Praegune lukustatud järgmine faas:
-- **Pass 3 — narrow restore pass (implementation)**
-- kitsas taastamispass
-- mitte redesign
-- mitte broad refactor
+- **Pass 6 — narrow deploy-prep verification**
+- real Android Chrome smoke test kui seade on saadaval
+- deploy-prep sanity kontroll
+- mitte broad implementation pass
 
 ## Järgmine lukustatud töö
 
 Täita ainult:
-- taasta `index.html`
-- taasta `functions/api/ullata.js`
-- käivita build verifikatsioon
+- real Android Chrome same-Wi-Fi smoke test (optional/recommended before deploy)
+- deploy-prep sanity kontroll
+- dokumenteeri deploy-eelne otsus
 
 ## Selles passis lubatud
 
-- kitsad taastused puuduvale runtime/build-kriitilisele pinnale
-- build kontroll
-- minimaalne vajalik muudatus
+- real Android Chrome smoke test, kui füüsiline seade on saadaval
+- deploy-prep sanity verifikatsioon
+- kitsas riski/blockeri logi
 
 ## Selles passis mitte lubatud
 
+- feature work
 - redesign
+- Trendid
 - broad refactor
 - backendisuuna laiendamine
-- Trendid v1-sse
 - deploy töö
 - production-hardening laias mõttes
 - mitu implementation-passi järjest
 
 ## Decision gate
 
-Pass 3 loetakse lõpetatuks ainult siis, kui:
-1. `index.html` on taastatud
-2. `functions/api/ullata.js` on taastatud
-3. `npm run build` läheb läbi
+Pass 6 loetakse lõpetatuks ainult siis, kui:
+1. deploy-prep sanity on tehtud ja dokumenteeritud
+2. kriitilised blockerid on kas puuduvad või üheselt kirjas
+3. optional/recommended real Android smoke staatuse märge on kirjas
+4. feature/redesign/Trends/broad-refactor scope ei avane
 
 ## Hooldusreegel
 
