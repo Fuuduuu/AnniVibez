@@ -1,5 +1,20 @@
 import { BUS_DATA } from '../data/busData';
 
+const STOP_POINTS = Object.entries(BUS_DATA.by_code || {})
+  .map(([code, stop]) => ({
+    code,
+    name: stop?.name || '',
+    lat: Number(stop?.lat),
+    lon: Number(stop?.lon),
+  }))
+  .filter(p => p.name && Number.isFinite(p.lat) && Number.isFinite(p.lon));
+
+const NAME_TO_CODES = STOP_POINTS.reduce((acc, p) => {
+  if (!acc.has(p.name)) acc.set(p.name, []);
+  acc.get(p.name).push(p.code);
+  return acc;
+}, new Map());
+
 function hav(a, b, c, e) {
   const R = 6371000;
   const p = Math.PI / 180;
@@ -17,14 +32,27 @@ export function wd() {
 export function nearest(lat, lon) {
   let best = null;
   let bestDist = Infinity;
-  for (const g of BUS_DATA.groups) {
-    const dist = hav(lat, lon, g.lat, g.lon);
+  for (const p of STOP_POINTS) {
+    const dist = hav(lat, lon, p.lat, p.lon);
     if (dist < bestDist) {
       bestDist = dist;
-      best = g;
+      best = p;
     }
   }
-  return best ? { ...best, dist: Math.round(bestDist) } : null;
+  if (!best) return null;
+
+  return {
+    code: best.code,
+    stopId: best.code,
+    name: best.name,
+    groupName: best.name,
+    lat: best.lat,
+    lon: best.lon,
+    dist: Math.round(bestDist),
+    // Keep existing caller compatibility while preserving stopId routing.
+    codes: [best.code],
+    displayCodes: [...(NAME_TO_CODES.get(best.name) || [best.code])],
+  };
 }
 
 export function deps(codes, lim = 3) {
