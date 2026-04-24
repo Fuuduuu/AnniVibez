@@ -78,12 +78,39 @@ Sisu:
 - GO decision recorded
 - limitation: real Android Chrome same-Wi-Fi physical device smoke test was not completed in this Codex session
 
+### 8. Pass 7 Cloudflare Pages deploy
+**Staatus:** accepted
+
+Sisu:
+- Cloudflare auth worked
+- Pages project `annivibe` exists
+- GitHub source connected: `Fuuduuu/AnniVibez`, branch `main`
+- build command: `npm run build`
+- output dir: `dist`
+- root dir: repo root (`/`)
+- functions directory: `functions`
+- production deploy succeeded
+- live URL: `https://annivibe.pages.dev`
+- deployment URL: `https://3a1eeec4.annivibe.pages.dev`
+- live smoke test passed in mobile viewport `390x844`
+- app opens
+- bottom nav works
+- `Kodu` / `Buss` / `Loo` / `Päevik` / `Tugi` / `Seaded` pass
+- `Loo -> Joonistamise nipid` count `17` pass
+- `Loo -> Üllata` returned idea/fallback pass
+- `/api/ullata` POST returned JSON with `idea` and `source`
+- `/api/ullata` source currently = `local`
+- console errors/warnings/page errors = `0/0/0`
+- GO decision recorded
+- no critical deploy blockers remain
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
 
-- real Android Chrome same-Wi-Fi smoke test (optional/recommended before deploy)
-- lõplik deploy pass
+- `OPENAI_API_KEY` not yet configured in Pages runtime; current `source=local` fallback is expected
+- optional real Android Chrome same-Wi-Fi physical-device smoke remains recommended
+- optional docs-only setup note for server-side secret handling
 
 ## Rejected / quarantine
 
@@ -103,20 +130,21 @@ Põhjus:
 
 ## Praegune aktiivne faas
 
-- Pass 5 mobile QA / pre-deploy smoke test completed (GO)
-- järgmine on kitsas deploy-prep verification pass
+- Pass 7 Cloudflare Pages deploy completed (GO)
+- järgmine on PASS 8 docs-only post-deploy follow-up planning
 
 ## Järgmine lubatud samm
 
-- Pass 6: narrow deploy-prep verification
-  - real Android Chrome smoke test if device is available
-  - deploy-prep sanity
-  - no feature work
+- Pass 8: post-deploy hardening / optional follow-up planning (docs-only)
+  - optional OPENAI_API_KEY setup documentation (server-side only)
+  - optional real-device smoke documentation
+  - no feature work unless explicitly unlocked
   - no redesign
   - no Trends
   - no broad refactor
+  - no secrets committed to repo
 
 ## Implementation pass status
 
-- Pass 5 implementation pass accepted and closed
+- Pass 7 implementation pass accepted and closed
 - broad implementation pass ilma kitsa lockita: keelatud
