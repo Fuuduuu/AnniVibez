@@ -1,0 +1,402 @@
+# PROMPT_TEMPLATES.md
+
+Status: reusable Codex prompt templates for AnniVibe.
+
+Purpose:
+- reduce repeated prompt text
+- keep every pass aligned with truth-layer docs
+- prevent scope drift
+- make future Codex prompts short
+
+Do not duplicate full project memory here.
+This file references the canonical docs.
+
+---
+
+## Universal short preamble
+
+Use this at the top of short prompts:
+
+```text
+Read and obey AGENTS.md.
+Follow docs/ACTIVE_SCOPE_LOCK.md.
+Use the relevant template from docs/PROMPT_TEMPLATES.md.
+Do one narrow pass only.
+```
+
+---
+
+## Output contract used by all templates
+
+Unless the task says otherwise, output:
+
+```text
+A. What was done
+B. Files changed
+C. Validation result
+D. What stayed untouched
+E. Whether this is checkpointable
+F. Recommended next narrow pass
+G. Remaining risks / open questions
+```
+
+---
+
+## 1. DOCS_ONLY_PASS
+
+Use for documentation creation/update only.
+
+```text
+Template: DOCS_ONLY_PASS
+
+Rules:
+- Do not touch code.
+- Do not change runtime.
+- Do not change deployment.
+- Do not add features.
+- Do not redesign.
+- Do not bring Trends back.
+
+Allowed:
+- docs/*.md
+- AGENTS.md only if task explicitly asks
+
+Validation:
+- git status --short
+- confirm only docs/root governance files changed
+
+Output:
+Use the shared output contract.
+```
+
+---
+
+## 2. DOCS_CHECKPOINT_PASS
+
+Use after a completed bugfix, QA, deploy, or docs pass.
+
+```text
+Template: DOCS_CHECKPOINT_PASS
+
+Task:
+Record the completed pass in:
+- docs/ACCEPTED_CHECKPOINTS.md
+- docs/ACTIVE_SCOPE_LOCK.md
+
+Rules:
+- Do not touch code.
+- Do not alter completed implementation.
+- Do not open broad new scope.
+
+Must record:
+- pass name
+- accepted/rejected status
+- files changed
+- build/test result
+- current active lock
+- next narrow pass
+
+Validation:
+- git status --short
+- confirm only checkpoint docs changed
+```
+
+---
+
+## 3. BUGFIX_PASS
+
+Use for one concrete live/user-reported bug.
+
+```text
+Template: BUGFIX_PASS
+
+Rules:
+- Fix one bug only.
+- Audit first, then implement.
+- Do not redesign.
+- Do not refactor broadly.
+- Do not touch unrelated tabs/files.
+- If scope expands, stop and report.
+
+Allowed files:
+- list explicitly in the short prompt
+
+Validation:
+- npm run build
+- targeted repro case
+- targeted fixed case
+- no unrelated files changed
+
+Output:
+Use the shared output contract.
+```
+
+---
+
+## 4. BUS_DATA_PASS
+
+Use for restoring or normalizing bus source data.
+
+```text
+Template: BUS_DATA_PASS
+
+Required extra docs:
+- docs/BUS_LOGIC_LOCK.md
+
+Rules:
+- Data/model pass only.
+- Do not change UI unless required to keep build working.
+- Do not implement destination filtering in this pass.
+- Do not invent missing trips/times.
+- If source coverage is incomplete, document it.
+
+Allowed typical files:
+- src/data/busData.js
+- optional source parser/normalizer if explicitly approved
+
+Validation:
+- npm run build
+- report counts:
+  - stop IDs
+  - display groups
+  - lines
+  - patterns
+  - trips/schedules
+- confirm Õie and Tulika locked stopIds still exist
+
+Output:
+Use the shared output contract.
+```
+
+---
+
+## 5. BUS_LOGIC_PASS
+
+Use for bus behavior after data is locked.
+
+```text
+Template: BUS_LOGIC_PASS
+
+Required extra docs:
+- docs/BUS_LOGIC_LOCK.md
+
+Rules:
+- One bus behavior change only.
+- Preserve pattern + stopId logic.
+- Do not regress nearest stop-point logic.
+- Do not merge direction-specific stop IDs.
+- Do not touch App/Loo/Päevik/Tugi/Seaded/API/deploy.
+
+Allowed typical files:
+- src/utils/bus.js
+- src/components/BussTab.jsx
+- src/components/BussCard.jsx
+- src/data/busData.js only if a tiny verified data issue is found and reported first
+
+Validation:
+- npm run build
+- deterministic bus cases required by the short prompt
+- specifically check Õie/Tulika if relevant
+- no dist files committed
+
+Output:
+Use the shared output contract.
+```
+
+---
+
+## 6. QA_PASS
+
+Use for local, mobile, or live smoke testing.
+
+```text
+Template: QA_PASS
+
+Rules:
+- Prefer reporting first.
+- Do not change code unless an explicit blocker is found and the fix is tiny/local.
+- Do not open new features.
+- Do not redesign.
+
+Minimum checks when relevant:
+- npm run build
+- app opens
+- bottom nav works
+- Kodu/Buss/Loo/Päevik/Tugi/Seaded
+- Loo drawing tips count = 17
+- Üllata returns idea or fallback
+- no critical console/runtime errors
+
+Output must include:
+- QA matrix
+- commands run
+- results by flow
+- GO/NO-GO
+- exact blocker-fix pass if NO-GO
+```
+
+---
+
+## 7. DEPLOY_PASS
+
+Use for Cloudflare Pages deploy or deploy verification.
+
+```text
+Template: DEPLOY_PASS
+
+Required extra docs:
+- docs/POST_DEPLOY_FOLLOWUPS.md
+
+Rules:
+- Do not commit secrets.
+- Do not print secrets.
+- Do not write tokens/API keys into repo files.
+- Do not change code unless deploy is blocked by one tiny/local issue and report first.
+
+Expected settings:
+- Build command: npm run build
+- Output directory: dist
+- Root directory: repo root
+- Functions directory: functions
+- Branch: main
+
+Validation:
+- git status --short
+- npm run build
+- Cloudflare deploy result
+- live URL smoke
+- /api/ullata POST returns JSON with idea and source
+
+Output must include:
+- deploy target/settings
+- env vars configured/missing without values
+- live URL
+- GO/NO-GO
+```
+
+---
+
+## 8. POST_DEPLOY_PASS
+
+Use for optional post-deploy documentation only.
+
+```text
+Template: POST_DEPLOY_PASS
+
+Rules:
+- Docs-only unless explicitly unlocked.
+- Do not change code.
+- Do not change deployment settings.
+- Do not commit secrets.
+
+Allowed:
+- docs/POST_DEPLOY_FOLLOWUPS.md
+- docs/ACCEPTED_CHECKPOINTS.md
+- docs/ACTIVE_SCOPE_LOCK.md
+
+Typical topics:
+- OPENAI_API_KEY setup status
+- OPENAI_MODEL status
+- source=openai vs source=local verification
+- optional real Android Chrome smoke status
+
+Output:
+Use the shared output contract.
+```
+
+---
+
+## Short prompt examples
+
+### Example 1 — bus destination logic
+
+```text
+Read and obey AGENTS.md.
+Use BUS_LOGIC_PASS.
+
+Task:
+Implement destination/upcoming sequence logic.
+
+Allowed files:
+- src/utils/bus.js
+- src/components/BussTab.jsx
+
+Must preserve:
+- nearest stop-point logic
+- BUS_DATA.patterns
+- docs/BUS_LOGIC_LOCK.md rules
+
+Validate:
+npm run build.
+Test valid destination, invalid direction, no destination, and Õie/Tulika remain distinct.
+Report before coding if baseline does not match.
+```
+
+### Example 2 — docs checkpoint
+
+```text
+Read and obey AGENTS.md.
+Use DOCS_CHECKPOINT_PASS.
+
+Task:
+Record nearest-stop fix as accepted.
+
+Record:
+- files changed
+- build result
+- Õie/Tulika validation
+- next active lock
+```
+
+### Example 3 — live QA
+
+```text
+Read and obey AGENTS.md.
+Use QA_PASS.
+
+Task:
+Run live smoke on https://annivibe.pages.dev.
+
+Check:
+Kodu, Buss, Loo, Päevik, Tugi, Seaded, /api/ullata, console errors.
+```
+
+### Example 4 — deploy
+
+```text
+Read and obey AGENTS.md.
+Use DEPLOY_PASS.
+
+Task:
+Verify Cloudflare Pages deployment for main branch.
+
+Do not print secrets.
+Report live URL and /api/ullata source.
+```
+
+### Example 5 — OpenAI key follow-up
+
+```text
+Read and obey AGENTS.md.
+Use POST_DEPLOY_PASS.
+
+Task:
+Document OPENAI_API_KEY setup status and test result.
+
+Do not commit secrets.
+```
+
+---
+
+## Rule for future prompts
+
+A good future prompt should usually be 10-20 lines, not 80+ lines.
+
+Structure:
+1. template name
+2. task
+3. allowed files
+4. must preserve
+5. validation
+
+If the prompt needs more than that, update the docs first instead of expanding the prompt.
