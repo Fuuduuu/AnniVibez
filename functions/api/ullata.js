@@ -1,0 +1,217 @@
+const IDEA_KEYS = [
+  'idea_title',
+  'what_to_do',
+  'why_it_fits',
+  'easy_start_tip',
+  'new_tip_or_trick',
+  'make_it_yours',
+  'easier_version',
+];
+
+const DEFAULT_SYSTEM_PROMPT =
+  'Sa oled soe ja loov ideekaaslane 10-13-aastasele tüdrukule. Anna üks selge ja teostatav idee tooniga "üks kasulik nipp, siis tee oma versioon". Vasta AINULT JSON-ina ilma markdown-ita:{"idea_title":"max 6 sõna","what_to_do":"2-3 lauset konkreetselt","why_it_fits":"1 lause","easy_start_tip":"1 lause kohe alustamiseks","new_tip_or_trick":"1 lause uuest oskusest","make_it_yours":"1 lause oma stiilis","easier_version":"1 lause lihtsam variant"}';
+
+const WITH_LABELS = {
+  endale: 'Endale',
+  issi: 'Issiga koos',
+  emme: 'Emmega koos',
+  vanaema: 'Vanaemaga koos',
+  loomadele: 'Koerale või kassile',
+};
+
+const TIME_LABELS = {
+  10: '10 min',
+  20: '20 min',
+  30: '30 min',
+  60: 'kauem',
+};
+
+const MOOD_STARTERS = {
+  joonista: 'Tee 60-sekundiline visand',
+  meisterda: 'Vali üks lihtne vorm ja hakka ehitama',
+  armas: 'Lisa üks pehme detail',
+  naljakas: 'Pane sisse üks naljakas pööre',
+  rahulik: 'Tee aeglases tempos, ilma kiirustamata',
+  maagiline: 'Lisa sära või salajane detail',
+  kasulik: 'Tee asi, mida saad päriselt kasutada',
+  üllatav: 'Lõppu lisa väike üllatus',
+};
+
+function json(body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+function asStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(v => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean);
+}
+
+function toInt(value, fallback) {
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizePayload(input) {
+  const withId = typeof input?.with === 'string' ? input.with : 'endale';
+  const materials = asStringArray(input?.materials).slice(0, 8);
+  const mood = asStringArray(input?.mood).slice(0, 3);
+  const time = toInt(input?.time, 20);
+  const prompt = typeof input?.prompt === 'string' ? input.prompt.trim() : '';
+  const systemPrompt = typeof input?.systemPrompt === 'string' ? input.systemPrompt.trim() : DEFAULT_SYSTEM_PROMPT;
+
+  return {
+    with: withId,
+    materials,
+    mood,
+    time,
+    prompt,
+    systemPrompt,
+  };
+}
+
+function hashSeed(value) {
+  const text = String(value ?? '');
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function pick(arr, idx) {
+  return arr[Math.abs(idx) % arr.length];
+}
+
+function buildPrompt(payload) {
+  const materialsText = payload.materials.length > 0 ? payload.materials.join(', ') : 'mis käepärast';
+  const moodText = payload.mood.length > 0 ? payload.mood.join(', ') : 'maagiline';
+  return `Kellega: ${payload.with}
+Materjalid: ${materialsText}
+Aega: ${payload.time} min
+Mood: ${moodText}`;
+}
+
+function buildLocalIdea(payload) {
+  const withLabel = WITH_LABELS[payload.with] || 'Endale';
+  const firstMood = payload.mood[0] || 'maagiline';
+  const firstMaterial = payload.materials[0] || 'paber ja pliiatsid';
+  const timeLabel = TIME_LABELS[payload.time] || '20 min';
+  const seed = hashSeed(`${payload.with}|${payload.time}|${payload.mood.join(',')}|${firstMaterial}`);
+
+  const titles = ['Väike loov hetk', 'Tee see oma moodi', 'Armas mini-projekt', 'Maagiline väike idee', 'Loome midagi koos'];
+
+  return {
+    idea_title: pick(titles, seed),
+    what_to_do: `Tee ${timeLabel} jooksul väike projekt ${withLabel.toLowerCase()} koos, kasutades ${firstMaterial}. Alusta ühest lihtsast kujust või ideest, lisa 2-3 detaili ja lõpeta värviga, mis teeb tuju heaks.`,
+    why_it_fits: `See sobib sulle, sest valisid "${firstMood}" meeleolu ja see mahub mõnusalt sinu valitud aega.`,
+    easy_start_tip: `${MOOD_STARTERS[firstMood] || MOOD_STARTERS.maagiline}. Esimene samm võiks kesta ainult 2 minutit.`,
+    new_tip_or_trick: 'Kasuta üht paksumat joont või üht varjutooni, siis jääb töö kohe selgem.',
+    make_it_yours: 'Lisa oma märk: süda, täht, muster või värvipaar, mis on just sinu moodi.',
+    easier_version: 'Kui aega jääb väheks, tee sama idee mini-versioonina ainult ühe põhidetailiga.',
+  };
+}
+
+function extractTextFromResponse(data) {
+  if (typeof data?.output_text === 'string' && data.output_text.trim()) {
+    return data.output_text;
+  }
+
+  const outputs = Array.isArray(data?.output) ? data.output : [];
+  for (const output of outputs) {
+    if (output?.type !== 'message' || !Array.isArray(output?.content)) continue;
+    for (const item of output.content) {
+      if (typeof item?.text === 'string' && item.text.trim()) {
+        return item.text;
+      }
+    }
+  }
+  return '';
+}
+
+function normalizeIdea(rawIdea, fallbackIdea) {
+  const source = rawIdea && typeof rawIdea === 'object' ? rawIdea : {};
+  const normalized = {};
+  for (const key of IDEA_KEYS) {
+    const value = typeof source[key] === 'string' ? source[key].trim() : '';
+    normalized[key] = value || fallbackIdea[key];
+  }
+  return normalized;
+}
+
+function tryParseIdea(text) {
+  if (!text) return null;
+  const clean = text.replace(/```json|```/g, '').trim();
+  if (!clean) return null;
+  try {
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
+}
+
+async function generateWithOpenAI(payload, env) {
+  const apiKey = env?.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const model = env.OPENAI_MODEL || 'gpt-4o-mini';
+  const userPrompt = payload.prompt || buildPrompt(payload);
+  const reqBody = {
+    model,
+    input: [
+      { role: 'system', content: payload.systemPrompt || DEFAULT_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt },
+    ],
+    text: {
+      format: { type: 'json_object' },
+    },
+    max_output_tokens: 500,
+  };
+
+  const res = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(reqBody),
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  const data = await res.json();
+  const ideaText = extractTextFromResponse(data);
+  return tryParseIdea(ideaText);
+}
+
+export async function onRequestPost({ request, env }) {
+  let body = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
+  }
+
+  const payload = normalizePayload(body);
+  const fallbackIdea = buildLocalIdea(payload);
+
+  try {
+    const providerIdea = await generateWithOpenAI(payload, env);
+    if (providerIdea) {
+      return json({ idea: normalizeIdea(providerIdea, fallbackIdea), source: 'openai' });
+    }
+  } catch {
+    // Ignore provider errors and continue with deterministic fallback.
+  }
+
+  return json({ idea: fallbackIdea, source: 'local' });
+}

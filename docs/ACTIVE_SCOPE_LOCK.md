@@ -10,53 +10,48 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**Pass 1 on lõpetamisel / lõpetatud:** governance bootstrap.
+**Pass 2 (docs-only integrity) on tehtud.**
+
+Pass 2 tulemus:
+- clean repo buildability on kontrollitud
+- blockerid on dokumenteeritud
+- `docs/CODEBASE_MAP.md` ja `docs/CHANGE_SURFACES.md` on loodud
 
 Praegune lukustatud järgmine faas:
-- **Pass 2 — codebase mapping**
-- docs-only
-- ilma koodimuudatusteta
+- **Pass 3 — narrow restore pass (implementation)**
+- kitsas taastamispass
+- mitte redesign
+- mitte broad refactor
 
 ## Järgmine lukustatud töö
 
-Täita:
-- `docs/CODEBASE_MAP.md`
-- vajadusel `docs/CHANGE_SURFACES.md`
-
-See pass peab:
-- kaardistama olemasoleva `src/`, `functions/`, `public/` pinna
-- märkima high-impact muutuspinnad
-- mitte avama refaktorit
+Täita ainult:
+- taasta `index.html`
+- taasta `functions/api/ullata.js`
+- käivita build verifikatsioon
 
 ## Selles passis lubatud
 
-- docs-only audit
-- codebase mapping
-- canonical failide viidete korrastus
-- open questionite märkimine
+- kitsad taastused puuduvale runtime/build-kriitilisele pinnale
+- build kontroll
+- minimaalne vajalik muudatus
 
 ## Selles passis mitte lubatud
 
-- koodimuudatused
-- refaktor
+- redesign
+- broad refactor
 - backendisuuna laiendamine
 - Trendid v1-sse
 - deploy töö
-- production-hardening
-- uus implementation pass ilma checkpointita
+- production-hardening laias mõttes
+- mitu implementation-passi järjest
 
 ## Decision gate
 
-Pärast Pass 2 tohib avada ainult **ühe** väikese implementation passi, näiteks:
-- bugfix
-- UI polish
-- üks lokaalne cleanup
-- üks docs-sync
-
-Mitte:
-- suur refaktor
-- backendi ümberpööre
-- mitu implementation-passi järjest
+Pass 3 loetakse lõpetatuks ainult siis, kui:
+1. `index.html` on taastatud
+2. `functions/api/ullata.js` on taastatud
+3. `npm run build` läheb läbi
 
 ## Hooldusreegel
 
