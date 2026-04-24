@@ -116,6 +116,27 @@ Sisu:
 - no code/runtime/deploy settings changed
 - post-commit `git status --short` was clean
 
+### 10. Pass 9 deploy verification + manual Wrangler deploy checkpoint
+**Staatus:** accepted
+
+Sisu:
+- verification workdir: `C:\Users\Kasutaja\Desktop\AnniVibez_clean`
+- `git status --short` clean
+- `npm run build` succeeded
+- manual Wrangler deployment URL verified:
+  - `https://b9e6bc21.annivibe.pages.dev`
+- production alias verified:
+  - `https://annivibe.pages.dev`
+- both URLs returned `200` and same frontend asset hash:
+  - `assets/index-DuNsa792.js`
+- `/api/ullata` POST returned JSON with:
+  - `idea` (object)
+  - `source` (`local`)
+- current validation baseline is manual deployment `b9e6bc21`
+- GO for deploy validation on manual deployment
+- follow-up remains open:
+  - Cloudflare Git-backed deploy path previously built old commit `165d23e`
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
@@ -123,6 +144,7 @@ Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut 
 - `OPENAI_API_KEY` not yet configured in Pages runtime; current `source=local` fallback is expected
 - optional real Android Chrome same-Wi-Fi physical-device smoke remains recommended
 - optional docs-only setup note for server-side secret handling
+- Cloudflare Git-backed deploy path must be re-verified/fixed (old commit `165d23e` issue)
 
 ## Rejected / quarantine
 
@@ -142,21 +164,22 @@ Põhjus:
 
 ## Praegune aktiivne faas
 
-- Pass 8 Mermaid docs mapping pass completed (docs-only)
-- järgmine on PASS 9 optional post-deploy follow-up (docs-only)
+- Pass 9 manual deploy verification checkpoint completed (docs-only)
+- järgmine on PASS 10 narrow follow-up selection
 
 ## Järgmine lubatud samm
 
-- Pass 9: optional post-deploy follow-up only (docs-only)
-  - optional real Android Chrome physical-device smoke documentation
-  - optional OPENAI_API_KEY Cloudflare setup documentation/check
-  - no feature work
-  - no Trends
-  - no redesign
-  - no broad refactor
-  - no secrets in repo
+- PASS 10: vali üks kitsas järgmistest
+  - Cloudflare Git integration verification/fix (preferred)
+  - või Buss destination/upcoming sequence logic jätk
+- mõlemat ei tohi teha korraga samas passis
+- no feature work
+- no Trends
+- no redesign
+- no broad refactor
+- no secrets in repo
 
 ## Implementation pass status
 
-- Pass 8 docs-checkpoint pass accepted and closed
+- Pass 9 docs-checkpoint pass accepted and closed
 - broad implementation pass ilma kitsa lockita: keelatud

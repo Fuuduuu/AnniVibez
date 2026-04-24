@@ -5,6 +5,23 @@
 PASS 8 docs-only follow-up planning.  
 No code changes. No secret values in repo.
 
+## Current deploy verification baseline (2026-04-24)
+
+- latest validated manual Wrangler deploy:
+  - `https://b9e6bc21.annivibe.pages.dev`
+- production alias currently matched this manual deploy during verification:
+  - `https://annivibe.pages.dev`
+- `/api/ullata` check returned JSON with:
+  - `idea`
+  - `source=local`
+- until Git-backed deployment path is re-verified, use the manual deployment above as the primary validation baseline.
+
+## Known Cloudflare follow-up
+
+- Git-backed Cloudflare Pages deploy flow had an old commit drift issue:
+  - build source observed at old commit `165d23e`
+- this remains non-closed and must be verified/fixed in a narrow deploy follow-up pass.
+
 ## Optional runtime env setup (Cloudflare Pages)
 
 Project: `annivibe`  

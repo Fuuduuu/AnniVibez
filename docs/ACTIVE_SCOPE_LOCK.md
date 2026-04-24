@@ -10,30 +10,39 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**Pass 8 (Mermaid docs mapping) on tehtud ja accepted.**
+**Pass 9 (deploy verification + manual Wrangler deploy checkpoint) on tehtud ja accepted.**
 
-Pass 8 tulemus:
-- Mermaid project mapping pass accepted
-- `docs/PROJECT_MAP.md` added
-- `docs/PROJECT_MINI_MAP.md` added
-- commit: `825af77` (`Add Mermaid project maps`)
-- scope did not change
-- no code/runtime/deploy settings changed
-- post-commit `git status --short` was clean
+Pass 9 tulemus:
+- verification workdir: `C:\Users\Kasutaja\Desktop\AnniVibez_clean`
+- `git status --short` clean
+- `npm run build` succeeded
+- manual deploy verified: `https://b9e6bc21.annivibe.pages.dev`
+- production alias verified: `https://annivibe.pages.dev`
+- `/api/ullata` POST returned JSON with `idea` and `source` (`local`)
+- GO for current deploy validation baseline
+- known follow-up retained:
+  - Git-backed Cloudflare deploy had old commit issue (`165d23e`)
 
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 9 — optional post-deploy follow-up only**
-- optional real Android Chrome physical-device smoke documentation
-- optional OPENAI_API_KEY Cloudflare setup documentation/check
-- docs-only updates
+- **PASS 10 — narrow follow-up selection**
+- vali täpselt üks:
+  - Cloudflare Git integration verification/fix (preferred)
+  - või Buss destination/upcoming sequence logic jätk
+- ära ava mõlemat korraga
+- hoia pass kitsas ja kontrollitav
 
 ## Selles passis lubatud
 
+- kui valik on deploy:
+  - Cloudflare Git integration probleemi verifitseerimine/parandus
+  - deploy-verification ja docs-checkpoint
+- kui valik on buss:
+  - ainult destination/upcoming sequence logic kitsal pinnal
+  - failid: `src/utils/bus.js`, `src/components/BussTab.jsx`
 - optional real Android Chrome physical-device smoke documentation
-- optional OPENAI_API_KEY Cloudflare setup documentation/check
-- docs-only updates
+- optional OPENAI_API_KEY setup/check documentation
 
 ## Selles passis mitte lubatud
 
@@ -45,11 +54,12 @@ Praegune lukustatud järgmine faas:
 
 ## Decision gate
 
-Pass 9 loetakse lõpetatuks ainult siis, kui:
-1. optional follow-up docs on uuendatud kitsalt
-2. optional real-device smoke staatus on dokumenteeritud (kui tehtud)
-3. OPENAI_API_KEY Cloudflare setup/check staatus on dokumenteeritud (kui tehtud)
-4. feature/redesign/Trends/broad-refactor scope ei avane
+Pass 10 loetakse lõpetatuks ainult siis, kui:
+1. valitud kitsas rada (deploy või buss) on tehtud lõpuni
+2. teise raja scope ei avata samas passis
+3. build/verification tulemus on kirjas
+4. docs-checkpoint on uuendatud
+5. feature/redesign/Trends/broad-refactor scope ei avane
 
 ## Hooldusreegel
 
