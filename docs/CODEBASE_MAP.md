@@ -1,5 +1,7 @@
 # CODEBASE_MAP.md
 
+Canonical bus routing logic: `docs/BUS_LOGIC_LOCK.md`
+
 ## Current integrity state (clean repo)
 
 - Status: **incomplete / build-blocked**

@@ -1,5 +1,7 @@
 # CHANGE_SURFACES.md
 
+Canonical bus routing logic: `docs/BUS_LOGIC_LOCK.md`
+
 ## Purpose
 
 Small impact map for current clean-repo integrity blockers.
