@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AV, FONT, card, inp, labelStyle, shell } from '../design/tokens';
 import { BUS_DATA } from '../data/busData';
-import { deps, nearest, wd } from '../utils/bus';
+import { depsWithMeta, nearest, wd } from '../utils/bus';
 
 function DepRow({ d }) {
   return (
@@ -30,12 +30,23 @@ function DepRow({ d }) {
 export function BussTab({ savedPlaces = [] }) {
   const [stop, setStop] = useState(null);
   const [stopDeps, setStopDeps] = useState([]);
+  const [destination, setDestination] = useState('');
+  const [emptyReason, setEmptyReason] = useState('');
   const [gpsState, setGpsState] = useState('idle');
   const [activePill, setActivePill] = useState(null);
 
+  function refreshDeps(nextStop, nextDestination = destination) {
+    const originCodes = nextStop?.code ? [nextStop.code] : nextStop?.codes || [];
+    const { departures, reason } = depsWithMeta(originCodes, 3, {
+      destination: nextDestination || null,
+    });
+    setStopDeps(departures);
+    setEmptyReason(reason);
+  }
+
   function setSt(g, pillIdx = null) {
     setStop(g);
-    setStopDeps(deps(g.codes, 3));
+    refreshDeps(g);
     setActivePill(pillIdx);
   }
 
@@ -130,7 +141,20 @@ export function BussTab({ savedPlaces = [] }) {
         <select
           onChange={e => {
             const g = BUS_DATA.groups.find(x => x.name === e.target.value);
-            if (g) setSt({ ...g, dist: null });
+            if (!g?.codes?.length) return;
+            const code = g.codes[0];
+            const point = BUS_DATA.by_code?.[code];
+            setSt({
+              name: g.name,
+              groupName: g.name,
+              code,
+              stopId: code,
+              codes: [code],
+              displayCodes: [...g.codes],
+              lat: Number(point?.lat),
+              lon: Number(point?.lon),
+              dist: null,
+            });
           }}
           style={{ ...inp, marginTop: 0 }}
           value={stop?.name || ''}
@@ -142,6 +166,23 @@ export function BussTab({ savedPlaces = [] }) {
             </option>
           ))}
         </select>
+        <div style={{ fontSize: 10, ...labelStyle, marginTop: 14, marginBottom: 6 }}>Sihtkoht (valikuline)</div>
+        <select
+          onChange={e => {
+            const nextDestination = e.target.value;
+            setDestination(nextDestination);
+            if (stop) refreshDeps(stop, nextDestination);
+          }}
+          style={{ ...inp, marginTop: 0 }}
+          value={destination}
+        >
+          <option value="">— vali sihtkoht —</option>
+          {BUS_DATA.groups.map(g => (
+            <option key={`dest-${g.name}`} value={g.name}>
+              {g.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div style={card}>
@@ -149,7 +190,7 @@ export function BussTab({ savedPlaces = [] }) {
         {!stop ? (
           <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>Vali peatus, et näha väljumisi</div>
         ) : stopDeps.length === 0 ? (
-          <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>Täna enam busse pole · {wd()}</div>
+          <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>{emptyReason || `Täna enam busse pole · ${wd()}`}</div>
         ) : (
           <>
             {stopDeps.map((d, i) => (
