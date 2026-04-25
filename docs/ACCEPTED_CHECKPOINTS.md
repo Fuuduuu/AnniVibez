@@ -515,8 +515,31 @@ Sisu:
 - unchanged/guarded surfaces:
   - `depsWithMeta(...)` remained unchanged
   - `src/data/busData.js` remained unchanged
-  - no map implementation added
+- no map implementation added
 - PASS 23B is checkpoint-ready for commit
+
+### 27. PASS 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY
+**Staatus:** accepted (docs-only)
+
+Sisu:
+- docs/planning pass only; runtime code was not changed
+- map picker architecture direction documented in:
+  - `docs/BUS_MAP_PICKER_PLAN.md`
+- locked rule:
+  - map picker must feed existing destination-first flow
+  - no separate routing engine is allowed
+- locked phased plan:
+  - `PASS 25A — ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP`
+  - `PASS 25B — TYPED_STOP_SEARCH`
+  - `PASS 25C — DESTINATION_POINT_AND_CANDIDATE_STATE_PREP`
+  - `PASS 25D — LEAFLET_MAP_PICKER_SKELETON`
+  - `PASS 25E — MAP_PICKER_INTEGRATION`
+  - `PASS 25F — MAP_ROUTE_LIVE_SMOKE`
+- guardrails preserved:
+  - `depsWithMeta(...)` unchanged
+  - `src/utils/bus.js` unchanged
+  - `src/data/busData.js` unchanged
+  - no map UI implementation added
 
 ## Accepted not-yet-done areas
 
@@ -527,7 +550,12 @@ Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut 
 - stop-point coordinates may be partly generalized; exact road-side precision depends on source data quality
 - Claude audit pending backlog is tracked in `docs/AUDIT_FINDINGS_BACKLOG.md`
 - remaining pending audit items:
-  - PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY
+  - PASS 25A — ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP
+  - PASS 25B — TYPED_STOP_SEARCH
+  - PASS 25C — DESTINATION_POINT_AND_CANDIDATE_STATE_PREP
+  - PASS 25D — LEAFLET_MAP_PICKER_SKELETON
+  - PASS 25E — MAP_PICKER_INTEGRATION
+  - PASS 25F — MAP_ROUTE_LIVE_SMOKE
   - PASS 24 — DEPLOY_ENV_DOCS
   - optional real mobile/GPS field testing
 
@@ -558,13 +586,14 @@ Põhjus:
 - Pass 23A BUS_DESTINATION_FIRST_UX_PLAN completed (docs-only)
 - Pass 23B BUS_DESTINATION_FIRST_MVP_NO_MAP completed
 - Pass 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP completed
-- järgmine on PASS 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY (docs-only)
+- Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY completed (docs-only)
+- järgmine on PASS 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP
 
 ## Järgmine lubatud samm
 
-- PASS 23D: BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY (docs-only)
+- PASS 25A: ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP
 - focus:
-  - map picker direction planning only
+  - route recommendation enrichment without map
   - keep existing routing engine stable (`depsWithMeta(...)` baseline)
 - rules:
   - no bus engine rewrite in this pass
@@ -593,4 +622,5 @@ Põhjus:
 - Pass 23A BUS_DESTINATION_FIRST_UX_PLAN accepted and closed (docs-only)
 - Pass 23B BUS_DESTINATION_FIRST_MVP_NO_MAP accepted and closed
 - Pass 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP accepted and closed
+- Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY accepted and closed (docs-only)
 - broad implementation pass ilma kitsa lockita: keelatud

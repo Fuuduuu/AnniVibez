@@ -10,32 +10,38 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**PASS 23C (DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP) on tehtud ja checkpoint-ready.**
+**PASS 23D (BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY) on tehtud ja accepted (docs-only).**
 
-PASS 23C tulemus:
-- PASS 23B destination-first MVP valideeriti source/build/deploy tasemel
-- live smoke deploy:
-  - `https://968d08cb.annivibe.pages.dev`
-- canonical `https://annivibe.pages.dev` teenindas bundle-t:
-  - `assets/index-DjBNfPlr.js`
-- `/api/ullata` POST vastas `source=gemini`
-- `depsWithMeta(...)` jäi muutmata
-- `src/data/busData.js` jäi muutmata
+PASS 23D tulemus:
+- map picker arhitektuuriplan dokumenteeriti docs-only passina
+- planeeritud dokument:
+  - `docs/BUS_MAP_PICKER_PLAN.md`
+- lukustatud suund:
+  - map picker on destination input wrapper, mitte uus routing engine
+- lukustatud phased rollout:
+  - PASS 25A: route recommendation enrichment (no map)
+  - PASS 25B: typed stop search
+  - PASS 25C: destination point/candidate state prep
+  - PASS 25D: Leaflet map picker skeleton
+  - PASS 25E: map picker integration
+  - PASS 25F: map route live smoke
+- `depsWithMeta(...)` ja `nearest(...)` jäid muutmata
+- runtime/source koodi ei muudetud
 - map tuge ei lisatud
-- pass on checkpoint/commit-prep valmis
+- pass on planning/checkpoint valmis
 
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY**
-- map picker direction/plan docs-only (no implementation)
+- **PASS 25A — ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP**
+- enrich route recommendation output without map
 - hoia pass kitsas ja kontrollitav
 
 ## Selles passis lubatud
 
-- docs-only planning updates for future map picker direction
+- route card enrichment in existing destination-first flow
+- no map rendering/UI work
 - checkpoint docs sync
-- no runtime logic changes
 
 ## Selles passis mitte lubatud
 
@@ -50,12 +56,12 @@ Praegune lukustatud järgmine faas:
 
 ## Decision gate
 
-Pass 23D loetakse lõpetatuks ainult siis, kui:
-1. map picker töö on kirjas planning-only kujul
-2. runtime koodi ei muudeta
-3. checkpoint docs on sünkroonitud
-4. broad scope does not reopen
-5. feature/redesign/Trends/broad-refactor scope ei avane
+Pass 25A loetakse lõpetatuks ainult siis, kui:
+1. route recommendation cards annavad selgemat "kuidas kohale saada" infot
+2. destination-first flow remains stable
+3. runtime map UI ei ole implementeeritud
+4. checkpoint docs on sünkroonitud
+5. broad scope does not reopen
 
 ## Hooldusreegel
 

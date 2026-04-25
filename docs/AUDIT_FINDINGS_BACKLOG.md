@@ -106,7 +106,7 @@ Implemented:
 
 ### HIGH - Bus UX direction - destination-first flow
 
-Status: PASS 23B MVP validated in PASS 23C; checkpoint-ready  
+Status: PASS 23B MVP validated in PASS 23C; PASS 23D planning completed  
 Impact: current origin-first flow adds friction; primary user intent is destination.
 
 Locked direction:
@@ -148,11 +148,20 @@ Validated in PASS 23C:
 - `/api/ullata` smoke returned `source=gemini`
 - checkpoint-ready status recorded
 
+Planned in PASS 23D:
+- map picker architecture is documented in:
+  - `docs/BUS_MAP_PICKER_PLAN.md`
+- map picker remains a destination-input wrapper for existing destination-first flow
+- no separate routing engine is allowed
+- no runtime map implementation added in this pass
+- next implementation chain is locked in that plan:
+  - `PASS 25A` ... `PASS 25F`
+
 Locked implementation order:
 1. `PASS 23A — BUS_DESTINATION_FIRST_UX_PLAN` (docs-only)
 2. `PASS 23B — BUS_DESTINATION_FIRST_MVP_NO_MAP` (implemented)
 3. `PASS 23C — DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP` (validated)
-4. `PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY` (next)
+4. `PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY` (completed, docs-only)
 5. then continue deferred non-bus pending items
 
 ### MEDIUM - Code quality - duplicated local fallback idea generator
@@ -228,12 +237,18 @@ Planned pass: `PASS 24 — DEPLOY_ENV_DOCS`
 7. `PASS 23A — BUS_DESTINATION_FIRST_UX_PLAN` (docs-only)
 8. `PASS 23B — BUS_DESTINATION_FIRST_MVP_NO_MAP`
 9. `PASS 23C — DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP`
+10. `PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY`
 
 ## Remaining implementation order
 
-1. `PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY`
-2. `PASS 24 — DEPLOY_ENV_DOCS`
-3. optional real mobile/GPS field testing
+1. `PASS 25A — ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP`
+2. `PASS 25B — TYPED_STOP_SEARCH`
+3. `PASS 25C — DESTINATION_POINT_AND_CANDIDATE_STATE_PREP`
+4. `PASS 25D — LEAFLET_MAP_PICKER_SKELETON`
+5. `PASS 25E — MAP_PICKER_INTEGRATION`
+6. `PASS 25F — MAP_ROUTE_LIVE_SMOKE`
+7. `PASS 24 — DEPLOY_ENV_DOCS`
+8. optional real mobile/GPS field testing
 
 ## This prep pass
 
