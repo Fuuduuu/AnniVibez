@@ -7,6 +7,7 @@ const IDEA_KEYS = [
   'make_it_yours',
   'easier_version',
 ];
+const PROVIDER_TIMEOUT_MS = 8000;
 
 const DEFAULT_SYSTEM_PROMPT =
   'Sa oled soe ja loov ideekaaslane 10-13-aastasele tüdrukule. Anna üks selge ja teostatav idee tooniga "üks kasulik nipp, siis tee oma versioon". Vasta AINULT JSON-ina ilma markdown-ita:{"idea_title":"max 6 sõna","what_to_do":"2-3 lauset konkreetselt","why_it_fits":"1 lause","easy_start_tip":"1 lause kohe alustamiseks","new_tip_or_trick":"1 lause uuest oskusest","make_it_yours":"1 lause oma stiilis","easier_version":"1 lause lihtsam variant"}';
@@ -64,6 +65,7 @@ function normalizePayload(input) {
   const materials = asStringArray(input?.materials).slice(0, 8);
   const mood = asStringArray(input?.mood).slice(0, 3);
   const time = toInt(input?.time, 20);
+  const variationNonce = Math.max(0, toInt(input?.variationNonce, 0));
   const prompt = typeof input?.prompt === 'string' ? input.prompt.trim() : '';
   const systemPrompt = typeof input?.systemPrompt === 'string' ? input.systemPrompt.trim() : DEFAULT_SYSTEM_PROMPT;
 
@@ -72,6 +74,7 @@ function normalizePayload(input) {
     materials,
     mood,
     time,
+    variationNonce,
     prompt,
     systemPrompt,
   };
@@ -104,7 +107,7 @@ function buildLocalIdea(payload) {
   const firstMood = payload.mood[0] || 'maagiline';
   const firstMaterial = payload.materials[0] || 'paber ja pliiatsid';
   const timeLabel = TIME_LABELS[payload.time] || '20 min';
-  const seed = hashSeed(`${payload.with}|${payload.time}|${payload.mood.join(',')}|${firstMaterial}`);
+  const seed = hashSeed(`${payload.with}|${payload.time}|${payload.mood.join(',')}|${firstMaterial}|${payload.variationNonce}`);
 
   const titles = ['Väike loov hetk', 'Tee see oma moodi', 'Armas mini-projekt', 'Maagiline väike idee', 'Loome midagi koos'];
 
@@ -157,6 +160,74 @@ function tryParseIdea(text) {
   }
 }
 
+async function fetchWithTimeout(url, options, timeoutMs = PROVIDER_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function extractTextFromGemini(data) {
+  const candidates = Array.isArray(data?.candidates) ? data.candidates : [];
+  for (const candidate of candidates) {
+    const parts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+    for (const part of parts) {
+      if (typeof part?.text === 'string' && part.text.trim()) {
+        return part.text;
+      }
+    }
+  }
+  return '';
+}
+
+async function generateWithGemini(payload, env) {
+  const apiKey = env?.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const model = env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+  const userPrompt = payload.prompt || buildPrompt(payload);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const reqBody = {
+    systemInstruction: {
+      parts: [{ text: payload.systemPrompt || DEFAULT_SYSTEM_PROMPT }],
+    },
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: userPrompt }],
+      },
+    ],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.8,
+      maxOutputTokens: 500,
+    },
+  };
+
+  const res = await fetchWithTimeout(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(reqBody),
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  const data = await res.json();
+  const ideaText = extractTextFromGemini(data);
+  return tryParseIdea(ideaText);
+}
+
 async function generateWithOpenAI(payload, env) {
   const apiKey = env?.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -175,7 +246,7 @@ async function generateWithOpenAI(payload, env) {
     max_output_tokens: 500,
   };
 
-  const res = await fetch('https://api.openai.com/v1/responses', {
+  const res = await fetchWithTimeout('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -204,13 +275,26 @@ export async function onRequestPost({ request, env }) {
   const payload = normalizePayload(body);
   const fallbackIdea = buildLocalIdea(payload);
 
-  try {
-    const providerIdea = await generateWithOpenAI(payload, env);
-    if (providerIdea) {
-      return json({ idea: normalizeIdea(providerIdea, fallbackIdea), source: 'openai' });
+  if (env?.GEMINI_API_KEY) {
+    try {
+      const geminiIdea = await generateWithGemini(payload, env);
+      if (geminiIdea) {
+        return json({ idea: normalizeIdea(geminiIdea, fallbackIdea), source: 'gemini' });
+      }
+    } catch {
+      // Ignore provider errors and continue to OpenAI fallback if available.
     }
-  } catch {
-    // Ignore provider errors and continue with deterministic fallback.
+  }
+
+  if (env?.OPENAI_API_KEY) {
+    try {
+      const openaiIdea = await generateWithOpenAI(payload, env);
+      if (openaiIdea) {
+        return json({ idea: normalizeIdea(openaiIdea, fallbackIdea), source: 'openai' });
+      }
+    } catch {
+      // Ignore provider errors and continue with deterministic fallback.
+    }
   }
 
   return json({ idea: fallbackIdea, source: 'local' });

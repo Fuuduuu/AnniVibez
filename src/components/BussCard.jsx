@@ -7,6 +7,14 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
   const [stopDeps, setStopDeps] = useState([]);
   const [gpsState, setGpsState] = useState('idle');
 
+  function originCodesFrom(stopLike) {
+    const raw =
+      stopLike?.displayCodes ||
+      stopLike?.codes ||
+      (stopLike?.code ? [stopLike.code] : []);
+    return Array.isArray(raw) ? raw.filter(Boolean) : [];
+  }
+
   useEffect(() => {
     setGpsState('searching');
     const fallback = setTimeout(() => {
@@ -15,7 +23,7 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
         const g = nearest(parseFloat(first.lat), parseFloat(first.lon));
         if (g) {
           setStop(g);
-          setStopDeps(deps(g.codes, 2));
+          setStopDeps(deps(originCodesFrom(g), 2));
         }
       }
       setGpsState('fallback');
@@ -28,7 +36,7 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
           const g = nearest(p.coords.latitude, p.coords.longitude);
           if (g) {
             setStop(g);
-            setStopDeps(deps(g.codes, 2));
+            setStopDeps(deps(originCodesFrom(g), 2));
           }
           setGpsState('ok');
         },
@@ -50,6 +58,10 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
     idle: '#EF9F27',
   }[gpsState];
 
+  const alternateStops = Array.isArray(stop?.candidates)
+    ? stop.candidates.filter(c => c.code !== stop.code).slice(0, 2)
+    : [];
+
   return (
     <div style={{ ...card, marginBottom: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -58,6 +70,11 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
           {stop ? `${stop.name}${stop.dist != null ? ` · ${stop.dist} m` : ''}` : 'Otsin lähimat peatust…'}
         </span>
       </div>
+      {alternateStops.length > 0 && (
+        <div style={{ fontSize: 11, color: AV.muted, marginBottom: 8 }}>
+          Lähedal ka: {alternateStops.map(c => `${c.name}${c.dist != null ? ` (${c.dist} m)` : ''}`).join(' · ')}
+        </div>
+      )}
 
       {stopDeps.length > 0 ? (
         stopDeps.map((d, i) => (

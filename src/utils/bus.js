@@ -15,6 +15,11 @@ const NAME_TO_CODES = STOP_POINTS.reduce((acc, p) => {
   return acc;
 }, new Map());
 
+const NEARBY_NAME_PAIR = new Map([
+  ['Õie', 'Tulika'],
+  ['Tulika', 'Õie'],
+]);
+
 function hav(a, b, c, e) {
   const R = 6371000;
   const p = Math.PI / 180;
@@ -24,34 +29,70 @@ function hav(a, b, c, e) {
   return 2 * R * Math.asin(Math.sqrt(f));
 }
 
+function toStopChoice(point, dist) {
+  const code = point.code;
+  const name = point.name;
+  return {
+    code,
+    stopId: code,
+    name,
+    groupName: name,
+    lat: point.lat,
+    lon: point.lon,
+    dist: Math.round(dist),
+    // Keep existing caller compatibility while preserving stopId routing.
+    codes: [code],
+    displayCodes: [...(NAME_TO_CODES.get(name) || [code])],
+  };
+}
+
 export function wd() {
   const d = new Date().getDay();
   return d === 0 ? 'P' : d === 6 ? 'L' : 'E-R';
 }
 
 export function nearest(lat, lon) {
-  let best = null;
-  let bestDist = Infinity;
-  for (const p of STOP_POINTS) {
-    const dist = hav(lat, lon, p.lat, p.lon);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = p;
-    }
-  }
+  const ranked = STOP_POINTS
+    .map(p => ({ point: p, dist: hav(lat, lon, p.lat, p.lon) }))
+    .sort((a, b) => a.dist - b.dist);
+
+  const best = ranked[0];
   if (!best) return null;
 
+  const byName = new Map();
+  for (const entry of ranked) {
+    const name = entry.point.name;
+    if (!byName.has(name)) byName.set(name, entry);
+  }
+
+  const bestDist = best.dist;
+  const eligible = [...byName.values()].filter(entry => entry.dist <= 500 && entry.dist - bestDist <= 450);
+
+  const ordered = [];
+  const seenNames = new Set();
+  function pushEntry(entry) {
+    const name = entry?.point?.name;
+    if (!entry || !name || seenNames.has(name)) return;
+    seenNames.add(name);
+    ordered.push(entry);
+  }
+
+  pushEntry(best);
+  const pairName = NEARBY_NAME_PAIR.get(best.point.name);
+  if (pairName) {
+    const pairEntry = eligible.find(entry => entry.point.name === pairName);
+    pushEntry(pairEntry);
+  }
+  for (const entry of eligible) pushEntry(entry);
+
+  const candidates = ordered
+    .slice(0, 3)
+    .map(entry => toStopChoice(entry.point, entry.dist));
+
+  const primary = toStopChoice(best.point, best.dist);
   return {
-    code: best.code,
-    stopId: best.code,
-    name: best.name,
-    groupName: best.name,
-    lat: best.lat,
-    lon: best.lon,
-    dist: Math.round(bestDist),
-    // Keep existing caller compatibility while preserving stopId routing.
-    codes: [best.code],
-    displayCodes: [...(NAME_TO_CODES.get(best.name) || [best.code])],
+    ...primary,
+    candidates: candidates.length > 0 ? candidates : [primary],
   };
 }
 

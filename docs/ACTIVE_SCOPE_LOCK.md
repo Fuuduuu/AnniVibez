@@ -10,44 +10,38 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**Pass 10 (Cloudflare Git-backed deploy verification/fix) on tehtud ja accepted.**
+**PASS 23C (DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP) on tehtud ja checkpoint-ready.**
 
-Pass 10 tulemus:
-- GitHub latest `main` commit:
-  - `121a8e2fb1f3299f9b6046d6669a5c0c36e29ab1`
-- Cloudflare source verified:
-  - GitHub `Fuuduuu/AnniVibez`, branch `main`
-- latest production deployment:
-  - `238aef14`
-  - trigger `github:push`
-  - status `success`
-- deployment used latest `main` commit
-- future automatic deploys: `GO`
-- manual Wrangler deploy: fallback only
-- old `165d23e` drift is downgraded to monitor-only history note
+PASS 23C tulemus:
+- PASS 23B destination-first MVP valideeriti source/build/deploy tasemel
+- live smoke deploy:
+  - `https://968d08cb.annivibe.pages.dev`
+- canonical `https://annivibe.pages.dev` teenindas bundle-t:
+  - `assets/index-DjBNfPlr.js`
+- `/api/ullata` POST vastas `source=gemini`
+- `depsWithMeta(...)` jäi muutmata
+- `src/data/busData.js` jäi muutmata
+- map tuge ei lisatud
+- pass on checkpoint/commit-prep valmis
 
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 11 — BUS_LOGIC_PASS**
-- destination/upcoming sequence logic only
+- **PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY**
+- map picker direction/plan docs-only (no implementation)
 - hoia pass kitsas ja kontrollitav
 
 ## Selles passis lubatud
 
-- ainult bussi destination/upcoming sequence loogika
-- failid:
-  - `src/utils/bus.js`
-  - `src/components/BussTab.jsx`
-- vajalik säilitada:
-  - nearest stop-point logic
-  - `BUS_DATA.patterns`
-  - Õie/Tulika stopId distinction
-  - `docs/BUS_LOGIC_LOCK.md` rules
+- docs-only planning updates for future map picker direction
+- checkpoint docs sync
+- no runtime logic changes
 
 ## Selles passis mitte lubatud
 
-- no feature work
+- no bus engine rewrite
+- no map picker implementation
+- no unrelated runtime/provider refactors
 - no Trends
 - no redesign
 - no broad refactor
@@ -56,11 +50,11 @@ Praegune lukustatud järgmine faas:
 
 ## Decision gate
 
-Pass 11 loetakse lõpetatuks ainult siis, kui:
-1. destination logic kasutab pattern/stopId suuna reeglit
-2. no-destination käitumine jääb alles
-3. build/verification tulemus on kirjas
-4. docs-checkpoint on uuendatud
+Pass 23D loetakse lõpetatuks ainult siis, kui:
+1. map picker töö on kirjas planning-only kujul
+2. runtime koodi ei muudeta
+3. checkpoint docs on sünkroonitud
+4. broad scope does not reopen
 5. feature/redesign/Trends/broad-refactor scope ei avane
 
 ## Hooldusreegel

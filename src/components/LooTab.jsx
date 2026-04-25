@@ -28,6 +28,7 @@ const MOOD_O = [
 
 const SYS = `Sa oled soe ja loov ideekaaslane 10-13-aastasele tüdrukule. Anna üks selge ja teostatav idee tooniga "üks kasulik nipp, siis tee oma versioon". Vasta AINULT JSON-ina ilma markdown-ita:{"idea_title":"max 6 sõna","what_to_do":"2-3 lauset konkreetselt","why_it_fits":"1 lause","easy_start_tip":"1 lause kohe alustamiseks","new_tip_or_trick":"1 lause uuest oskusest","make_it_yours":"1 lause oma stiilis","easier_version":"1 lause lihtsam variant"}`;
 const LOO_API_PATH = import.meta.env.VITE_LOO_API_PATH || '/api/ullata';
+const SAVED_IDEAS_KEY = 'annivibe_saved_ideas';
 
 const TIPS = [
   {
@@ -202,13 +203,15 @@ const TIPS = [
   },
 ];
 
-async function askClaude(form) {
+async function askClaude(form, variationNonce = 0) {
+  const safeVariationNonce = Number.isFinite(Number(variationNonce)) ? Math.max(0, Number.parseInt(String(variationNonce), 10)) : 0;
   const mats = [...form.mats, form.custom].filter(Boolean).join(', ') || 'mis käepärast';
   const payload = {
     with: form.with,
     materials: [...form.mats, form.custom].filter(Boolean),
     time: form.time,
     mood: form.mood,
+    variationNonce: safeVariationNonce,
     systemPrompt: SYS,
     prompt: `Kellega: ${form.with}\nMaterjalid: ${mats}\nAega: ${form.time} min\nMood: ${form.mood.join(', ')}`,
   };
@@ -227,7 +230,7 @@ async function askClaude(form) {
     const firstMood = form.mood?.[0] || 'maagiline';
     const firstMaterial = [...form.mats, form.custom].filter(Boolean)[0] || 'paber ja pliiatsid';
     const timeLabel = TIME_O.find(t => t.id === form.time)?.l || '20 min';
-    const seed = hashSeed(`${form.with}|${form.time}|${form.mood?.join(',')}|${firstMaterial}`);
+    const seed = hashSeed(`${form.with}|${form.time}|${form.mood?.join(',')}|${firstMaterial}|${safeVariationNonce}`);
 
     const titles = [
       'Väike loov hetk',
@@ -255,6 +258,7 @@ async function askClaude(form) {
       new_tip_or_trick: 'Kasuta üht paksumat joont või üht varjutooni, siis jääb töö kohe selgem.',
       make_it_yours: 'Lisa oma märk: süda, täht, muster või värvipaar, mis on just sinu moodi.',
       easier_version: 'Kui aega jääb väheks, tee sama idee mini-versioonina ainult ühe põhidetailiga.',
+      source: 'local',
     };
   }
 
@@ -272,6 +276,9 @@ async function askClaude(form) {
     if (!idea || typeof idea !== 'object') {
       return buildLocalIdea();
     }
+    if (typeof data?.source === 'string' && !idea.source) {
+      return { ...idea, source: data.source };
+    }
     return idea;
   } catch {
     return buildLocalIdea();
@@ -287,6 +294,25 @@ const CAT_C = {
 };
 function catC(cat) {
   return CAT_C[cat] || { bg: AV.purpleL, border: `${AV.purple}40`, accent: AV.purple };
+}
+function hashSeed(value) {
+  const s = String(value || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h.toString(16);
+}
+function readSavedIdeas() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SAVED_IDEAS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+function writeSavedIdeas(next) {
+  try {
+    localStorage.setItem(SAVED_IDEAS_KEY, JSON.stringify(next));
+  } catch {}
 }
 function pill(active) {
   return {
@@ -308,6 +334,7 @@ export default function LooTab() {
   const [view, setView] = useState('home');
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ with: null, mats: [], custom: '', time: null, mood: [] });
+  const [variationNonce, setVariationNonce] = useState(0);
   const [idea, setIdea] = useState(null);
   const [loading, setLoading] = useState(false);
   const [savedIdea, setSavedIdea] = useState(false);
@@ -324,13 +351,62 @@ export default function LooTab() {
   function tog(k, v) {
     setForm(f => ({ ...f, [k]: f[k].includes(v) ? f[k].filter(x => x !== v) : [...f[k], v] }));
   }
+  function buildSavedIdeaItem() {
+    if (!idea) return null;
+
+    const material = [...form.mats, form.custom].filter(Boolean);
+    const title = (idea.idea_title || idea.title || '').trim();
+    const text = (idea.what_to_do || idea.text || '').trim();
+    const type = idea.type || 'ullata';
+    const source = idea.source || 'unknown';
+    const signature = JSON.stringify({
+      title,
+      text,
+      type,
+      with: form.with,
+      time: form.time,
+      mood: form.mood,
+      material,
+      source,
+    });
+
+    return {
+      id: idea.id || `ullata_${hashSeed(signature)}`,
+      createdAt: idea.createdAt || new Date().toISOString(),
+      title,
+      text,
+      type,
+      meta: {
+        with: form.with,
+        time: form.time,
+        mood: form.mood,
+        material,
+        source,
+      },
+    };
+  }
+  function saveIdea() {
+    const nextItem = buildSavedIdeaItem();
+    if (!nextItem) return;
+
+    const existing = readSavedIdeas();
+    const duplicate = existing.some(item => item?.id === nextItem.id || (item?.title === nextItem.title && item?.text === nextItem.text && item?.type === nextItem.type));
+    if (!duplicate) {
+      writeSavedIdeas([...existing, nextItem]);
+    }
+    setSavedIdea(true);
+  }
   async function gen() {
+    const nextVariationNonce = variationNonce + 1;
+    setVariationNonce(nextVariationNonce);
+    setSavedIdea(false);
     setLoading(true);
     try {
-      setIdea(await askClaude(form));
+      setIdea(await askClaude(form, nextVariationNonce));
       setStep(4);
     } catch {
       setIdea(null);
+      setSavedIdea(false);
     } finally {
       setLoading(false);
     }
@@ -367,6 +443,8 @@ export default function LooTab() {
                 setView('ullata');
                 setStep(0);
                 setIdea(null);
+                setVariationNonce(0);
+                setSavedIdea(false);
               } else {
                 setView('cats');
               }
@@ -415,7 +493,16 @@ export default function LooTab() {
   if (view === 'ullata')
     return (
       <div style={{ ...shell, animation: 'av-in .2s' }}>
-        <button onClick={() => setView('home')} style={{ background: 'none', border: 'none', fontSize: 14, color: AV.muted, cursor: 'pointer', marginBottom: 16 }}>← Loo</button>
+        <button
+          onClick={() => {
+            setView('home');
+            setVariationNonce(0);
+            setSavedIdea(false);
+          }}
+          style={{ background: 'none', border: 'none', fontSize: 14, color: AV.muted, cursor: 'pointer', marginBottom: 16 }}
+        >
+          ← Loo
+        </button>
         <div style={{ fontSize: 10, ...labelStyle }}>Üllata</div>
         <div style={{ fontSize: 22, fontWeight: 700, color: AV.text, marginBottom: 20 }}>{step < 4 ? 'Mis tuju loominguks on?' : idea?.idea_title ?? ''}</div>
 
@@ -449,7 +536,7 @@ export default function LooTab() {
             ))}
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <button onClick={gen} style={{ flex: 1, padding: '13px 0', borderRadius: 14, border: `1px solid ${AV.border}`, background: '#fff', fontSize: 13, fontWeight: 500, color: AV.muted, cursor: 'pointer' }}>Uus idee ↺</button>
-              <button onClick={() => setSavedIdea(true)} style={{ flex: 1, padding: '13px 0', borderRadius: 14, border: 'none', background: savedIdea ? AV.sage : AV.purple, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={saveIdea} style={{ flex: 1, padding: '13px 0', borderRadius: 14, border: 'none', background: savedIdea ? AV.sage : AV.purple, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 {savedIdea ? '✓ Salvestatud' : 'Salvesta 🔖'}
               </button>
             </div>
@@ -457,6 +544,7 @@ export default function LooTab() {
               onClick={() => {
                 setStep(0);
                 setIdea(null);
+                setVariationNonce(0);
                 setSavedIdea(false);
                 setForm({ with: null, mats: [], custom: '', time: null, mood: [] });
               }}
