@@ -216,15 +216,12 @@ Future action:
 
 ### LOW - Deployment docs env var section missing
 
-Status: pending  
-Future action:
-- add `.env.example` / deployment docs for:
-  - `GEMINI_API_KEY`
-  - `GEMINI_MODEL`
-  - `OPENAI_API_KEY`
-  - `OPENAI_MODEL`
-
-Planned pass: `PASS 24 — DEPLOY_ENV_DOCS`
+Status: resolved in PASS 24  
+Implemented:
+- added deploy/env guide: `docs/DEPLOYMENT.md`
+- added safe env sample: `.env.example`
+- documented Cloudflare Pages/Wrangler build+deploy+recovery workflow
+- documented provider env var names from `functions/api/ullata.js`
 
 ## Completed in this backlog line
 
@@ -240,6 +237,7 @@ Planned pass: `PASS 24 — DEPLOY_ENV_DOCS`
 10. `PASS 23D — BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY`
 11. `PASS 25A — ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP`
 12. `PASS 26A — PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC` (docs-only)
+13. `PASS 24 — DEPLOY_ENV_DOCS` (docs-only)
 
 ## Remaining implementation order
 
@@ -249,8 +247,7 @@ Planned pass: `PASS 24 — DEPLOY_ENV_DOCS`
 4. `PASS 25D — LEAFLET_MAP_PICKER_SKELETON`
 5. `PASS 25E — MAP_PICKER_INTEGRATION`
 6. `PASS 25F — MAP_ROUTE_LIVE_SMOKE`
-7. `PASS 24 — DEPLOY_ENV_DOCS`
-8. optional real mobile/GPS field testing
+7. optional real mobile/GPS field testing
 
 ## This prep pass
 

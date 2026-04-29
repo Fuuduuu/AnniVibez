@@ -30,6 +30,7 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/PROMPT_SYSTEM.md`
 - `docs/PROMPT_TEMPLATES.md`
 - `docs/MERMAID_DIAGRAMS.md`
+- `docs/DEPLOYMENT.md`
 - `docs/SECURITY_APPEND.md`
 
 ## Historical / duplicate / not-yet-instantiated docs

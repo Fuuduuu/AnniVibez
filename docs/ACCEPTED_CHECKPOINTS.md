@@ -580,6 +580,25 @@ Sisu:
 - runtime/source/deploy loogikat ei muudetud
 - map implementationit ei lisatud
 
+### 30. PASS 24 DEPLOY_ENV_DOCS
+**Staatus:** accepted (docs-only)
+
+Sisu:
+- deployment/env dokumentatsioon lisati:
+  - `docs/DEPLOYMENT.md`
+- safe env sample lisati:
+  - `.env.example`
+- Cloudflare Pages/Wrangler workflow dokumenteeriti:
+  - build/deploy/checklist
+  - `/api/ullata` smoke näide
+  - known recovery notes (`10500`, temporary auth/API retry path)
+- provider env var nimed kinnitati `functions/api/ullata.js` järgi:
+  - `GEMINI_API_KEY`
+  - `GEMINI_MODEL`
+  - `OPENAI_API_KEY`
+  - `OPENAI_MODEL`
+- runtime/source/deploy execution changes were not made in this pass
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
@@ -595,7 +614,6 @@ Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut 
   - PASS 25D — LEAFLET_MAP_PICKER_SKELETON
   - PASS 25E — MAP_PICKER_INTEGRATION
   - PASS 25F — MAP_ROUTE_LIVE_SMOKE
-  - PASS 24 — DEPLOY_ENV_DOCS
   - optional real mobile/GPS field testing
 
 ## Rejected / quarantine
@@ -628,6 +646,7 @@ Põhjus:
 - Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY completed (docs-only)
 - Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP completed
 - Pass 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC completed (docs-only)
+- Pass 24 DEPLOY_ENV_DOCS completed (docs-only)
 - järgmine on PASS 25B TYPED_STOP_SEARCH
 
 ## Järgmine lubatud samm
@@ -666,4 +685,5 @@ Põhjus:
 - Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY accepted and closed (docs-only)
 - Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP accepted and closed
 - Pass 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC accepted and closed (docs-only)
+- Pass 24 DEPLOY_ENV_DOCS accepted and closed (docs-only)
 - broad implementation pass ilma kitsa lockita: keelatud

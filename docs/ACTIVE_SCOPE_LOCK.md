@@ -33,6 +33,11 @@ PASS 26A docs-only tulemus:
 - runtime/source koodi ei muudetud
 - map/bus/Üllata loogikat ei muudetud
 
+PASS 24 docs-only tulemus:
+- lisati deploy/env dokumentatsioon: `docs/DEPLOYMENT.md`
+- lisati turvaline env näidis: `.env.example` (ainult nimed/placeholders)
+- runtime/source koodi ei muudetud
+
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
