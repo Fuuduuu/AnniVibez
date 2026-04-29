@@ -10,9 +10,9 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**PASS 25A (ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP) on tehtud ja accepted.**
+**PASS 26A (PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC) on tehtud ja accepted (docs-only).**
 
-PASS 25A tulemus:
+PASS 25A runtime tulemus:
 - route recommendation cards said selgema "kuidas kohale saada" konteksti
 - lisati destination/get-off kontekst:
   - `Mine peatusesse: ...`
@@ -25,6 +25,13 @@ PASS 25A tulemus:
   - nearby fallback (max 2) unchanged
 - map UI/runtime tuge ei lisatud
 - `src/utils/bus.js` ja `src/data/busData.js` jäid muutmata
+
+PASS 26A docs-only tulemus:
+- lisati `docs/PROMPT_SYSTEM.md`
+- uuendati `docs/PROMPT_TEMPLATES.md` kompaktsete PASS-pohiste mallidega
+- lisati `docs/MERMAID_DIAGRAMS.md` (diagram opportunities + starter diagrams)
+- runtime/source koodi ei muudetud
+- map/bus/Üllata loogikat ei muudetud
 
 ## Järgmine lukustatud töö
 

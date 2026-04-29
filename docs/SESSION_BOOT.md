@@ -33,6 +33,7 @@ Latest accepted baseline:
 - PASS 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP completed (validation/docs/commit-prep)
 - PASS 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY completed and accepted (docs-only)
 - PASS 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP completed and accepted
+- PASS 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC completed and accepted (docs-only)
 - current verified provider deploy: `https://b0876d63.annivibe.pages.dev`
 - current verified destination-first bus deploy: `https://968d08cb.annivibe.pages.dev`
 - canonical URL `https://annivibe.pages.dev` verified with `source=gemini`
@@ -139,12 +140,20 @@ Latest accepted baseline:
   - destination label is stop/group based (no fake destination distance added)
   - `depsWithMeta(...)` remained unchanged
   - no map implementation was added in this pass
+- PASS 26A docs-only summary:
+  - governance doc added: `docs/PROMPT_SYSTEM.md`
+  - prompt template doc synced: `docs/PROMPT_TEMPLATES.md`
+  - Mermaid plan + starter diagrams added: `docs/MERMAID_DIAGRAMS.md`
+  - no runtime/source files changed
 - prompt template system added
 
 ## Current active focus
 
 Next likely pass:
 PASS 25B — TYPED_STOP_SEARCH (narrow implementation, no map).
+
+Deferred docs-only follow-up:
+- PASS 26B — verify/render Mermaid diagrams and refine docs if needed
 
 ## Allowed files for next pass
 
@@ -175,7 +184,7 @@ PASS 25B — TYPED_STOP_SEARCH (narrow implementation, no map).
 
 - Cloudflare Git-backed deploy old commit `165d23e` issue is historical/monitor-only.
 - Manual Wrangler deploy remains fallback only.
-- PASS 11, PASS 12, PASS 14B, PASS 14C, PASS 16, PASS 17_PREP, PASS 17, PASS 18, PASS 19_MAIN, PASS 20, PASS 21, PASS 22, PASS 23A, PASS 23B, PASS 23C, PASS 23D, PASS 25A are closed.
+- PASS 11, PASS 12, PASS 14B, PASS 14C, PASS 16, PASS 17_PREP, PASS 17, PASS 18, PASS 19_MAIN, PASS 20, PASS 21, PASS 22, PASS 23A, PASS 23B, PASS 23C, PASS 23D, PASS 25A, PASS 26A are closed.
 - provider runtime works, but keep fallback behavior monitored.
 - stop-point coordinate precision may still be partly generalized by source data.
 - Claude audit pending findings are not fixed yet; execute one narrow pass at a time.
@@ -190,7 +199,9 @@ Deploy/API-key work:
 - docs/POST_DEPLOY_FOLLOWUPS.md
 
 Prompt/workflow work:
+- docs/PROMPT_SYSTEM.md
 - docs/PROMPT_TEMPLATES.md
+- docs/MERMAID_DIAGRAMS.md
 
 Historical context only if needed:
 - docs/ACCEPTED_CHECKPOINTS.md

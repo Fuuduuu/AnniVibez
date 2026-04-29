@@ -565,6 +565,21 @@ Sisu:
   - `npm run build` passed
   - no `dist/*` git noise remained
 
+### 29. PASS 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC
+**Staatus:** accepted (docs-only)
+
+Sisu:
+- Tehnika-style prompt governance dokumenteeriti:
+  - `docs/PROMPT_SYSTEM.md`
+- prompt mallid sünkrooniti PASS-põhiste placeholder-mallidega:
+  - `docs/PROMPT_TEMPLATES.md`
+- Mermaid diagram opportunity + starter diagram docs lisati:
+  - `docs/MERMAID_DIAGRAMS.md`
+- minimal docs index sync:
+  - `docs/TRUTH_INDEX.md`
+- runtime/source/deploy loogikat ei muudetud
+- map implementationit ei lisatud
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
@@ -574,6 +589,7 @@ Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut 
 - stop-point coordinates may be partly generalized; exact road-side precision depends on source data quality
 - Claude audit pending backlog is tracked in `docs/AUDIT_FINDINGS_BACKLOG.md`
 - remaining pending audit items:
+  - PASS 26B — MERMAID_DIAGRAMS_RENDER_REVIEW
   - PASS 25B — TYPED_STOP_SEARCH
   - PASS 25C — DESTINATION_POINT_AND_CANDIDATE_STATE_PREP
   - PASS 25D — LEAFLET_MAP_PICKER_SKELETON
@@ -611,6 +627,7 @@ Põhjus:
 - Pass 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP completed
 - Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY completed (docs-only)
 - Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP completed
+- Pass 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC completed (docs-only)
 - järgmine on PASS 25B TYPED_STOP_SEARCH
 
 ## Järgmine lubatud samm
@@ -648,4 +665,5 @@ Põhjus:
 - Pass 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP accepted and closed
 - Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY accepted and closed (docs-only)
 - Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP accepted and closed
+- Pass 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC accepted and closed (docs-only)
 - broad implementation pass ilma kitsa lockita: keelatud

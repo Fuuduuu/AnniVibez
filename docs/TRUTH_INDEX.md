@@ -27,7 +27,9 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/CHANGE_SURFACES.md`
 - `docs/PROJECT_MAP.md`
 - `docs/PROJECT_MINI_MAP.md`
+- `docs/PROMPT_SYSTEM.md`
 - `docs/PROMPT_TEMPLATES.md`
+- `docs/MERMAID_DIAGRAMS.md`
 - `docs/SECURITY_APPEND.md`
 
 ## Historical / duplicate / not-yet-instantiated docs

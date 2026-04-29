@@ -42,6 +42,144 @@ G. Remaining risks / open questions
 
 ---
 
+## PASS 26A compact templates (preferred)
+
+Guideline for all templates:
+- be a sniper, not a machine gun
+- one pass only
+- no unrelated "helpful" edits
+
+Common placeholders:
+- `PASS_NAME`
+- `GOAL`
+- `EXPECTED_HEAD`
+- `FILES_TO_READ`
+- `LIKELY_TOUCHED`
+- `PROTECTED_FILES`
+- `VALIDATION`
+- `OUTPUT_REQUIRED`
+
+### 1) Docs-only planning pass
+
+```text
+PASS_NAME: <PASS_NAME>
+GOAL: <GOAL>
+
+Repo alignment gate (required):
+pwd
+git rev-parse --show-toplevel
+git branch --show-current
+git rev-parse HEAD
+git remote -v
+git status --short --untracked-files=all
+git ls-files docs/SESSION_BOOT.md
+
+FILES_TO_READ: <FILES_TO_READ>
+LIKELY_TOUCHED: docs/*
+PROTECTED_FILES: <PROTECTED_FILES>
+VALIDATION: git status --short --untracked-files=all (docs-only changes)
+OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
+Stop and wait.
+```
+
+### 2) Implementation pass
+
+```text
+PASS_NAME: <PASS_NAME>
+GOAL: <GOAL>
+EXPECTED_HEAD: <EXPECTED_HEAD>
+FILES_TO_READ: <FILES_TO_READ>
+LIKELY_TOUCHED: <LIKELY_TOUCHED>
+PROTECTED_FILES: <PROTECTED_FILES>
+VALIDATION:
+- <VALIDATION>
+- npm run build
+OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
+Stop and wait.
+```
+
+### 3) Validation/checkpoint pass
+
+```text
+PASS_NAME: <PASS_NAME>
+GOAL: Validate previously implemented pass without new implementation.
+FILES_TO_READ: <FILES_TO_READ>
+LIKELY_TOUCHED: docs/checkpoint files only
+PROTECTED_FILES: src/*, functions/* (unless explicitly requested)
+VALIDATION:
+- npm run build
+- source/manual checks
+- git diff --name-only
+OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
+Stop and wait.
+```
+
+### 4) Deploy/live-smoke pass
+
+```text
+PASS_NAME: <PASS_NAME>
+GOAL: Deploy current validated tree and run live smoke checks.
+FILES_TO_READ: docs/SESSION_BOOT.md, docs/POST_DEPLOY_FOLLOWUPS.md
+LIKELY_TOUCHED: none (or docs-only if explicitly requested)
+PROTECTED_FILES: runtime/source files
+VALIDATION:
+- npm run build
+- wrangler/pages deploy
+- canonical URL 200
+- /api smoke
+OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
+Stop and wait.
+```
+
+### 5) Commit/push pass
+
+```text
+PASS_NAME: <PASS_NAME>
+GOAL: Stage only intended files, commit, push.
+FILES_TO_READ: docs/SESSION_BOOT.md
+LIKELY_TOUCHED: none
+PROTECTED_FILES: all non-listed files
+VALIDATION:
+- git status --short --untracked-files=all
+- git log --oneline -3
+OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
+Stop.
+```
+
+### 6) Claude architecture prompt
+
+```text
+PASS_NAME: <PASS_NAME>
+GOAL: architecture/logic options and edge-case review only.
+FILES_TO_READ: <FILES_TO_READ>
+Constraints:
+- no code edits
+- preserve locked behavior
+- propose 1-3 narrow options with risks
+OUTPUT_REQUIRED:
+- recommended option
+- edge cases
+- pass split proposal
+```
+
+### 7) Qwen/Ollama review prompt
+
+```text
+PASS_NAME: <PASS_NAME>
+GOAL: cheap local review / patch draft only.
+FILES_TO_READ: <FILES_TO_READ>
+Constraints:
+- no final authority
+- no broad refactor suggestions
+- list concrete risks and tiny patch ideas
+OUTPUT_REQUIRED:
+- findings by severity
+- minimal patch suggestion
+- what to verify in Codex
+```
+
+---
+
 ## 1. DOCS_ONLY_PASS
 
 Use for documentation creation/update only.
