@@ -143,3 +143,13 @@ flowchart TD
 - Diagram D is intentionally conceptual (process governance).
 - Future map diagrams remain planning-only until PASS 25C/25D/25E work is explicitly unlocked.
 
+## Codebase impact / sniper maps
+
+- Mermaid source-of-truth for impact/surface diagrams lives in:
+  - `docs/CODEBASE_IMPACT_MAP.md`
+- Any future Figma/FigJam export should be generated from this Mermaid source, not freehand memory.
+- Figma/FigJam input scope should include only:
+  - Mermaid diagram content
+  - legend
+  - color rules
+- No Figma/FigJam artifact is created in this pass.

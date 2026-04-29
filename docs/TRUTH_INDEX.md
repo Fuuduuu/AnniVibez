@@ -34,6 +34,8 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/MERMAID_DIAGRAMS.md`
 - `docs/DEPLOYMENT.md`
 - `docs/BUS_POI_DESTINATION_PLAN.md`
+- `docs/CODEBASE_IMPACT_MAP.md`
+- `docs/PROTECTED_SURFACES.md`
 - `docs/SECURITY_APPEND.md`
 
 ## Historical / duplicate / not-yet-instantiated docs

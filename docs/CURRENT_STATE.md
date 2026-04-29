@@ -78,6 +78,10 @@ For most passes, read only:
 
 Expand reads only when the prompt explicitly requires it.
 
+Use these docs to decide read/touch/validate boundaries:
+- `docs/CODEBASE_IMPACT_MAP.md`
+- `docs/PROTECTED_SURFACES.md`
+
 ## Next likely passes
 
 - `PASS 26C — WORKFLOW_AND_BUS_LOGIC_DIAGRAMS`
@@ -91,4 +95,3 @@ Expand reads only when the prompt explicitly requires it.
 - canonical/PWA cache can briefly show an older bundle
 - after deploy, verify canonical HTML bundle asset
 - recovery details are in `docs/DEPLOYMENT.md`
-

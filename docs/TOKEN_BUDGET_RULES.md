@@ -10,6 +10,7 @@ Reduce Codex token use while preserving safety and scope control.
 
 - read `AGENTS.md`
 - read `docs/CURRENT_STATE.md`
+- use `docs/CODEBASE_IMPACT_MAP.md` and `docs/PROTECTED_SURFACES.md` to choose read/touch/validate scope
 - read only pass-specific files required by the prompt
 - do not read `docs/ACCEPTED_CHECKPOINTS.md` unless checkpoint/history is needed
 - do not read `docs/AUDIT_FINDINGS_BACKLOG.md` unless backlog state is part of the pass
@@ -52,3 +53,5 @@ Allow larger read-first only when:
 - preparing a major checkpoint
 - source ownership is unclear
 
+In normal passes, the impact map is authoritative for scope discipline:
+- `docs/CODEBASE_IMPACT_MAP.md`
