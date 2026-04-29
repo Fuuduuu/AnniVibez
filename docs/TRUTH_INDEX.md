@@ -32,6 +32,7 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/CURRENT_STATE.md`
 - `docs/TOKEN_BUDGET_RULES.md`
 - `docs/MERMAID_DIAGRAMS.md`
+- `docs/assets/annivibe-sniper-matrix.png` (visual aid; source-of-truth in `docs/CODEBASE_IMPACT_MAP.md`)
 - `docs/DEPLOYMENT.md`
 - `docs/BUS_POI_DESTINATION_PLAN.md`
 - `docs/CODEBASE_IMPACT_MAP.md`

@@ -82,6 +82,10 @@ Use these docs to decide read/touch/validate boundaries:
 - `docs/CODEBASE_IMPACT_MAP.md`
 - `docs/PROTECTED_SURFACES.md`
 
+Sniper Matrix visual asset:
+- `docs/assets/annivibe-sniper-matrix.png`
+- source of truth remains `docs/CODEBASE_IMPACT_MAP.md`
+
 ## Next likely passes
 
 - `PASS 26C — WORKFLOW_AND_BUS_LOGIC_DIAGRAMS`

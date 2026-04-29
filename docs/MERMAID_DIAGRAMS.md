@@ -152,4 +152,19 @@ flowchart TD
   - Mermaid diagram content
   - legend
   - color rules
-- No Figma/FigJam artifact is created in this pass.
+
+## Figma/FigJam visual
+
+- A Figma/FigJam visual exists for the AnniVibe Sniper Matrix / codebase impact map.
+- Visual asset path:
+  - `docs/assets/annivibe-sniper-matrix.png`
+- Figma/FigJam link:
+  - `https://www.figma.com/make/NLhNtsH62eXlt3XLtqZ2wM/Create-Engineering-Diagram?t=cXNGGnLW3YYQ6KIt-20&fullscreen=1`
+- Purpose:
+  - developer-facing quick reference for Codex pass type -> read/touch/never-touch/validate
+- The image is a visual aid only.
+- Source of truth remains:
+  - `docs/CODEBASE_IMPACT_MAP.md`
+- Future Figma/FigJam updates must be generated from repo Mermaid/docs, not freehand memory.
+
+![AnniVibe Sniper Matrix](./assets/annivibe-sniper-matrix.png)
