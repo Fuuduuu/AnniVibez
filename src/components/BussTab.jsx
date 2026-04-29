@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AV, FONT, card, inp, labelStyle, shell } from '../design/tokens';
 import { BUS_DATA } from '../data/busData';
+import { POI_DATA } from '../data/poiData';
 import { depsWithMeta, nearest, wd } from '../utils/bus';
 
 function DepRow({ d }) {
@@ -47,6 +48,8 @@ export function BussTab({ savedPlaces = [] }) {
   const [nearbyOriginCandidates, setNearbyOriginCandidates] = useState([]);
   const [routeOptions, setRouteOptions] = useState([]);
   const [destination, setDestination] = useState('');
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [selectedPlaceLabel, setSelectedPlaceLabel] = useState('');
   const [emptyReason, setEmptyReason] = useState('');
   const [gpsState, setGpsState] = useState('idle');
   const [activePill, setActivePill] = useState(null);
@@ -93,7 +96,29 @@ export function BussTab({ savedPlaces = [] }) {
     setNearbyOriginCandidates([]);
   }
 
-  function findRouteOptions(origin, selectedDestination, service, nearbyCandidates) {
+  function normalizeSearchText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .trim()
+      .replace(/õ/g, 'o')
+      .replace(/[öó]/g, 'o')
+      .replace(/[äá]/g, 'a')
+      .replace(/[üú]/g, 'u');
+  }
+
+  function getMatchRank(candidateValues, queryNorm) {
+    let rank = null;
+    for (const raw of candidateValues) {
+      const valueNorm = normalizeSearchText(raw);
+      if (!valueNorm) continue;
+      if (valueNorm === queryNorm) rank = rank == null ? 0 : Math.min(rank, 0);
+      else if (valueNorm.startsWith(queryNorm)) rank = rank == null ? 1 : Math.min(rank, 1);
+      else if (valueNorm.includes(queryNorm)) rank = rank == null ? 2 : Math.min(rank, 2);
+    }
+    return rank;
+  }
+
+  function findRouteOptions(origin, selectedDestination, service, nearbyCandidates, destinationDisplayName = '') {
     if (!selectedDestination) {
       return { options: [], reason: '' };
     }
@@ -110,7 +135,8 @@ export function BussTab({ savedPlaces = [] }) {
     if (!originCodes.length) {
       return { options: [], reason: 'Vali lähtekoht, et näha marsruute' };
     }
-    const destinationName = typeof selectedDestination === 'string' ? selectedDestination.trim() : '';
+    const displayDestinationName = typeof destinationDisplayName === 'string' ? destinationDisplayName.trim() : '';
+    const destinationName = displayDestinationName || (typeof selectedDestination === 'string' ? selectedDestination.trim() : '');
 
     const primary = depsWithMeta(originCodes, 5, { destination: selectedDestination, service });
     const mappedPrimary = primary.departures.map(dep => ({
@@ -178,11 +204,73 @@ export function BussTab({ savedPlaces = [] }) {
 
   const effectiveOrigin = manualOriginOverride ?? currentOrigin;
 
+  const enabledPoiTargets = POI_DATA.filter(poi => poi.enabled && poi.preferredStopGroups?.length > 0);
+  const popularPlaceIds = ['poi_kesklinn', 'poi_bussijaam', 'poi_haigla', 'poi_pohjakeskus', 'poi_teater'];
+  const popularPlaceTargets = popularPlaceIds
+    .map(id => enabledPoiTargets.find(poi => poi.id === id))
+    .filter(Boolean);
+
+  const queryNorm = normalizeSearchText(placeQuery);
+  const showSearchResults = queryNorm.length >= 2;
+  const placeSearchResults = showSearchResults
+    ? (() => {
+        const poiResults = enabledPoiTargets
+          .map(poi => {
+            const rank = getMatchRank([poi.label, ...(poi.aliases || [])], queryNorm);
+            if (rank == null) return null;
+            return {
+              type: 'poi',
+              id: poi.id,
+              label: poi.label,
+              subtitle: `Koht · lähim peatus: ${poi.preferredStopGroups[0]}`,
+              routeDestination: poi.preferredStopGroups[0],
+              rank,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'et'));
+
+        const usedStopNames = new Set(poiResults.map(result => result.routeDestination));
+        const stopResults = BUS_DATA.groups
+          .map(group => {
+            if (usedStopNames.has(group.name)) return null;
+            const rank = getMatchRank([group.name], queryNorm);
+            if (rank == null) return null;
+            return {
+              type: 'stop',
+              id: `stop-${group.name}`,
+              label: group.name,
+              subtitle: 'Peatus',
+              routeDestination: group.name,
+              rank,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label, 'et'));
+
+        return [...poiResults, ...stopResults].slice(0, 6);
+      })()
+    : [];
+
+  function selectDestinationResult(result) {
+    setDestination(result.routeDestination);
+    setSelectedPlaceLabel(result.type === 'poi' ? result.label : '');
+    setPlaceQuery(result.label);
+  }
+
+  const visibleDestinationLabel = selectedPlaceLabel || destination;
+
   useEffect(() => {
-    const { options, reason } = findRouteOptions(effectiveOrigin, destination, wd(), nearbyOriginCandidates);
+    const { options, reason } = findRouteOptions(
+      effectiveOrigin,
+      destination,
+      wd(),
+      nearbyOriginCandidates,
+      selectedPlaceLabel
+    );
     setRouteOptions(options);
     setEmptyReason(reason);
-  }, [effectiveOrigin, destination, nearbyOriginCandidates]);
+  }, [effectiveOrigin, destination, nearbyOriginCandidates, selectedPlaceLabel]);
 
   const gpsLabel = {
     idle: 'Leia lähim peatus (GPS)',
@@ -204,8 +292,97 @@ export function BussTab({ savedPlaces = [] }) {
 
       <div style={{ ...card, marginBottom: 14 }}>
         <div style={{ fontSize: 10, ...labelStyle, marginBottom: 6 }}>Kuhu soovid minna?</div>
+        <input
+          type="text"
+          value={placeQuery}
+          onChange={e => setPlaceQuery(e.target.value)}
+          style={{ ...inp, marginTop: 0 }}
+          placeholder="Otsi kohta või peatust…"
+        />
+        <div style={{ fontSize: 12, color: AV.muted, marginTop: 8, marginBottom: 6 }}>
+          Peatuse nime teadma ei pea — otsi kohta, näiteks haigla või kesklinn.
+        </div>
+        {popularPlaceTargets.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, ...labelStyle, marginBottom: 6 }}>Populaarsed kohad</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              {popularPlaceTargets.map(poi => (
+                <button
+                  key={`poi-chip-${poi.id}`}
+                  onClick={() =>
+                    selectDestinationResult({
+                      type: 'poi',
+                      id: poi.id,
+                      label: poi.label,
+                      subtitle: `Koht · lähim peatus: ${poi.preferredStopGroups[0]}`,
+                      routeDestination: poi.preferredStopGroups[0],
+                    })
+                  }
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: 999,
+                    fontSize: 12,
+                    border: `1px solid ${AV.border}`,
+                    background: AV.bg,
+                    color: AV.textSoft,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {poi.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {showSearchResults && (
+          <div style={{ display: 'grid', gap: 6, marginBottom: 10 }}>
+            {placeSearchResults.length > 0 ? (
+              placeSearchResults.map(result => (
+                <button
+                  key={`search-result-${result.id}`}
+                  onClick={() => selectDestinationResult(result)}
+                  style={{
+                    textAlign: 'left',
+                    border: `1px solid ${AV.border}`,
+                    background: AV.bg,
+                    color: AV.text,
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    padding: '8px 10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        borderRadius: 999,
+                        padding: '2px 8px',
+                        border: `1px solid ${AV.border}`,
+                        color: AV.textSoft,
+                      }}
+                    >
+                      {result.type === 'poi' ? 'Koht' : 'Peatus'}
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{result.label}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: AV.muted }}>{result.subtitle}</div>
+                </button>
+              ))
+            ) : (
+              <div style={{ fontSize: 12, color: AV.muted }}>
+                Kohta ei leitud. Proovi teist nime või vali peatus nimekirjast.
+              </div>
+            )}
+          </div>
+        )}
+        <div style={{ fontSize: 12, color: AV.muted, marginBottom: 6 }}>või vali peatus nimekirjast</div>
         <select
-          onChange={e => setDestination(e.target.value)}
+          onChange={e => {
+            const nextDestination = e.target.value;
+            setDestination(nextDestination);
+            setSelectedPlaceLabel('');
+            setPlaceQuery(nextDestination || '');
+          }}
           style={{ ...inp, marginTop: 0 }}
           value={destination}
         >
@@ -217,7 +394,7 @@ export function BussTab({ savedPlaces = [] }) {
           ))}
         </select>
         <div style={{ fontSize: 12, color: AV.muted, marginTop: 8 }}>
-          {destination ? `Valitud sihtkoht: ${destination}` : 'Vali sihtkoht, et näha marsruute'}
+          {destination ? `Valitud sihtkoht: ${visibleDestinationLabel}` : 'Vali sihtkoht, et näha marsruute'}
         </div>
       </div>
 
