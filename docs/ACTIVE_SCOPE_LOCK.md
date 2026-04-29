@@ -10,36 +10,33 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**PASS 23D (BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY) on tehtud ja accepted (docs-only).**
+**PASS 25A (ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP) on tehtud ja accepted.**
 
-PASS 23D tulemus:
-- map picker arhitektuuriplan dokumenteeriti docs-only passina
-- planeeritud dokument:
-  - `docs/BUS_MAP_PICKER_PLAN.md`
-- lukustatud suund:
-  - map picker on destination input wrapper, mitte uus routing engine
-- lukustatud phased rollout:
-  - PASS 25A: route recommendation enrichment (no map)
-  - PASS 25B: typed stop search
-  - PASS 25C: destination point/candidate state prep
-  - PASS 25D: Leaflet map picker skeleton
-  - PASS 25E: map picker integration
-  - PASS 25F: map route live smoke
-- `depsWithMeta(...)` ja `nearest(...)` jäid muutmata
-- runtime/source koodi ei muudetud
-- map tuge ei lisatud
-- pass on planning/checkpoint valmis
+PASS 25A tulemus:
+- route recommendation cards said selgema "kuidas kohale saada" konteksti
+- lisati destination/get-off kontekst:
+  - `Mine peatusesse: ...`
+  - `Sõida liiniga: ...`
+  - `Välju peatuses: [selected destination]`
+- destination-first flow jäi stabiilseks
+- route wrapper jäi olemasoleva engine peal:
+  - `depsWithMeta(...)` unchanged
+  - `displayCodes || codes || [code]` handling unchanged
+  - nearby fallback (max 2) unchanged
+- map UI/runtime tuge ei lisatud
+- `src/utils/bus.js` ja `src/data/busData.js` jäid muutmata
 
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 25A — ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP**
-- enrich route recommendation output without map
+- **PASS 25B — TYPED_STOP_SEARCH**
+- add typed stop search over existing stop/group names
 - hoia pass kitsas ja kontrollitav
 
 ## Selles passis lubatud
 
-- route card enrichment in existing destination-first flow
+- typed stop search in existing destination-first flow
+- destination dropdown fallback must remain
 - no map rendering/UI work
 - checkpoint docs sync
 
@@ -47,6 +44,7 @@ Praegune lukustatud järgmine faas:
 
 - no bus engine rewrite
 - no map picker implementation
+- no external geocoding
 - no unrelated runtime/provider refactors
 - no Trends
 - no redesign
@@ -56,10 +54,10 @@ Praegune lukustatud järgmine faas:
 
 ## Decision gate
 
-Pass 25A loetakse lõpetatuks ainult siis, kui:
-1. route recommendation cards annavad selgemat "kuidas kohale saada" infot
+Pass 25B loetakse lõpetatuks ainult siis, kui:
+1. typed stop search works over existing known stop/group names
 2. destination-first flow remains stable
-3. runtime map UI ei ole implementeeritud
+3. destination dropdown fallback remains available
 4. checkpoint docs on sünkroonitud
 5. broad scope does not reopen
 

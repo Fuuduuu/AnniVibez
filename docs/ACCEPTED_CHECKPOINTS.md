@@ -538,8 +538,32 @@ Sisu:
 - guardrails preserved:
   - `depsWithMeta(...)` unchanged
   - `src/utils/bus.js` unchanged
+- `src/data/busData.js` unchanged
+- no map UI implementation added
+
+### 28. PASS 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP
+**Staatus:** accepted
+
+Sisu:
+- narrow runtime enrichment in `src/components/BussTab.jsx`
+- route cards now include destination/get-off context:
+  - `Mine peatusesse: [origin]`
+  - `Sõida liiniga: [line]`
+  - `Välju peatuses: [selected destination]`
+- destination label uses selected destination group/name (no fake destination walking distance)
+- accepted destination-first behavior stayed intact:
+  - `manualOriginOverride ?? currentOrigin`
+  - destination-first render order and empty states
+  - nearby-origin fallback up to 2 candidates
+  - sibling-code handling via `displayCodes || codes || [code]`
+- guardrails preserved:
+  - `depsWithMeta(...)` unchanged
+  - `src/utils/bus.js` unchanged
   - `src/data/busData.js` unchanged
-  - no map UI implementation added
+  - no map implementation added
+- validation:
+  - `npm run build` passed
+  - no `dist/*` git noise remained
 
 ## Accepted not-yet-done areas
 
@@ -550,7 +574,6 @@ Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut 
 - stop-point coordinates may be partly generalized; exact road-side precision depends on source data quality
 - Claude audit pending backlog is tracked in `docs/AUDIT_FINDINGS_BACKLOG.md`
 - remaining pending audit items:
-  - PASS 25A — ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP
   - PASS 25B — TYPED_STOP_SEARCH
   - PASS 25C — DESTINATION_POINT_AND_CANDIDATE_STATE_PREP
   - PASS 25D — LEAFLET_MAP_PICKER_SKELETON
@@ -587,13 +610,14 @@ Põhjus:
 - Pass 23B BUS_DESTINATION_FIRST_MVP_NO_MAP completed
 - Pass 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP completed
 - Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY completed (docs-only)
-- järgmine on PASS 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP
+- Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP completed
+- järgmine on PASS 25B TYPED_STOP_SEARCH
 
 ## Järgmine lubatud samm
 
-- PASS 25A: ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP
+- PASS 25B: TYPED_STOP_SEARCH
 - focus:
-  - route recommendation enrichment without map
+  - typed destination/stop search over known stop/group names
   - keep existing routing engine stable (`depsWithMeta(...)` baseline)
 - rules:
   - no bus engine rewrite in this pass
@@ -623,4 +647,5 @@ Põhjus:
 - Pass 23B BUS_DESTINATION_FIRST_MVP_NO_MAP accepted and closed
 - Pass 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP accepted and closed
 - Pass 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY accepted and closed (docs-only)
+- Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP accepted and closed
 - broad implementation pass ilma kitsa lockita: keelatud

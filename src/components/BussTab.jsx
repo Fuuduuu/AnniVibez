@@ -25,9 +25,16 @@ function DepRow({ d }) {
         </span>
         <span style={{ fontSize: 13, color: AV.textSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.dir}</span>
       </div>
-      <div style={{ fontSize: 12, color: AV.muted }}>
-        Mine peatusesse: {d.originName}
-        {d.originDist != null ? ` · ${d.originDist} m` : ''}
+      <div style={{ fontSize: 12, color: AV.muted, display: 'grid', gap: 2 }}>
+        <div>
+          Mine peatusesse: {d.originName}
+          {d.originDist != null ? ` · ${d.originDist} m` : ''}
+        </div>
+        <div>
+          Sõida liiniga: {d.line}
+          {d.v ? ` (${d.v})` : ''}
+        </div>
+        <div>Välju peatuses: {d.destinationName || 'Valitud sihtkoht'}</div>
       </div>
     </div>
   );
@@ -103,6 +110,7 @@ export function BussTab({ savedPlaces = [] }) {
     if (!originCodes.length) {
       return { options: [], reason: 'Vali lähtekoht, et näha marsruute' };
     }
+    const destinationName = typeof selectedDestination === 'string' ? selectedDestination.trim() : '';
 
     const primary = depsWithMeta(originCodes, 5, { destination: selectedDestination, service });
     const mappedPrimary = primary.departures.map(dep => ({
@@ -110,6 +118,7 @@ export function BussTab({ savedPlaces = [] }) {
       originName: origin?.groupName || origin?.name || 'Valitud peatus',
       originDist: origin?.dist ?? null,
       originStopId: dep.originStopId || origin?.stopId || origin?.code || null,
+      destinationName: destinationName || 'Valitud sihtkoht',
     }));
     if (mappedPrimary.length > 0) {
       return { options: mappedPrimary.slice(0, 5), reason: '' };
@@ -131,6 +140,7 @@ export function BussTab({ savedPlaces = [] }) {
           originName: alt?.groupName || alt?.name || 'Valitud peatus',
           originDist: alt?.dist ?? null,
           originStopId: dep.originStopId || alt?.stopId || alt?.code || null,
+          destinationName: destinationName || 'Valitud sihtkoht',
         });
       }
     }
