@@ -29,6 +29,8 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/PROJECT_MINI_MAP.md`
 - `docs/PROMPT_SYSTEM.md`
 - `docs/PROMPT_TEMPLATES.md`
+- `docs/CURRENT_STATE.md`
+- `docs/TOKEN_BUDGET_RULES.md`
 - `docs/MERMAID_DIAGRAMS.md`
 - `docs/DEPLOYMENT.md`
 - `docs/BUS_POI_DESTINATION_PLAN.md`

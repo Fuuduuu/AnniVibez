@@ -19,10 +19,17 @@ Use this at the top of short prompts:
 
 ```text
 Read and obey AGENTS.md.
+Read docs/CURRENT_STATE.md.
+Follow docs/TOKEN_BUDGET_RULES.md.
 Follow docs/ACTIVE_SCOPE_LOCK.md.
 Use the relevant template from docs/PROMPT_TEMPLATES.md.
 Do one narrow pass only.
 ```
+
+Default read-first is:
+- `AGENTS.md`
+- `docs/CURRENT_STATE.md`
+- pass-specific files only
 
 ---
 

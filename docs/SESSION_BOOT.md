@@ -34,7 +34,9 @@ Latest accepted baseline:
 - PASS 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY completed and accepted (docs-only)
 - PASS 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP completed and accepted
 - PASS 25B PLACE_DESTINATION_MODEL_DOCS completed and accepted (docs-only)
+- PASS 25C LOCAL_POI_DATASET_RAKVERE completed and accepted
 - PASS 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC completed and accepted (docs-only)
+- PASS 26B TOKEN_BUDGET_AND_WORKFLOW_OPTIMIZATION completed (docs-only)
 - PASS 24 DEPLOY_ENV_DOCS completed and accepted (docs-only)
 - current verified provider deploy: `https://b0876d63.annivibe.pages.dev`
 - current verified destination-first bus deploy: `https://968d08cb.annivibe.pages.dev`
@@ -157,15 +159,24 @@ Latest accepted baseline:
   - typed stop-name search was demoted to fallback/advanced path
   - map and POI runtime implementation deferred to future narrow passes
   - no runtime/source files changed
+- PASS 25C data-only summary:
+  - local Rakvere POI dataset added in `src/data/poiData.js`
+  - dataset includes enabled and disabled POI entries with verification flags
+  - POI data is not wired to UI in this pass
+- PASS 26B docs-only summary:
+  - compact state doc added: `docs/CURRENT_STATE.md`
+  - token policy doc added: `docs/TOKEN_BUDGET_RULES.md`
+  - prompt docs now default to low-token read-first policy
+  - no runtime/source files changed
 - prompt template system added
 
 ## Current active focus
 
 Next likely pass:
-PASS 25C — LOCAL_POI_DATASET_RAKVERE (narrow implementation, no map).
+PASS 26C — WORKFLOW_AND_BUS_LOGIC_DIAGRAMS (docs-only).
 
 Deferred docs-only follow-up:
-- PASS 26B — verify/render Mermaid diagrams and refine docs if needed
+- PASS 26C — verify/render Mermaid/workflow diagrams and refine docs if needed
 
 ## Allowed files for next pass
 
@@ -196,7 +207,7 @@ Deferred docs-only follow-up:
 
 - Cloudflare Git-backed deploy old commit `165d23e` issue is historical/monitor-only.
 - Manual Wrangler deploy remains fallback only.
-- PASS 11, PASS 12, PASS 14B, PASS 14C, PASS 16, PASS 17_PREP, PASS 17, PASS 18, PASS 19_MAIN, PASS 20, PASS 21, PASS 22, PASS 23A, PASS 23B, PASS 23C, PASS 23D, PASS 24, PASS 25A, PASS 25B, PASS 26A are closed.
+- PASS 11, PASS 12, PASS 14B, PASS 14C, PASS 16, PASS 17_PREP, PASS 17, PASS 18, PASS 19_MAIN, PASS 20, PASS 21, PASS 22, PASS 23A, PASS 23B, PASS 23C, PASS 23D, PASS 24, PASS 25A, PASS 25B, PASS 25C, PASS 26A, PASS 26B are closed.
 - provider runtime works, but keep fallback behavior monitored.
 - stop-point coordinate precision may still be partly generalized by source data.
 - Claude audit pending findings are not fixed yet; execute one narrow pass at a time.

@@ -10,7 +10,7 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**PASS 25B (PLACE_DESTINATION_MODEL_DOCS) on tehtud ja accepted (docs-only).**
+**PASS 26B (TOKEN_BUDGET_AND_WORKFLOW_OPTIMIZATION) on tehtud (docs-only).**
 
 PASS 25A runtime tulemus:
 - route recommendation cards said selgema "kuidas kohale saada" konteksti
@@ -48,18 +48,28 @@ PASS 25B docs-only tulemus:
   - `displayCodes || codes || [code]` handling unchanged
 - map/runtime implementatsiooni ei lisatud
 
+PASS 25C data-only tulemus:
+- lisati `src/data/poiData.js`
+- POI dataset on lisatud ilma UI ühenduseta
+- bus engine/runtime käitumist ei muudetud
+
+PASS 26B docs-only tulemus:
+- lisati `docs/CURRENT_STATE.md` madala tokenikuluga state-entrypointina
+- lisati `docs/TOKEN_BUDGET_RULES.md` prompt/read optimeerimise reeglitega
+- prompt docs viitavad nüüd vaikimisi lühikesele read-first mudelile
+- runtime/source koodi ei muudetud
+
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 25C — LOCAL_POI_DATASET_RAKVERE**
-- add verified local POI dataset and destination resolver mappings
+- **PASS 26C — WORKFLOW_AND_BUS_LOGIC_DIAGRAMS**
+- add workflow and bus-logic Mermaid docs in a narrow docs-only pass
 - hoia pass kitsas ja kontrollitav
 
 ## Selles passis lubatud
 
-- local POI dataset wiring in destination-first flow
-- stop/group input must remain fallback
-- no map rendering/UI work
+- docs-only workflow/diagram planning updates
+- no runtime/source changes
 - checkpoint docs sync
 
 ## Selles passis mitte lubatud
@@ -76,13 +86,11 @@ Praegune lukustatud järgmine faas:
 
 ## Decision gate
 
-Pass 25C loetakse lõpetatuks ainult siis, kui:
-1. POI dataset on lisatud kontrollitava shape'i ja staatusväljadega
-2. destination-first flow remains stable
-3. stop/group fallback remains available
-4. map/runtime implementationit ei lisata
-5. checkpoint docs on sünkroonitud
-6. broad scope does not reopen
+Pass 26C loetakse lõpetatuks ainult siis, kui:
+1. workflow/bus-logic diagram scope on dokumenteeritud kitsalt
+2. runtime/source faile ei muudeta
+3. checkpoint docs on sünkroonitud
+4. broad scope does not reopen
 
 ## Hooldusreegel
 

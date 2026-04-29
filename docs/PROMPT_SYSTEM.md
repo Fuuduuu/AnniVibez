@@ -69,6 +69,18 @@ Every Codex prompt should include:
 - required output
 - stop/wait instruction
 
+## Default low-token read-first policy
+
+For most passes, default read-first context is:
+
+- `AGENTS.md`
+- `docs/CURRENT_STATE.md`
+- pass-specific files listed in the prompt
+
+Token policy details are in:
+
+- `docs/TOKEN_BUDGET_RULES.md`
+
 ## Required repo alignment gate
 
 Use this default gate pattern:
@@ -96,4 +108,3 @@ git ls-files docs/SESSION_BOOT.md
 - `git status --short --untracked-files=all`
 - next recommended pass
 - stop/wait confirmation
-
