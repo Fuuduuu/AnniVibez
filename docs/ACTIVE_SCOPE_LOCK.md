@@ -10,7 +10,7 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**PASS 26A (PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC) on tehtud ja accepted (docs-only).**
+**PASS 25B (PLACE_DESTINATION_MODEL_DOCS) on tehtud ja accepted (docs-only).**
 
 PASS 25A runtime tulemus:
 - route recommendation cards said selgema "kuidas kohale saada" konteksti
@@ -38,17 +38,27 @@ PASS 24 docs-only tulemus:
 - lisati turvaline env näidis: `.env.example` (ainult nimed/placeholders)
 - runtime/source koodi ei muudetud
 
+PASS 25B docs-only tulemus:
+- lisati POI/place-first sihtkoha mudeli plaan:
+  - `docs/BUS_POI_DESTINATION_PLAN.md`
+- stop-name search alandati fallback/advanced teeks
+- destination-first flow ja olemasolev bus engine jäid lukku:
+  - `depsWithMeta(...)` unchanged
+  - `nearest(...)` unchanged
+  - `displayCodes || codes || [code]` handling unchanged
+- map/runtime implementatsiooni ei lisatud
+
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 25B — TYPED_STOP_SEARCH**
-- add typed stop search over existing stop/group names
+- **PASS 25C — LOCAL_POI_DATASET_RAKVERE**
+- add verified local POI dataset and destination resolver mappings
 - hoia pass kitsas ja kontrollitav
 
 ## Selles passis lubatud
 
-- typed stop search in existing destination-first flow
-- destination dropdown fallback must remain
+- local POI dataset wiring in destination-first flow
+- stop/group input must remain fallback
 - no map rendering/UI work
 - checkpoint docs sync
 
@@ -66,12 +76,13 @@ Praegune lukustatud järgmine faas:
 
 ## Decision gate
 
-Pass 25B loetakse lõpetatuks ainult siis, kui:
-1. typed stop search works over existing known stop/group names
+Pass 25C loetakse lõpetatuks ainult siis, kui:
+1. POI dataset on lisatud kontrollitava shape'i ja staatusväljadega
 2. destination-first flow remains stable
-3. destination dropdown fallback remains available
-4. checkpoint docs on sünkroonitud
-5. broad scope does not reopen
+3. stop/group fallback remains available
+4. map/runtime implementationit ei lisata
+5. checkpoint docs on sünkroonitud
+6. broad scope does not reopen
 
 ## Hooldusreegel
 

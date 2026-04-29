@@ -8,7 +8,7 @@ Status: PASS 23D recovery/final planning (docs-only, no runtime implementation).
 
 ## Locked architectural principle
 
-Map and typed destination search are input surfaces, not a new routing engine.
+Map and destination resolver inputs are surfaces, not a new routing engine.
 
 Destination-first base flow stays canonical:
 - destination selection
@@ -28,8 +28,8 @@ Destination-first base flow stays canonical:
 `resolveDestinationPoint(input)`
 
 Supported modes:
-- stop/group name
-- typed stop search
+- local POI/place
+- stop/group fallback
 - map pin
 - later optional saved places / POI list
 
@@ -47,12 +47,12 @@ Route output should eventually answer:
 - resolves via current destination logic
 - no coordinate requirement
 
-### Mode B - typed stop search
-- search only `BUS_DATA.groups` names in MVP
-- match order: exact, then startsWith, then includes
-- show top 5 results
+### Mode B - local POI/place search (primary)
+- users should not need internal stop names
+- resolve by POI label/aliases first
+- map POI to preferred destination stop groups where possible
 - no external geocoding in MVP
-- no match copy: `Peatust ei leitud. Vali nimekirjast.`
+- no match copy: `Kohta ei leitud. Proovi nimekirjast või vali kaardilt.`
 
 ### Mode C - map pin
 - user opens `Vali sihtkoht kaardilt`
@@ -60,12 +60,13 @@ Route output should eventually answer:
 - `nearest(pinLat, pinLon)` resolves destination candidates (1-3)
 - selected candidate becomes destination input for existing flow
 
-Future optional:
-- small hardcoded Rakvere POI list (no paid APIs)
+### Mode D - stop-name fallback (advanced/manual)
+- stop/group name search remains available as fallback
+- this is not the primary UX path
 
 ## Critical verification note before implementation
 
-Before map/typed integration code work:
+Before map/place integration code work:
 1. verify in source whether `depsWithMeta` / `resolveStopIds` accepts destination as an array of stop codes
 2. if arrays are supported, map resolver may pass destination code arrays directly
 3. if arrays are not supported, resolver must map to accepted destination name/group or add a tiny compatible adapter
@@ -121,6 +122,10 @@ Keep scoring simple in early passes.
 
 ## Future pass plan
 
+Update from PASS 25B docs-only decision:
+- typed stop-name search is fallback/advanced
+- POI/place-first destination model is primary
+
 ### PASS 23D - BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY
 Docs-only planning. No runtime code.
 
@@ -137,51 +142,59 @@ Do not touch:
 - `src/data/busData.js`
 - Üllata/API/provider files
 
-### PASS 25B - TYPED_STOP_SEARCH
+### PASS 25B - PLACE_DESTINATION_MODEL_DOCS
 Goal:
-- add typed search over known stop/group names
-- dropdown remains fallback
+- document POI/place-first destination model
+- demote stop-name search to fallback
+
+Likely touched:
+- docs only
+
+### PASS 25C - LOCAL_POI_DATASET_RAKVERE
+Goal:
+- add verified local POI dataset (no external geocoding)
+- map POIs to destination resolver inputs
+
+Likely touched:
+- `src/data` (new POI dataset file expected)
+- `src/components/BussTab.jsx` (minimal wiring only when explicitly unlocked)
+
+### PASS 25D - PLACE_SEARCH_UI_NO_MAP
+Goal:
+- add place/POI-first destination search UI
+- keep stop-name input as fallback path
 
 Likely touched:
 - `src/components/BussTab.jsx`
 
-### PASS 25C - DESTINATION_POINT_AND_CANDIDATE_STATE_PREP
+### PASS 25E - ROUTE_RECOMMENDATION_SCORING_NO_MAP
 Goal:
-- add `destinationMode`, `destinationPoint`, `destinationCandidates` state
-- prepare pin-based destination path without rendering map yet
-- include destination array support verification step
+- apply scoring for POI-aware recommendations without map
+- preserve existing `depsWithMeta(...)` engine
 
 Likely touched:
 - `src/components/BussTab.jsx`
 
-### PASS 25D - LEAFLET_MAP_PICKER_SKELETON
+### PASS 25F - MAP_PICKER_SKELETON
 Goal:
-- add Leaflet dependency and isolated `BusMapPicker` skeleton
-- no BussTab integration yet unless explicitly unlocked
+- add map picker component skeleton only (no full integration)
 
 Likely touched:
 - `package.json`
 - lockfile
 - `src/components/BusMapPicker.jsx`
 
-### PASS 25E - MAP_PICKER_INTEGRATION
+### PASS 25G - MAP_PIN_TO_DESTINATION_CANDIDATES
 Goal:
-- add `Vali kaardilt` trigger + modal
-- pin -> destination candidates -> selected destination
-- feed existing destination-first routing
+- integrate pin -> nearest destination candidates -> destination resolver
 
 Likely touched:
 - `src/components/BussTab.jsx`
 - `src/components/BusMapPicker.jsx`
 
-### PASS 25F - MAP_ROUTE_LIVE_SMOKE
+### PASS 25H - LIVE_FIELD_TEST
 Goal:
-- deploy and validate Rakvere scenarios:
-  - pin near Pohjakeskus
-  - pin near Bussijaam
-  - pin near Oie/Tulika area
-  - pin with no nearby stops
-  - mobile GPS/location permission behavior
+- deploy and live test POI/map destination flows in Rakvere scenarios
 
 ## Explicit do-not-implement list (still locked)
 

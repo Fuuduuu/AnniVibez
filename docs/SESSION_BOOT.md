@@ -33,6 +33,7 @@ Latest accepted baseline:
 - PASS 23C DESTINATION_FIRST_CHECKPOINT_AND_COMMIT_PREP completed (validation/docs/commit-prep)
 - PASS 23D BUS_MAP_DESTINATION_PICKER_PLANNING_ONLY completed and accepted (docs-only)
 - PASS 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP completed and accepted
+- PASS 25B PLACE_DESTINATION_MODEL_DOCS completed and accepted (docs-only)
 - PASS 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC completed and accepted (docs-only)
 - PASS 24 DEPLOY_ENV_DOCS completed and accepted (docs-only)
 - current verified provider deploy: `https://b0876d63.annivibe.pages.dev`
@@ -151,12 +152,17 @@ Latest accepted baseline:
   - safe env sample added: `.env.example` (names/placeholders only)
   - provider env vars documented from `functions/api/ullata.js`
   - no runtime/source/deploy execution changes in this pass
+- PASS 25B docs-only summary:
+  - new POI/place-first destination model documented in `docs/BUS_POI_DESTINATION_PLAN.md`
+  - typed stop-name search was demoted to fallback/advanced path
+  - map and POI runtime implementation deferred to future narrow passes
+  - no runtime/source files changed
 - prompt template system added
 
 ## Current active focus
 
 Next likely pass:
-PASS 25B — TYPED_STOP_SEARCH (narrow implementation, no map).
+PASS 25C — LOCAL_POI_DATASET_RAKVERE (narrow implementation, no map).
 
 Deferred docs-only follow-up:
 - PASS 26B — verify/render Mermaid diagrams and refine docs if needed
@@ -190,7 +196,7 @@ Deferred docs-only follow-up:
 
 - Cloudflare Git-backed deploy old commit `165d23e` issue is historical/monitor-only.
 - Manual Wrangler deploy remains fallback only.
-- PASS 11, PASS 12, PASS 14B, PASS 14C, PASS 16, PASS 17_PREP, PASS 17, PASS 18, PASS 19_MAIN, PASS 20, PASS 21, PASS 22, PASS 23A, PASS 23B, PASS 23C, PASS 23D, PASS 24, PASS 25A, PASS 26A are closed.
+- PASS 11, PASS 12, PASS 14B, PASS 14C, PASS 16, PASS 17_PREP, PASS 17, PASS 18, PASS 19_MAIN, PASS 20, PASS 21, PASS 22, PASS 23A, PASS 23B, PASS 23C, PASS 23D, PASS 24, PASS 25A, PASS 25B, PASS 26A are closed.
 - provider runtime works, but keep fallback behavior monitored.
 - stop-point coordinate precision may still be partly generalized by source data.
 - Claude audit pending findings are not fixed yet; execute one narrow pass at a time.

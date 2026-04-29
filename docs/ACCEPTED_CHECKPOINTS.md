@@ -596,8 +596,26 @@ Sisu:
   - `GEMINI_API_KEY`
   - `GEMINI_MODEL`
   - `OPENAI_API_KEY`
-  - `OPENAI_MODEL`
+- `OPENAI_MODEL`
 - runtime/source/deploy execution changes were not made in this pass
+
+### 31. PASS 25B PLACE_DESTINATION_MODEL_DOCS
+**Staatus:** accepted (docs-only)
+
+Sisu:
+- POI/place-first destination model was documented in:
+  - `docs/BUS_POI_DESTINATION_PLAN.md`
+- stop-name search was demoted to fallback/advanced path
+- destination resolver layering was documented without runtime changes
+- map/runtime implementation was explicitly deferred
+- updated next-pass chain:
+  - `PASS 25C — LOCAL_POI_DATASET_RAKVERE`
+  - `PASS 25D — PLACE_SEARCH_UI_NO_MAP`
+  - `PASS 25E — ROUTE_RECOMMENDATION_SCORING_NO_MAP`
+  - `PASS 25F — MAP_PICKER_SKELETON`
+  - `PASS 25G — MAP_PIN_TO_DESTINATION_CANDIDATES`
+  - `PASS 25H — LIVE_FIELD_TEST`
+- runtime/source code remained unchanged in this pass
 
 ## Accepted not-yet-done areas
 
@@ -609,11 +627,12 @@ Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut 
 - Claude audit pending backlog is tracked in `docs/AUDIT_FINDINGS_BACKLOG.md`
 - remaining pending audit items:
   - PASS 26B — MERMAID_DIAGRAMS_RENDER_REVIEW
-  - PASS 25B — TYPED_STOP_SEARCH
-  - PASS 25C — DESTINATION_POINT_AND_CANDIDATE_STATE_PREP
-  - PASS 25D — LEAFLET_MAP_PICKER_SKELETON
-  - PASS 25E — MAP_PICKER_INTEGRATION
-  - PASS 25F — MAP_ROUTE_LIVE_SMOKE
+  - PASS 25C — LOCAL_POI_DATASET_RAKVERE
+  - PASS 25D — PLACE_SEARCH_UI_NO_MAP
+  - PASS 25E — ROUTE_RECOMMENDATION_SCORING_NO_MAP
+  - PASS 25F — MAP_PICKER_SKELETON
+  - PASS 25G — MAP_PIN_TO_DESTINATION_CANDIDATES
+  - PASS 25H — LIVE_FIELD_TEST
   - optional real mobile/GPS field testing
 
 ## Rejected / quarantine
@@ -647,17 +666,20 @@ Põhjus:
 - Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP completed
 - Pass 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC completed (docs-only)
 - Pass 24 DEPLOY_ENV_DOCS completed (docs-only)
-- järgmine on PASS 25B TYPED_STOP_SEARCH
+- Pass 25B PLACE_DESTINATION_MODEL_DOCS completed (docs-only)
+- järgmine on PASS 25C LOCAL_POI_DATASET_RAKVERE
 
 ## Järgmine lubatud samm
 
-- PASS 25B: TYPED_STOP_SEARCH
+- PASS 25C: LOCAL_POI_DATASET_RAKVERE
 - focus:
-  - typed destination/stop search over known stop/group names
+  - add verified local POI dataset and alias mapping for destination resolver
+  - keep stop/group input as fallback path
   - keep existing routing engine stable (`depsWithMeta(...)` baseline)
 - rules:
   - no bus engine rewrite in this pass
   - no map picker implementation in this pass
+  - no typed-search UI implementation in this pass
 - no broad runtime refactor
   - no redesign/refactor
   - no new feature scope
@@ -686,4 +708,5 @@ Põhjus:
 - Pass 25A ROUTE_RECOMMENDATION_ENRICHMENT_NO_MAP accepted and closed
 - Pass 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC accepted and closed (docs-only)
 - Pass 24 DEPLOY_ENV_DOCS accepted and closed (docs-only)
+- Pass 25B PLACE_DESTINATION_MODEL_DOCS accepted and closed (docs-only)
 - broad implementation pass ilma kitsa lockita: keelatud
