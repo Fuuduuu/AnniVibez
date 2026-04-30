@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AV, FONT, card, inp, labelStyle, shell } from '../design/tokens';
 import { BUS_DATA } from '../data/busData';
 import { POI_DATA } from '../data/poiData';
+import { BusMapPicker } from './BusMapPicker';
 import { depsWithMeta, nearest, wd } from '../utils/bus';
 
 function DepRow({ d }) {
@@ -53,6 +54,10 @@ export function BussTab({ savedPlaces = [] }) {
   const [emptyReason, setEmptyReason] = useState('');
   const [gpsState, setGpsState] = useState('idle');
   const [activePill, setActivePill] = useState(null);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  const [mapPickedPoint, setMapPickedPoint] = useState(null);
+  const [mapDestinationCandidates, setMapDestinationCandidates] = useState([]);
+  const [selectedMapCandidate, setSelectedMapCandidate] = useState('');
 
   function originCodesFrom(stopLike) {
     const raw =
@@ -116,6 +121,83 @@ export function BussTab({ savedPlaces = [] }) {
       else if (valueNorm.includes(queryNorm)) rank = rank == null ? 2 : Math.min(rank, 2);
     }
     return rank;
+  }
+
+  function clearMapPickState() {
+    setMapPickedPoint(null);
+    setMapDestinationCandidates([]);
+    setSelectedMapCandidate('');
+  }
+
+  function resolveDestinationGroupFromMapStop(rawStopName) {
+    const stopName = String(rawStopName || '').trim();
+    if (!stopName) return null;
+
+    const codeGroup = BUS_DATA.groups.find(group => Array.isArray(group.codes) && group.codes.includes(stopName));
+    if (codeGroup) return codeGroup.name;
+
+    const stopNorm = normalizeSearchText(stopName);
+    if (!stopNorm) return null;
+
+    const exact = BUS_DATA.groups.find(group => normalizeSearchText(group.name) === stopNorm);
+    if (exact) return exact.name;
+
+    const fuzzy = BUS_DATA.groups.find(group => {
+      const groupNorm = normalizeSearchText(group.name);
+      return groupNorm.includes(stopNorm) || stopNorm.includes(groupNorm);
+    });
+    return fuzzy?.name || null;
+  }
+
+  function resolveMapDestinationCandidates(nearestStops, lat, lon) {
+    const candidateNames = Array.isArray(nearestStops) ? nearestStops : [];
+    const deduped = [];
+    const seen = new Set();
+
+    for (const rawName of candidateNames) {
+      const groupName = resolveDestinationGroupFromMapStop(rawName);
+      if (!groupName) continue;
+      const key = normalizeSearchText(groupName);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push({ id: `map-${groupName}`, groupName, sourceName: String(rawName || groupName) });
+    }
+
+    if (!deduped.length && Number.isFinite(lat) && Number.isFinite(lon)) {
+      const nearestGroup = nearest(lat, lon);
+      const groupName = resolveDestinationGroupFromMapStop(
+        nearestGroup?.groupName || nearestGroup?.name || nearestGroup?.code || ''
+      );
+      if (groupName) {
+        deduped.push({ id: `map-${groupName}`, groupName, sourceName: groupName });
+      }
+    }
+
+    return deduped.slice(0, 3);
+  }
+
+  function handleMapPick(payload) {
+    const lat = Number(payload?.lat);
+    const lon = Number(payload?.lon);
+    const nearestStops = Array.isArray(payload?.nearestStops) ? payload.nearestStops : [];
+    const candidates = resolveMapDestinationCandidates(nearestStops, lat, lon);
+
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      setMapPickedPoint({ lat, lon });
+    } else {
+      setMapPickedPoint(null);
+    }
+    setMapDestinationCandidates(candidates);
+    setSelectedMapCandidate(candidates[0]?.groupName || '');
+  }
+
+  function confirmMapDestinationCandidate() {
+    if (!selectedMapCandidate) return;
+    setDestination(selectedMapCandidate);
+    setSelectedPlaceLabel(`Kaardilt valitud koht · lähim peatus: ${selectedMapCandidate}`);
+    setPlaceQuery(selectedMapCandidate);
+    setMapPickerOpen(false);
+    clearMapPickState();
   }
 
   function findRouteOptions(origin, selectedDestination, service, nearbyCandidates, destinationDisplayName = '') {
@@ -256,6 +338,8 @@ export function BussTab({ savedPlaces = [] }) {
     setDestination(result.routeDestination);
     setSelectedPlaceLabel(result.type === 'poi' ? result.label : '');
     setPlaceQuery(result.label);
+    setMapPickerOpen(false);
+    clearMapPickState();
   }
 
   const visibleDestinationLabel = selectedPlaceLabel || destination;
@@ -281,6 +365,10 @@ export function BussTab({ savedPlaces = [] }) {
   const dotColor = { ok: AV.sage, searching: '#EF9F27', error: '#E24B4A', idle: AV.purple }[gpsState];
 
   const validSaved = savedPlaces.filter(p => p?.lat != null && p?.lon != null);
+  const mapInitialCenter =
+    Number.isFinite(effectiveOrigin?.lat) && Number.isFinite(effectiveOrigin?.lon)
+      ? [effectiveOrigin.lat, effectiveOrigin.lon]
+      : undefined;
 
   return (
     <div style={shell}>
@@ -302,6 +390,101 @@ export function BussTab({ savedPlaces = [] }) {
         <div style={{ fontSize: 12, color: AV.muted, marginTop: 8, marginBottom: 6 }}>
           Peatuse nime teadma ei pea — otsi kohta, näiteks haigla või kesklinn.
         </div>
+        <button
+          onClick={() => {
+            if (mapPickerOpen) {
+              setMapPickerOpen(false);
+              clearMapPickState();
+              return;
+            }
+            setMapPickerOpen(true);
+          }}
+          style={{
+            padding: '7px 12px',
+            borderRadius: 10,
+            fontSize: 12,
+            border: `1px solid ${AV.border}`,
+            background: mapPickerOpen ? AV.purpleL : AV.bg,
+            color: mapPickerOpen ? AV.purple : AV.textSoft,
+            cursor: 'pointer',
+            marginBottom: 10,
+          }}
+        >
+          Vali kaardilt
+        </button>
+        {mapPickerOpen && (
+          <div
+            style={{
+              marginBottom: 10,
+              border: `1px solid ${AV.border}`,
+              borderRadius: 12,
+              padding: 10,
+              background: AV.bg,
+            }}
+          >
+            <BusMapPicker
+              initialCenter={mapInitialCenter}
+              onPick={handleMapPick}
+              onClose={() => {
+                setMapPickerOpen(false);
+                clearMapPickState();
+              }}
+            />
+            {mapPickedPoint && (
+              <div style={{ marginTop: 10, fontSize: 12, color: AV.textSoft, display: 'grid', gap: 8 }}>
+                <div>
+                  Kaardilt valitud punkt: {mapPickedPoint.lat.toFixed(5)}, {mapPickedPoint.lon.toFixed(5)}
+                </div>
+                {mapDestinationCandidates.length > 0 ? (
+                  <>
+                    <div style={{ fontSize: 10, ...labelStyle }}>Vali sihtkoha peatus</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {mapDestinationCandidates.map(candidate => {
+                        const active = selectedMapCandidate === candidate.groupName;
+                        return (
+                          <button
+                            key={candidate.id}
+                            onClick={() => setSelectedMapCandidate(candidate.groupName)}
+                            style={{
+                              padding: '6px 10px',
+                              borderRadius: 100,
+                              fontSize: 12,
+                              cursor: 'pointer',
+                              border: `1.5px solid ${active ? AV.purple : AV.border}`,
+                              background: active ? AV.purpleL : 'none',
+                              color: active ? AV.purple : AV.muted,
+                            }}
+                          >
+                            {candidate.groupName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      onClick={confirmMapDestinationCandidate}
+                      disabled={!selectedMapCandidate}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 10,
+                        fontSize: 12,
+                        cursor: selectedMapCandidate ? 'pointer' : 'not-allowed',
+                        border: `1px solid ${AV.border}`,
+                        background: selectedMapCandidate ? AV.sageL : '#f1f3f5',
+                        color: selectedMapCandidate ? AV.sage : '#98a0aa',
+                      }}
+                    >
+                      Kasuta valitud peatust
+                    </button>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, color: AV.muted }}>
+                    Lähikandidaate ei leitud. Proovi kaardil teist punkti.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {popularPlaceTargets.length > 0 && (
           <>
             <div style={{ fontSize: 10, ...labelStyle, marginBottom: 6 }}>Populaarsed kohad</div>
@@ -382,6 +565,8 @@ export function BussTab({ savedPlaces = [] }) {
             setDestination(nextDestination);
             setSelectedPlaceLabel('');
             setPlaceQuery(nextDestination || '');
+            setMapPickerOpen(false);
+            clearMapPickState();
           }}
           style={{ ...inp, marginTop: 0 }}
           value={destination}
