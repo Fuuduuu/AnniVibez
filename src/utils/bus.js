@@ -1,11 +1,12 @@
 import { BUS_DATA } from '../data/busData';
+import { GTFS_STOP_COORDS_BY_ID } from '../data/gtfsStopCoords';
 
 const STOP_POINTS = Object.entries(BUS_DATA.by_code || {})
   .map(([code, stop]) => ({
     code,
-    name: stop?.name || '',
-    lat: Number(stop?.lat),
-    lon: Number(stop?.lon),
+    name: stop?.name || GTFS_STOP_COORDS_BY_ID?.[code]?.stopName || '',
+    lat: Number(GTFS_STOP_COORDS_BY_ID?.[code]?.lat ?? stop?.lat),
+    lon: Number(GTFS_STOP_COORDS_BY_ID?.[code]?.lon ?? stop?.lon),
   }))
   .filter(p => p.name && Number.isFinite(p.lat) && Number.isFinite(p.lon));
 

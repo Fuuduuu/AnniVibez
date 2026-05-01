@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BUS_DATA } from '../data/busData';
+import { GTFS_STOP_COORDS_BY_ID } from '../data/gtfsStopCoords';
 import { nearest } from '../utils/bus';
 
 const RAKVERE_CENTER = [59.3469, 26.3557];
@@ -57,9 +58,9 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
     return rows
       .map(([code, stop]) => ({
         code,
-        name: stop?.name || code,
-        lat: stop?.lat,
-        lon: stop?.lon,
+        name: stop?.name || GTFS_STOP_COORDS_BY_ID?.[code]?.stopName || code,
+        lat: GTFS_STOP_COORDS_BY_ID?.[code]?.lat ?? stop?.lat,
+        lon: GTFS_STOP_COORDS_BY_ID?.[code]?.lon ?? stop?.lon,
       }))
       .filter(stop => isFiniteNumber(stop.lat) && isFiniteNumber(stop.lon));
   }, []);
