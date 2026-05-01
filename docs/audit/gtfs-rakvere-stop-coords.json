@@ -1,0 +1,2146 @@
+{
+  "generatedAt": "2026-05-01T11:35:29.078Z",
+  "source": {
+    "recommendedGtfsUrl": "https://eu-gtfs.remix.com/estonia_unified_gtfs.zip",
+    "discovery": "docs/audit/gtfs-source-discovery.json",
+    "routePatternStopIdMap": "docs/audit/route-pattern-stopid-map.json",
+    "routePatternBusDataCompare": "docs/audit/route-pattern-busdata-compare.json",
+    "busData": "src/data/busData.js"
+  },
+  "cache": {
+    "zipPath": ".artifacts/gtfs/estonia_unified_gtfs.zip",
+    "stopsPath": ".artifacts/gtfs/stops.txt",
+    "downloadedNow": false,
+    "extractedNow": false
+  },
+  "thresholdsMeters": {
+    "okMax": 25,
+    "reviewMax": 75
+  },
+  "summary": {
+    "targetStopIdCount": 80,
+    "gtfsStopsRowCount": 18156,
+    "statusCounts": {
+      "MISSING_BUSDATA_COORD": 1,
+      "BAD_REVIEW": 78,
+      "REVIEW": 1
+    },
+    "missingGtfsStopIdCount": 0,
+    "missingBusDataCoordCount": 1,
+    "reviewCount": 1,
+    "badReviewCount": 78
+  },
+  "missingGtfsStopIds": [],
+  "aiand": {
+    "stopId": "5900013-1",
+    "previousCompareFinding": {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "seq": 6,
+      "routeStopName": "Aiand",
+      "stopId": "5900013-1",
+      "byCodeCoordinateNumeric": false,
+      "routeGroupCoordinateNumeric": true,
+      "byCodeLat": null,
+      "byCodeLon": null,
+      "routeGroupLat": 0,
+      "routeGroupLon": 0
+    },
+    "current": {
+      "stopId": "5900013-1",
+      "routeNames": [
+        "Aiand"
+      ],
+      "gtfs": {
+        "stop_id": "30458",
+        "stop_name": "Aiand",
+        "stop_lat": 59.360262,
+        "stop_lon": 26.334407
+      },
+      "busData": {
+        "name": "Aiand",
+        "lat": null,
+        "lon": null
+      },
+      "distanceMeters": null,
+      "status": "MISSING_BUSDATA_COORD"
+    }
+  },
+  "focusNames": [
+    "Aiand",
+    "Õie",
+    "Tulika",
+    "Kivi",
+    "Piiri",
+    "Kungla",
+    "Polikliinik",
+    "Kesk",
+    "Keskväljak",
+    "Näpi",
+    "Narva",
+    "Kauba",
+    "Raudteejaam",
+    "Haigla",
+    "Teater"
+  ],
+  "focusFindings": [
+    {
+      "stopId": "5900013-1",
+      "routeNames": [
+        "Aiand"
+      ],
+      "gtfs": {
+        "stop_id": "30458",
+        "stop_name": "Aiand",
+        "stop_lat": 59.360262,
+        "stop_lon": 26.334407
+      },
+      "busData": {
+        "name": "Aiand",
+        "lat": null,
+        "lon": null
+      },
+      "distanceMeters": null,
+      "status": "MISSING_BUSDATA_COORD"
+    },
+    {
+      "stopId": "5900078-1",
+      "routeNames": [
+        "Haigla"
+      ],
+      "gtfs": {
+        "stop_id": "30126",
+        "stop_name": "Haigla",
+        "stop_lat": 59.335521,
+        "stop_lon": 26.3732475
+      },
+      "busData": {
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312
+      },
+      "distanceMeters": 2543.98,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900079-1",
+      "routeNames": [
+        "Haigla"
+      ],
+      "gtfs": {
+        "stop_id": "31900",
+        "stop_name": "Haigla",
+        "stop_lat": 59.3355446,
+        "stop_lon": 26.3734209
+      },
+      "busData": {
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312
+      },
+      "distanceMeters": 2552.29,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900220-1",
+      "routeNames": [
+        "Kauba"
+      ],
+      "gtfs": {
+        "stop_id": "30628",
+        "stop_name": "Kauba",
+        "stop_lat": 59.3562427,
+        "stop_lon": 26.368407
+      },
+      "busData": {
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665
+      },
+      "distanceMeters": 440.75,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900229-1",
+      "routeNames": [
+        "Kesk"
+      ],
+      "gtfs": {
+        "stop_id": "32157",
+        "stop_name": "Kesk",
+        "stop_lat": 59.357773,
+        "stop_lon": 26.3436536
+      },
+      "busData": {
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512
+      },
+      "distanceMeters": 591.38,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900230-1",
+      "routeNames": [
+        "Kesk"
+      ],
+      "gtfs": {
+        "stop_id": "32156",
+        "stop_name": "Kesk",
+        "stop_lat": 59.3578608,
+        "stop_lon": 26.3435607
+      },
+      "busData": {
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512
+      },
+      "distanceMeters": 601.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900232-1",
+      "routeNames": [
+        "Keskväljak"
+      ],
+      "gtfs": {
+        "stop_id": "25484",
+        "stop_name": "Keskväljak",
+        "stop_lat": 59.3481224,
+        "stop_lon": 26.3611505
+      },
+      "busData": {
+        "name": "Keskväljak",
+        "lat": 59.3482,
+        "lon": 26.3591
+      },
+      "distanceMeters": 116.56,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900286-1",
+      "routeNames": [
+        "Kivi"
+      ],
+      "gtfs": {
+        "stop_id": "25826",
+        "stop_name": "Kivi",
+        "stop_lat": 59.3389898,
+        "stop_lon": 26.3839942
+      },
+      "busData": {
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812
+      },
+      "distanceMeters": 525.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900287-1",
+      "routeNames": [
+        "Kivi"
+      ],
+      "gtfs": {
+        "stop_id": "32177",
+        "stop_name": "Kivi",
+        "stop_lat": 59.3390052,
+        "stop_lon": 26.3844216
+      },
+      "busData": {
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812
+      },
+      "distanceMeters": 532.13,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900310-1",
+      "routeNames": [
+        "Kungla"
+      ],
+      "gtfs": {
+        "stop_id": "25996",
+        "stop_name": "Kungla",
+        "stop_lat": 59.3436445,
+        "stop_lon": 26.3729256
+      },
+      "busData": {
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715
+      },
+      "distanceMeters": 283.58,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900311-1",
+      "routeNames": [
+        "Kungla"
+      ],
+      "gtfs": {
+        "stop_id": "25478",
+        "stop_name": "Kungla",
+        "stop_lat": 59.3440164,
+        "stop_lon": 26.3717325
+      },
+      "busData": {
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715
+      },
+      "distanceMeters": 313.45,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900484-1",
+      "routeNames": [
+        "Narva"
+      ],
+      "gtfs": {
+        "stop_id": "30439",
+        "stop_name": "Narva",
+        "stop_lat": 59.3578339,
+        "stop_lon": 26.3805031
+      },
+      "busData": {
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751
+      },
+      "distanceMeters": 315.04,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900485-1",
+      "routeNames": [
+        "Narva"
+      ],
+      "gtfs": {
+        "stop_id": "30294",
+        "stop_name": "Narva",
+        "stop_lat": 59.3576757,
+        "stop_lon": 26.3803118
+      },
+      "busData": {
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751
+      },
+      "distanceMeters": 309.26,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900507-1",
+      "routeNames": [
+        "Näpi"
+      ],
+      "gtfs": {
+        "stop_id": "109242",
+        "stop_name": "Näpi",
+        "stop_lat": 59.3598284,
+        "stop_lon": 26.3871624
+      },
+      "busData": {
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851
+      },
+      "distanceMeters": 597.71,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900508-1",
+      "routeNames": [
+        "Näpi"
+      ],
+      "gtfs": {
+        "stop_id": "32522",
+        "stop_name": "Näpi",
+        "stop_lat": 59.3599114,
+        "stop_lon": 26.3867943
+      },
+      "busData": {
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851
+      },
+      "distanceMeters": 584.88,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900566-1",
+      "routeNames": [
+        "Piiri"
+      ],
+      "gtfs": {
+        "stop_id": "21835",
+        "stop_name": "Piiri",
+        "stop_lat": 59.3419261,
+        "stop_lon": 26.3776348
+      },
+      "busData": {
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755
+      },
+      "distanceMeters": 136.83,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900567-1",
+      "routeNames": [
+        "Piiri"
+      ],
+      "gtfs": {
+        "stop_id": "25987",
+        "stop_name": "Piiri",
+        "stop_lat": 59.3417425,
+        "stop_lon": 26.3777702
+      },
+      "busData": {
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755
+      },
+      "distanceMeters": 153.83,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900576-1",
+      "routeNames": [
+        "Polikliinik"
+      ],
+      "gtfs": {
+        "stop_id": "25482",
+        "stop_name": "Polikliinik",
+        "stop_lat": 59.3445495,
+        "stop_lon": 26.3653342
+      },
+      "busData": {
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651
+      },
+      "distanceMeters": 217.29,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900577-1",
+      "routeNames": [
+        "Polikliinik"
+      ],
+      "gtfs": {
+        "stop_id": "25483",
+        "stop_name": "Polikliinik",
+        "stop_lat": 59.3445611,
+        "stop_lon": 26.3644414
+      },
+      "busData": {
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651
+      },
+      "distanceMeters": 218.81,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900635-1",
+      "routeNames": [
+        "Raudteejaam"
+      ],
+      "gtfs": {
+        "stop_id": "32642",
+        "stop_name": "Raudteejaam",
+        "stop_lat": 59.3573479,
+        "stop_lon": 26.3636288
+      },
+      "busData": {
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611
+      },
+      "distanceMeters": 171.8,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900800-1",
+      "routeNames": [
+        "Teater"
+      ],
+      "gtfs": {
+        "stop_id": "32335",
+        "stop_name": "Teater",
+        "stop_lat": 59.349968,
+        "stop_lon": 26.346837
+      },
+      "busData": {
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485
+      },
+      "distanceMeters": 255.12,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900801-1",
+      "routeNames": [
+        "Teater"
+      ],
+      "gtfs": {
+        "stop_id": "32682",
+        "stop_name": "Teater",
+        "stop_lat": 59.350127,
+        "stop_lon": 26.34683
+      },
+      "busData": {
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485
+      },
+      "distanceMeters": 238.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900815-1",
+      "routeNames": [
+        "Tulika"
+      ],
+      "gtfs": {
+        "stop_id": "24953",
+        "stop_name": "Tulika",
+        "stop_lat": 59.3390396,
+        "stop_lon": 26.3487963
+      },
+      "busData": {
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485
+      },
+      "distanceMeters": 393.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900816-1",
+      "routeNames": [
+        "Tulika"
+      ],
+      "gtfs": {
+        "stop_id": "111861",
+        "stop_name": "Tulika",
+        "stop_lat": 59.339202,
+        "stop_lon": 26.3490053
+      },
+      "busData": {
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485
+      },
+      "distanceMeters": 412.64,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901010-1",
+      "routeNames": [
+        "Õie"
+      ],
+      "gtfs": {
+        "stop_id": "32674",
+        "stop_name": "Õie",
+        "stop_lat": 59.334022,
+        "stop_lon": 26.3478513
+      },
+      "busData": {
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468
+      },
+      "distanceMeters": 254.17,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901011-1",
+      "routeNames": [
+        "Õie"
+      ],
+      "gtfs": {
+        "stop_id": "32675",
+        "stop_name": "Õie",
+        "stop_lat": 59.3340631,
+        "stop_lon": 26.3476849
+      },
+      "busData": {
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468
+      },
+      "distanceMeters": 256.6,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901241-1",
+      "routeNames": [
+        "Raudteejaam"
+      ],
+      "gtfs": {
+        "stop_id": "153188",
+        "stop_name": "Raudteejaam",
+        "stop_lat": 59.357355,
+        "stop_lon": 26.3637539
+      },
+      "busData": {
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611
+      },
+      "distanceMeters": 177.34,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901245-1",
+      "routeNames": [
+        "Kauba"
+      ],
+      "gtfs": {
+        "stop_id": "154417",
+        "stop_name": "Kauba",
+        "stop_lat": 59.3567375,
+        "stop_lon": 26.368118
+      },
+      "busData": {
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665
+      },
+      "distanceMeters": 490.95,
+      "status": "BAD_REVIEW"
+    }
+  ],
+  "comparisons": [
+    {
+      "stopId": "5900013-1",
+      "routeNames": [
+        "Aiand"
+      ],
+      "gtfs": {
+        "stop_id": "30458",
+        "stop_name": "Aiand",
+        "stop_lat": 59.360262,
+        "stop_lon": 26.334407
+      },
+      "busData": {
+        "name": "Aiand",
+        "lat": null,
+        "lon": null
+      },
+      "distanceMeters": null,
+      "status": "MISSING_BUSDATA_COORD"
+    },
+    {
+      "stopId": "5900040-1",
+      "routeNames": [
+        "Arkna tee"
+      ],
+      "gtfs": {
+        "stop_id": "109244",
+        "stop_name": "Arkna tee",
+        "stop_lat": 59.360404,
+        "stop_lon": 26.3679593
+      },
+      "busData": {
+        "name": "Arkna tee",
+        "lat": 59.3621,
+        "lon": 26.3685
+      },
+      "distanceMeters": 191.06,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900055-1",
+      "routeNames": [
+        "Bussijaam"
+      ],
+      "gtfs": {
+        "stop_id": "24787",
+        "stop_name": "Bussijaam",
+        "stop_lat": 59.3472746,
+        "stop_lon": 26.3648904
+      },
+      "busData": {
+        "name": "Bussijaam",
+        "lat": 59.3491,
+        "lon": 26.3615
+      },
+      "distanceMeters": 279.53,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900056-1",
+      "routeNames": [
+        "Carl Robert Jakobsoni"
+      ],
+      "gtfs": {
+        "stop_id": "112864",
+        "stop_name": "Carl Robert Jakobsoni",
+        "stop_lat": 59.3504651,
+        "stop_lon": 26.3562956
+      },
+      "busData": {
+        "name": "Carl Robert Jakobsoni",
+        "lat": 59.3458,
+        "lon": 26.3571
+      },
+      "distanceMeters": 520.74,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900078-1",
+      "routeNames": [
+        "Haigla"
+      ],
+      "gtfs": {
+        "stop_id": "30126",
+        "stop_name": "Haigla",
+        "stop_lat": 59.335521,
+        "stop_lon": 26.3732475
+      },
+      "busData": {
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312
+      },
+      "distanceMeters": 2543.98,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900079-1",
+      "routeNames": [
+        "Haigla"
+      ],
+      "gtfs": {
+        "stop_id": "31900",
+        "stop_name": "Haigla",
+        "stop_lat": 59.3355446,
+        "stop_lon": 26.3734209
+      },
+      "busData": {
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312
+      },
+      "distanceMeters": 2552.29,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900209-1",
+      "routeNames": [
+        "Karja"
+      ],
+      "gtfs": {
+        "stop_id": "30623",
+        "stop_name": "Karja",
+        "stop_lat": 59.3387628,
+        "stop_lon": 26.3676995
+      },
+      "busData": {
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685
+      },
+      "distanceMeters": 706.12,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900210-1",
+      "routeNames": [
+        "Karja"
+      ],
+      "gtfs": {
+        "stop_id": "30624",
+        "stop_name": "Karja",
+        "stop_lat": 59.3393402,
+        "stop_lon": 26.3692977
+      },
+      "busData": {
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685
+      },
+      "distanceMeters": 642.06,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900220-1",
+      "routeNames": [
+        "Kauba"
+      ],
+      "gtfs": {
+        "stop_id": "30628",
+        "stop_name": "Kauba",
+        "stop_lat": 59.3562427,
+        "stop_lon": 26.368407
+      },
+      "busData": {
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665
+      },
+      "distanceMeters": 440.75,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900229-1",
+      "routeNames": [
+        "Kesk"
+      ],
+      "gtfs": {
+        "stop_id": "32157",
+        "stop_name": "Kesk",
+        "stop_lat": 59.357773,
+        "stop_lon": 26.3436536
+      },
+      "busData": {
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512
+      },
+      "distanceMeters": 591.38,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900230-1",
+      "routeNames": [
+        "Kesk"
+      ],
+      "gtfs": {
+        "stop_id": "32156",
+        "stop_name": "Kesk",
+        "stop_lat": 59.3578608,
+        "stop_lon": 26.3435607
+      },
+      "busData": {
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512
+      },
+      "distanceMeters": 601.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900232-1",
+      "routeNames": [
+        "Keskväljak"
+      ],
+      "gtfs": {
+        "stop_id": "25484",
+        "stop_name": "Keskväljak",
+        "stop_lat": 59.3481224,
+        "stop_lon": 26.3611505
+      },
+      "busData": {
+        "name": "Keskväljak",
+        "lat": 59.3482,
+        "lon": 26.3591
+      },
+      "distanceMeters": 116.56,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900255-1",
+      "routeNames": [
+        "Keskuse"
+      ],
+      "gtfs": {
+        "stop_id": "25479",
+        "stop_name": "Keskuse",
+        "stop_lat": 59.3467779,
+        "stop_lon": 26.3620444
+      },
+      "busData": {
+        "name": "Keskuse",
+        "lat": 59.3555,
+        "lon": 26.3268
+      },
+      "distanceMeters": 2220.78,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900286-1",
+      "routeNames": [
+        "Kivi"
+      ],
+      "gtfs": {
+        "stop_id": "25826",
+        "stop_name": "Kivi",
+        "stop_lat": 59.3389898,
+        "stop_lon": 26.3839942
+      },
+      "busData": {
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812
+      },
+      "distanceMeters": 525.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900287-1",
+      "routeNames": [
+        "Kivi"
+      ],
+      "gtfs": {
+        "stop_id": "32177",
+        "stop_name": "Kivi",
+        "stop_lat": 59.3390052,
+        "stop_lon": 26.3844216
+      },
+      "busData": {
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812
+      },
+      "distanceMeters": 532.13,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900310-1",
+      "routeNames": [
+        "Kungla"
+      ],
+      "gtfs": {
+        "stop_id": "25996",
+        "stop_name": "Kungla",
+        "stop_lat": 59.3436445,
+        "stop_lon": 26.3729256
+      },
+      "busData": {
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715
+      },
+      "distanceMeters": 283.58,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900311-1",
+      "routeNames": [
+        "Kungla"
+      ],
+      "gtfs": {
+        "stop_id": "25478",
+        "stop_name": "Kungla",
+        "stop_lat": 59.3440164,
+        "stop_lon": 26.3717325
+      },
+      "busData": {
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715
+      },
+      "distanceMeters": 313.45,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900338-1",
+      "routeNames": [
+        "Laada"
+      ],
+      "gtfs": {
+        "stop_id": "25480",
+        "stop_name": "Laada",
+        "stop_lat": 59.351206,
+        "stop_lon": 26.360303
+      },
+      "busData": {
+        "name": "Laada",
+        "lat": 59.3495,
+        "lon": 26.3622
+      },
+      "distanceMeters": 218.06,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900346-1",
+      "routeNames": [
+        "Lai"
+      ],
+      "gtfs": {
+        "stop_id": "25481",
+        "stop_name": "Lai",
+        "stop_lat": 59.3510893,
+        "stop_lon": 26.3573004
+      },
+      "busData": {
+        "name": "Lai",
+        "lat": 59.3495,
+        "lon": 26.3572
+      },
+      "distanceMeters": 176.81,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900381-1",
+      "routeNames": [
+        "Palermo"
+      ],
+      "gtfs": {
+        "stop_id": "32269",
+        "stop_name": "Palermo",
+        "stop_lat": 59.3276236,
+        "stop_lon": 26.3637897
+      },
+      "busData": {
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565
+      },
+      "distanceMeters": 773.25,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900382-1",
+      "routeNames": [
+        "Palermo"
+      ],
+      "gtfs": {
+        "stop_id": "32268",
+        "stop_name": "Palermo",
+        "stop_lat": 59.329253,
+        "stop_lon": 26.363713
+      },
+      "busData": {
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565
+      },
+      "distanceMeters": 624.8,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900415-1",
+      "routeNames": [
+        "Lääne"
+      ],
+      "gtfs": {
+        "stop_id": "25827",
+        "stop_name": "Lääne",
+        "stop_lat": 59.3585946,
+        "stop_lon": 26.3370889
+      },
+      "busData": {
+        "name": "Lääne",
+        "lat": 59.3551,
+        "lon": 26.3415
+      },
+      "distanceMeters": 462.06,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900416-1",
+      "routeNames": [
+        "Lääne"
+      ],
+      "gtfs": {
+        "stop_id": "32403",
+        "stop_name": "Lääne",
+        "stop_lat": 59.358779,
+        "stop_lon": 26.3368277
+      },
+      "busData": {
+        "name": "Lääne",
+        "lat": 59.3551,
+        "lon": 26.3415
+      },
+      "distanceMeters": 487.31,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900464-1",
+      "routeNames": [
+        "Mäe"
+      ],
+      "gtfs": {
+        "stop_id": "32423",
+        "stop_name": "Mäe",
+        "stop_lat": 59.334133,
+        "stop_lon": 26.361422
+      },
+      "busData": {
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555
+      },
+      "distanceMeters": 426.69,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900465-1",
+      "routeNames": [
+        "Mäe"
+      ],
+      "gtfs": {
+        "stop_id": "32424",
+        "stop_name": "Mäe",
+        "stop_lat": 59.3338501,
+        "stop_lon": 26.3614365
+      },
+      "busData": {
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555
+      },
+      "distanceMeters": 447.4,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900484-1",
+      "routeNames": [
+        "Narva"
+      ],
+      "gtfs": {
+        "stop_id": "30439",
+        "stop_name": "Narva",
+        "stop_lat": 59.3578339,
+        "stop_lon": 26.3805031
+      },
+      "busData": {
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751
+      },
+      "distanceMeters": 315.04,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900485-1",
+      "routeNames": [
+        "Narva"
+      ],
+      "gtfs": {
+        "stop_id": "30294",
+        "stop_name": "Narva",
+        "stop_lat": 59.3576757,
+        "stop_lon": 26.3803118
+      },
+      "busData": {
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751
+      },
+      "distanceMeters": 309.26,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900505-1",
+      "routeNames": [
+        "Näituse"
+      ],
+      "gtfs": {
+        "stop_id": "32521",
+        "stop_name": "Näituse",
+        "stop_lat": 59.363892,
+        "stop_lon": 26.341503
+      },
+      "busData": {
+        "name": "Näituse",
+        "lat": 59.3685,
+        "lon": 26.3312
+      },
+      "distanceMeters": 776.73,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900507-1",
+      "routeNames": [
+        "Näpi"
+      ],
+      "gtfs": {
+        "stop_id": "109242",
+        "stop_name": "Näpi",
+        "stop_lat": 59.3598284,
+        "stop_lon": 26.3871624
+      },
+      "busData": {
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851
+      },
+      "distanceMeters": 597.71,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900508-1",
+      "routeNames": [
+        "Näpi"
+      ],
+      "gtfs": {
+        "stop_id": "32522",
+        "stop_name": "Näpi",
+        "stop_lat": 59.3599114,
+        "stop_lon": 26.3867943
+      },
+      "busData": {
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851
+      },
+      "distanceMeters": 584.88,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900541-1",
+      "routeNames": [
+        "Lilleoru"
+      ],
+      "gtfs": {
+        "stop_id": "111188",
+        "stop_name": "Lilleoru",
+        "stop_lat": 59.3282578,
+        "stop_lon": 26.3632307
+      },
+      "busData": {
+        "name": "Lilleoru",
+        "lat": 59.3385,
+        "lon": 26.3451
+      },
+      "distanceMeters": 1534.4,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900542-1",
+      "routeNames": [
+        "Lilleoru"
+      ],
+      "gtfs": {
+        "stop_id": "111187",
+        "stop_name": "Lilleoru",
+        "stop_lat": 59.3282167,
+        "stop_lon": 26.3652624
+      },
+      "busData": {
+        "name": "Lilleoru",
+        "lat": 59.3385,
+        "lon": 26.3451
+      },
+      "distanceMeters": 1617.11,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900565-1",
+      "routeNames": [
+        "Piira"
+      ],
+      "gtfs": {
+        "stop_id": "32570",
+        "stop_name": "Piira",
+        "stop_lat": 59.323112,
+        "stop_lon": 26.368462
+      },
+      "busData": {
+        "name": "Piira",
+        "lat": 59.3308,
+        "lon": 26.3578
+      },
+      "distanceMeters": 1047.18,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900566-1",
+      "routeNames": [
+        "Piiri"
+      ],
+      "gtfs": {
+        "stop_id": "21835",
+        "stop_name": "Piiri",
+        "stop_lat": 59.3419261,
+        "stop_lon": 26.3776348
+      },
+      "busData": {
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755
+      },
+      "distanceMeters": 136.83,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900567-1",
+      "routeNames": [
+        "Piiri"
+      ],
+      "gtfs": {
+        "stop_id": "25987",
+        "stop_name": "Piiri",
+        "stop_lat": 59.3417425,
+        "stop_lon": 26.3777702
+      },
+      "busData": {
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755
+      },
+      "distanceMeters": 153.83,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900576-1",
+      "routeNames": [
+        "Polikliinik"
+      ],
+      "gtfs": {
+        "stop_id": "25482",
+        "stop_name": "Polikliinik",
+        "stop_lat": 59.3445495,
+        "stop_lon": 26.3653342
+      },
+      "busData": {
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651
+      },
+      "distanceMeters": 217.29,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900577-1",
+      "routeNames": [
+        "Polikliinik"
+      ],
+      "gtfs": {
+        "stop_id": "25483",
+        "stop_name": "Polikliinik",
+        "stop_lat": 59.3445611,
+        "stop_lon": 26.3644414
+      },
+      "busData": {
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651
+      },
+      "distanceMeters": 218.81,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900596-1",
+      "routeNames": [
+        "Põhja"
+      ],
+      "gtfs": {
+        "stop_id": "32584",
+        "stop_name": "Põhja",
+        "stop_lat": 59.3597993,
+        "stop_lon": 26.3446426
+      },
+      "busData": {
+        "name": "Põhja",
+        "lat": 59.3625,
+        "lon": 26.3455
+      },
+      "distanceMeters": 304.21,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900597-1",
+      "routeNames": [
+        "Põhja"
+      ],
+      "gtfs": {
+        "stop_id": "32583",
+        "stop_name": "Põhja",
+        "stop_lat": 59.3599385,
+        "stop_lon": 26.344425
+      },
+      "busData": {
+        "name": "Põhja",
+        "lat": 59.3625,
+        "lon": 26.3455
+      },
+      "distanceMeters": 291.27,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900598-1",
+      "routeNames": [
+        "Põhjakeskus"
+      ],
+      "gtfs": {
+        "stop_id": "112883",
+        "stop_name": "Põhjakeskus",
+        "stop_lat": 59.3641056,
+        "stop_lon": 26.3373716
+      },
+      "busData": {
+        "name": "Põhjakeskus",
+        "lat": 59.3732,
+        "lon": 26.3268
+      },
+      "distanceMeters": 1175.31,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900635-1",
+      "routeNames": [
+        "Raudteejaam"
+      ],
+      "gtfs": {
+        "stop_id": "32642",
+        "stop_name": "Raudteejaam",
+        "stop_lat": 59.3573479,
+        "stop_lon": 26.3636288
+      },
+      "busData": {
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611
+      },
+      "distanceMeters": 171.8,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900653-1",
+      "routeNames": [
+        "Rohu"
+      ],
+      "gtfs": {
+        "stop_id": "26418",
+        "stop_name": "Rohu",
+        "stop_lat": 59.351283,
+        "stop_lon": 26.340435
+      },
+      "busData": {
+        "name": "Rohu",
+        "lat": 59.3515,
+        "lon": 26.3415
+      },
+      "distanceMeters": 65.01,
+      "status": "REVIEW"
+    },
+    {
+      "stopId": "5900655-1",
+      "routeNames": [
+        "Rohu"
+      ],
+      "gtfs": {
+        "stop_id": "32636",
+        "stop_name": "Rohu",
+        "stop_lat": 59.351432,
+        "stop_lon": 26.339765
+      },
+      "busData": {
+        "name": "Rohu",
+        "lat": 59.3515,
+        "lon": 26.3415
+      },
+      "distanceMeters": 98.64,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900659-1",
+      "routeNames": [
+        "Lihakombinaat"
+      ],
+      "gtfs": {
+        "stop_id": "24786",
+        "stop_name": "Lihakombinaat",
+        "stop_lat": 59.3708971,
+        "stop_lon": 26.3903794
+      },
+      "busData": {
+        "name": "Lihakombinaat",
+        "lat": 59.3785,
+        "lon": 26.3651
+      },
+      "distanceMeters": 1662.89,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900660-1",
+      "routeNames": [
+        "Roodevälja"
+      ],
+      "gtfs": {
+        "stop_id": "32646",
+        "stop_name": "Roodevälja",
+        "stop_lat": 59.3690841,
+        "stop_lon": 26.3785183
+      },
+      "busData": {
+        "name": "Roodevälja",
+        "lat": 59.3715,
+        "lon": 26.3685
+      },
+      "distanceMeters": 627.93,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900670-1",
+      "routeNames": [
+        "Rägavere tee"
+      ],
+      "gtfs": {
+        "stop_id": "32653",
+        "stop_name": "Rägavere tee",
+        "stop_lat": 59.3373385,
+        "stop_lon": 26.3887974
+      },
+      "busData": {
+        "name": "Rägavere tee",
+        "lat": 59.3425,
+        "lon": 26.3885
+      },
+      "distanceMeters": 574.18,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900709-1",
+      "routeNames": [
+        "Saueaugu"
+      ],
+      "gtfs": {
+        "stop_id": "32690",
+        "stop_name": "Saueaugu",
+        "stop_lat": 59.3381654,
+        "stop_lon": 26.3698835
+      },
+      "busData": {
+        "name": "Saueaugu",
+        "lat": 59.3465,
+        "lon": 26.3355
+      },
+      "distanceMeters": 2158.59,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900710-1",
+      "routeNames": [
+        "Saueaugu"
+      ],
+      "gtfs": {
+        "stop_id": "32689",
+        "stop_name": "Saueaugu",
+        "stop_lat": 59.3380646,
+        "stop_lon": 26.3703039
+      },
+      "busData": {
+        "name": "Saueaugu",
+        "lat": 59.3465,
+        "lon": 26.3355
+      },
+      "distanceMeters": 2184.93,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900726-1",
+      "routeNames": [
+        "Seminari"
+      ],
+      "gtfs": {
+        "stop_id": "112862",
+        "stop_name": "Seminari",
+        "stop_lat": 59.3413224,
+        "stop_lon": 26.3721933
+      },
+      "busData": {
+        "name": "Seminari",
+        "lat": 59.3458,
+        "lon": 26.3712
+      },
+      "distanceMeters": 501.06,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900728-1",
+      "routeNames": [
+        "Side"
+      ],
+      "gtfs": {
+        "stop_id": "25994",
+        "stop_name": "Side",
+        "stop_lat": 59.3418167,
+        "stop_lon": 26.3763972
+      },
+      "busData": {
+        "name": "Side",
+        "lat": 59.3425,
+        "lon": 26.3655
+      },
+      "distanceMeters": 622.52,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900729-1",
+      "routeNames": [
+        "Side"
+      ],
+      "gtfs": {
+        "stop_id": "25993",
+        "stop_name": "Side",
+        "stop_lat": 59.3417828,
+        "stop_lon": 26.3757893
+      },
+      "busData": {
+        "name": "Side",
+        "lat": 59.3425,
+        "lon": 26.3655
+      },
+      "distanceMeters": 588.82,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900777-1",
+      "routeNames": [
+        "Tammiku"
+      ],
+      "gtfs": {
+        "stop_id": "32328",
+        "stop_name": "Tammiku",
+        "stop_lat": 59.3296368,
+        "stop_lon": 26.3496333
+      },
+      "busData": {
+        "name": "Tammiku",
+        "lat": 59.3315,
+        "lon": 26.3455
+      },
+      "distanceMeters": 312.86,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900778-1",
+      "routeNames": [
+        "Tammiku"
+      ],
+      "gtfs": {
+        "stop_id": "32327",
+        "stop_name": "Tammiku",
+        "stop_lat": 59.329584,
+        "stop_lon": 26.349845
+      },
+      "busData": {
+        "name": "Tammiku",
+        "lat": 59.3315,
+        "lon": 26.3455
+      },
+      "distanceMeters": 325.77,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900794-1",
+      "routeNames": [
+        "Tartu"
+      ],
+      "gtfs": {
+        "stop_id": "25989",
+        "stop_name": "Tartu",
+        "stop_lat": 59.3380545,
+        "stop_lon": 26.3603967
+      },
+      "busData": {
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575
+      },
+      "distanceMeters": 317.69,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900795-1",
+      "routeNames": [
+        "Tartu"
+      ],
+      "gtfs": {
+        "stop_id": "32334",
+        "stop_name": "Tartu",
+        "stop_lat": 59.3382102,
+        "stop_lon": 26.3602316
+      },
+      "busData": {
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575
+      },
+      "distanceMeters": 298.03,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900796-1",
+      "routeNames": [
+        "Tarva"
+      ],
+      "gtfs": {
+        "stop_id": "30309",
+        "stop_name": "Tarva",
+        "stop_lat": 59.3485861,
+        "stop_lon": 26.3500545
+      },
+      "busData": {
+        "name": "Tarva",
+        "lat": 59.3425,
+        "lon": 26.3515
+      },
+      "distanceMeters": 681.69,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900797-1",
+      "routeNames": [
+        "Tarva"
+      ],
+      "gtfs": {
+        "stop_id": "25995",
+        "stop_name": "Tarva",
+        "stop_lat": 59.3483302,
+        "stop_lon": 26.3498127
+      },
+      "busData": {
+        "name": "Tarva",
+        "lat": 59.3425,
+        "lon": 26.3515
+      },
+      "distanceMeters": 655.31,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900800-1",
+      "routeNames": [
+        "Teater"
+      ],
+      "gtfs": {
+        "stop_id": "32335",
+        "stop_name": "Teater",
+        "stop_lat": 59.349968,
+        "stop_lon": 26.346837
+      },
+      "busData": {
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485
+      },
+      "distanceMeters": 255.12,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900801-1",
+      "routeNames": [
+        "Teater"
+      ],
+      "gtfs": {
+        "stop_id": "32682",
+        "stop_name": "Teater",
+        "stop_lat": 59.350127,
+        "stop_lon": 26.34683
+      },
+      "busData": {
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485
+      },
+      "distanceMeters": 238.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900815-1",
+      "routeNames": [
+        "Tulika"
+      ],
+      "gtfs": {
+        "stop_id": "24953",
+        "stop_name": "Tulika",
+        "stop_lat": 59.3390396,
+        "stop_lon": 26.3487963
+      },
+      "busData": {
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485
+      },
+      "distanceMeters": 393.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900816-1",
+      "routeNames": [
+        "Tulika"
+      ],
+      "gtfs": {
+        "stop_id": "111861",
+        "stop_name": "Tulika",
+        "stop_lat": 59.339202,
+        "stop_lon": 26.3490053
+      },
+      "busData": {
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485
+      },
+      "distanceMeters": 412.64,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900822-1",
+      "routeNames": [
+        "Tõrma kalmistu"
+      ],
+      "gtfs": {
+        "stop_id": "91988",
+        "stop_name": "Tõrma kalmistu",
+        "stop_lat": 59.3241925,
+        "stop_lon": 26.3477699
+      },
+      "busData": {
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425
+      },
+      "distanceMeters": 564.61,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900823-1",
+      "routeNames": [
+        "Tõrma kalmistu"
+      ],
+      "gtfs": {
+        "stop_id": "30440",
+        "stop_name": "Tõrma kalmistu",
+        "stop_lat": 59.323134,
+        "stop_lon": 26.3469428
+      },
+      "busData": {
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425
+      },
+      "distanceMeters": 647.71,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900867-1",
+      "routeNames": [
+        "Vilepilli"
+      ],
+      "gtfs": {
+        "stop_id": "112882",
+        "stop_name": "Vilepilli",
+        "stop_lat": 59.3553914,
+        "stop_lon": 26.3829445
+      },
+      "busData": {
+        "name": "Vilepilli",
+        "lat": 59.3555,
+        "lon": 26.3715
+      },
+      "distanceMeters": 648.75,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900886-1",
+      "routeNames": [
+        "Vallimäe"
+      ],
+      "gtfs": {
+        "stop_id": "32504",
+        "stop_name": "Vallimäe",
+        "stop_lat": 59.3429945,
+        "stop_lon": 26.3485095
+      },
+      "busData": {
+        "name": "Vallimäe",
+        "lat": 59.3465,
+        "lon": 26.3485
+      },
+      "distanceMeters": 389.79,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900887-1",
+      "routeNames": [
+        "Vallimäe"
+      ],
+      "gtfs": {
+        "stop_id": "30431",
+        "stop_name": "Vallimäe",
+        "stop_lat": 59.3438763,
+        "stop_lon": 26.3488016
+      },
+      "busData": {
+        "name": "Vallimäe",
+        "lat": 59.3465,
+        "lon": 26.3485
+      },
+      "distanceMeters": 292.24,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900953-1",
+      "routeNames": [
+        "Viru"
+      ],
+      "gtfs": {
+        "stop_id": "25990",
+        "stop_name": "Viru",
+        "stop_lat": 59.3433648,
+        "stop_lon": 26.3642852
+      },
+      "busData": {
+        "name": "Viru",
+        "lat": 59.3468,
+        "lon": 26.3622
+      },
+      "distanceMeters": 399.85,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900979-1",
+      "routeNames": [
+        "Võidu"
+      ],
+      "gtfs": {
+        "stop_id": "25991",
+        "stop_name": "Võidu",
+        "stop_lat": 59.355847,
+        "stop_lon": 26.360176
+      },
+      "busData": {
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555
+      },
+      "distanceMeters": 551.26,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5900980-1",
+      "routeNames": [
+        "Võidu"
+      ],
+      "gtfs": {
+        "stop_id": "25992",
+        "stop_name": "Võidu",
+        "stop_lat": 59.356103,
+        "stop_lon": 26.359927
+      },
+      "busData": {
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555
+      },
+      "distanceMeters": 570.03,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901010-1",
+      "routeNames": [
+        "Õie"
+      ],
+      "gtfs": {
+        "stop_id": "32674",
+        "stop_name": "Õie",
+        "stop_lat": 59.334022,
+        "stop_lon": 26.3478513
+      },
+      "busData": {
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468
+      },
+      "distanceMeters": 254.17,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901011-1",
+      "routeNames": [
+        "Õie"
+      ],
+      "gtfs": {
+        "stop_id": "32675",
+        "stop_name": "Õie",
+        "stop_lat": 59.3340631,
+        "stop_lon": 26.3476849
+      },
+      "busData": {
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468
+      },
+      "distanceMeters": 256.6,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901012-1",
+      "routeNames": [
+        "Õli"
+      ],
+      "gtfs": {
+        "stop_id": "32676",
+        "stop_name": "Õli",
+        "stop_lat": 59.3563706,
+        "stop_lon": 26.3729052
+      },
+      "busData": {
+        "name": "Õli",
+        "lat": 59.3552,
+        "lon": 26.3728
+      },
+      "distanceMeters": 130.3,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901017-1",
+      "routeNames": [
+        "Ööbiku"
+      ],
+      "gtfs": {
+        "stop_id": "30605",
+        "stop_name": "Ööbiku",
+        "stop_lat": 59.3304045,
+        "stop_lon": 26.3756046
+      },
+      "busData": {
+        "name": "Ööbiku",
+        "lat": 59.3405,
+        "lon": 26.3385
+      },
+      "distanceMeters": 2384.94,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901018-1",
+      "routeNames": [
+        "Ööbiku"
+      ],
+      "gtfs": {
+        "stop_id": "30604",
+        "stop_name": "Ööbiku",
+        "stop_lat": 59.3309045,
+        "stop_lon": 26.3762415
+      },
+      "busData": {
+        "name": "Ööbiku",
+        "lat": 59.3405,
+        "lon": 26.3385
+      },
+      "distanceMeters": 2391.53,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901107-1",
+      "routeNames": [
+        "Pauluse kalmistu"
+      ],
+      "gtfs": {
+        "stop_id": "138064",
+        "stop_name": "Pauluse kalmistu",
+        "stop_lat": 59.3265554,
+        "stop_lon": 26.353767
+      },
+      "busData": {
+        "name": "Pauluse kalmistu",
+        "lat": 59.3395,
+        "lon": 26.3412
+      },
+      "distanceMeters": 1606.17,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901156-1",
+      "routeNames": [
+        "Pauluse kalmistu"
+      ],
+      "gtfs": {
+        "stop_id": "140585",
+        "stop_name": "Pauluse kalmistu",
+        "stop_lat": 59.3265891,
+        "stop_lon": 26.3541308
+      },
+      "busData": {
+        "name": "Pauluse kalmistu",
+        "lat": 59.3395,
+        "lon": 26.3412
+      },
+      "distanceMeters": 1612.09,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901194-1",
+      "routeNames": [
+        "Näituse"
+      ],
+      "gtfs": {
+        "stop_id": "146955",
+        "stop_name": "Näituse",
+        "stop_lat": 59.3633728,
+        "stop_lon": 26.3401906
+      },
+      "busData": {
+        "name": "Näituse",
+        "lat": 59.3685,
+        "lon": 26.3312
+      },
+      "distanceMeters": 764.54,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901202-1",
+      "routeNames": [
+        "Papiaru"
+      ],
+      "gtfs": {
+        "stop_id": "147044",
+        "stop_name": "Papiaru",
+        "stop_lat": 59.3642313,
+        "stop_lon": 26.3692117
+      },
+      "busData": {
+        "name": "Papiaru",
+        "lat": 59.3655,
+        "lon": 26.3695
+      },
+      "distanceMeters": 142.02,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901241-1",
+      "routeNames": [
+        "Raudteejaam"
+      ],
+      "gtfs": {
+        "stop_id": "153188",
+        "stop_name": "Raudteejaam",
+        "stop_lat": 59.357355,
+        "stop_lon": 26.3637539
+      },
+      "busData": {
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611
+      },
+      "distanceMeters": 177.34,
+      "status": "BAD_REVIEW"
+    },
+    {
+      "stopId": "5901245-1",
+      "routeNames": [
+        "Kauba"
+      ],
+      "gtfs": {
+        "stop_id": "154417",
+        "stop_name": "Kauba",
+        "stop_lat": 59.3567375,
+        "stop_lon": 26.368118
+      },
+      "busData": {
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665
+      },
+      "distanceMeters": 490.95,
+      "status": "BAD_REVIEW"
+    }
+  ],
+  "conclusion": {
+    "busDataCoordinatesNeedPatchLater": true,
+    "reason": "At least one stop has missing busData coordinates or distance review/bad_review flags."
+  }
+}
