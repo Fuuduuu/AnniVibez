@@ -1,0 +1,4818 @@
+{
+  "generatedAt": "2026-05-01T10:32:40.441Z",
+  "source": {
+    "routePatternMap": "docs/audit/route-pattern-stopid-map.json",
+    "busData": "src/data/busData.js"
+  },
+  "summary": {
+    "patternCount": 6,
+    "lineNumbers": [
+      "1",
+      "2",
+      "3",
+      "5"
+    ],
+    "stopRefCount": 106,
+    "uniqueStopIdCount": 80,
+    "missingStopIdCount": 0,
+    "groupNameMismatchCount": 0,
+    "coordinateWarningCount": 1,
+    "codeDisplayWarningCount": 0,
+    "duplicateStopNameMultiStopIdCount": 31
+  },
+  "missingStopIds": [],
+  "groupNameMismatches": [],
+  "coordinateWarnings": [
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "seq": 6,
+      "routeStopName": "Aiand",
+      "stopId": "5900013-1",
+      "byCodeCoordinateNumeric": false,
+      "routeGroupCoordinateNumeric": true,
+      "byCodeLat": null,
+      "byCodeLon": null,
+      "routeGroupLat": 0,
+      "routeGroupLon": 0
+    }
+  ],
+  "codeDisplayWarnings": [],
+  "duplicateStopNameWithMultipleStopIds": [
+    {
+      "stopName": "Haigla",
+      "stopIds": [
+        "5900078-1",
+        "5900079-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Karja",
+      "stopIds": [
+        "5900209-1",
+        "5900210-1"
+      ],
+      "lineNumbers": [
+        "1",
+        "2"
+      ],
+      "patterns": [
+        "Piira - Lihakombinaat",
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Kauba",
+      "stopIds": [
+        "5900220-1",
+        "5901245-1"
+      ],
+      "lineNumbers": [
+        "1"
+      ],
+      "patterns": [
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Kesk",
+      "stopIds": [
+        "5900229-1",
+        "5900230-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Kivi",
+      "stopIds": [
+        "5900286-1",
+        "5900287-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Kungla",
+      "stopIds": [
+        "5900310-1",
+        "5900311-1"
+      ],
+      "lineNumbers": [
+        "1",
+        "5"
+      ],
+      "patterns": [
+        "Piira - Näpi - Piira",
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Lilleoru",
+      "stopIds": [
+        "5900541-1",
+        "5900542-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Lääne",
+      "stopIds": [
+        "5900415-1",
+        "5900416-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Mäe",
+      "stopIds": [
+        "5900464-1",
+        "5900465-1"
+      ],
+      "lineNumbers": [
+        "1",
+        "2"
+      ],
+      "patterns": [
+        "Piira - Lihakombinaat",
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Narva",
+      "stopIds": [
+        "5900484-1",
+        "5900485-1"
+      ],
+      "lineNumbers": [
+        "1"
+      ],
+      "patterns": [
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Näituse",
+      "stopIds": [
+        "5900505-1",
+        "5901194-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Näpi",
+      "stopIds": [
+        "5900507-1",
+        "5900508-1"
+      ],
+      "lineNumbers": [
+        "1"
+      ],
+      "patterns": [
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Palermo",
+      "stopIds": [
+        "5900381-1",
+        "5900382-1"
+      ],
+      "lineNumbers": [
+        "1",
+        "2"
+      ],
+      "patterns": [
+        "Piira - Lihakombinaat",
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Pauluse kalmistu",
+      "stopIds": [
+        "5901107-1",
+        "5901156-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Piiri",
+      "stopIds": [
+        "5900566-1",
+        "5900567-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Polikliinik",
+      "stopIds": [
+        "5900576-1",
+        "5900577-1"
+      ],
+      "lineNumbers": [
+        "1",
+        "2",
+        "3",
+        "5"
+      ],
+      "patterns": [
+        "Piira - Lihakombinaat",
+        "Piira - Näpi - Piira",
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus",
+        "Tõrma - Keskväljak - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Põhja",
+      "stopIds": [
+        "5900596-1",
+        "5900597-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Raudteejaam",
+      "stopIds": [
+        "5900635-1",
+        "5901241-1"
+      ],
+      "lineNumbers": [
+        "1"
+      ],
+      "patterns": [
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Rohu",
+      "stopIds": [
+        "5900653-1",
+        "5900655-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Saueaugu",
+      "stopIds": [
+        "5900709-1",
+        "5900710-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Side",
+      "stopIds": [
+        "5900728-1",
+        "5900729-1"
+      ],
+      "lineNumbers": [
+        "1"
+      ],
+      "patterns": [
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Tammiku",
+      "stopIds": [
+        "5900777-1",
+        "5900778-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Tartu",
+      "stopIds": [
+        "5900794-1",
+        "5900795-1"
+      ],
+      "lineNumbers": [
+        "1",
+        "2"
+      ],
+      "patterns": [
+        "Piira - Lihakombinaat",
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Tarva",
+      "stopIds": [
+        "5900796-1",
+        "5900797-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Teater",
+      "stopIds": [
+        "5900800-1",
+        "5900801-1"
+      ],
+      "lineNumbers": [
+        "5"
+      ],
+      "patterns": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ]
+    },
+    {
+      "stopName": "Tulika",
+      "stopIds": [
+        "5900815-1",
+        "5900816-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Tõrma kalmistu",
+      "stopIds": [
+        "5900822-1",
+        "5900823-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Vallimäe",
+      "stopIds": [
+        "5900886-1",
+        "5900887-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Võidu",
+      "stopIds": [
+        "5900979-1",
+        "5900980-1"
+      ],
+      "lineNumbers": [
+        "1",
+        "2"
+      ],
+      "patterns": [
+        "Piira - Lihakombinaat",
+        "Piira - Näpi - Piira"
+      ]
+    },
+    {
+      "stopName": "Õie",
+      "stopIds": [
+        "5901010-1",
+        "5901011-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    },
+    {
+      "stopName": "Ööbiku",
+      "stopIds": [
+        "5901017-1",
+        "5901018-1"
+      ],
+      "lineNumbers": [
+        "3"
+      ],
+      "patterns": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ]
+    }
+  ],
+  "focusSummary": [
+    {
+      "stopName": "Õie",
+      "occurrences": 2,
+      "stopIds": [
+        "5901010-1",
+        "5901011-1"
+      ],
+      "groupNames": [
+        "Õie"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Tulika",
+      "occurrences": 2,
+      "stopIds": [
+        "5900815-1",
+        "5900816-1"
+      ],
+      "groupNames": [
+        "Tulika"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Kivi",
+      "occurrences": 2,
+      "stopIds": [
+        "5900286-1",
+        "5900287-1"
+      ],
+      "groupNames": [
+        "Kivi"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Piiri",
+      "occurrences": 2,
+      "stopIds": [
+        "5900566-1",
+        "5900567-1"
+      ],
+      "groupNames": [
+        "Piiri"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Kungla",
+      "occurrences": 4,
+      "stopIds": [
+        "5900310-1",
+        "5900311-1"
+      ],
+      "groupNames": [
+        "Kungla"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Polikliinik",
+      "occurrences": 6,
+      "stopIds": [
+        "5900576-1",
+        "5900577-1"
+      ],
+      "groupNames": [
+        "Polikliinik"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Kesk",
+      "occurrences": 2,
+      "stopIds": [
+        "5900229-1",
+        "5900230-1"
+      ],
+      "groupNames": [
+        "Kesk"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Keskväljak",
+      "occurrences": 2,
+      "stopIds": [
+        "5900232-1"
+      ],
+      "groupNames": [
+        "Keskväljak"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Näpi",
+      "occurrences": 2,
+      "stopIds": [
+        "5900507-1",
+        "5900508-1"
+      ],
+      "groupNames": [
+        "Näpi"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Narva",
+      "occurrences": 2,
+      "stopIds": [
+        "5900484-1",
+        "5900485-1"
+      ],
+      "groupNames": [
+        "Narva"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Kauba",
+      "occurrences": 2,
+      "stopIds": [
+        "5900220-1",
+        "5901245-1"
+      ],
+      "groupNames": [
+        "Kauba"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Raudteejaam",
+      "occurrences": 2,
+      "stopIds": [
+        "5900635-1",
+        "5901241-1"
+      ],
+      "groupNames": [
+        "Raudteejaam"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Haigla",
+      "occurrences": 2,
+      "stopIds": [
+        "5900078-1",
+        "5900079-1"
+      ],
+      "groupNames": [
+        "Haigla"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    },
+    {
+      "stopName": "Tõrma kalmistu",
+      "occurrences": 4,
+      "stopIds": [
+        "5900822-1",
+        "5900823-1"
+      ],
+      "groupNames": [
+        "Tõrma kalmistu"
+      ],
+      "mismatchCount": 0,
+      "coordinateWarningCount": 0,
+      "codeDisplayWarningCount": 0
+    }
+  ],
+  "stopComparisons": [
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 1,
+      "time": "14:30",
+      "routeStopName": "Piira",
+      "stopId": "5900565-1",
+      "byCode": {
+        "exists": true,
+        "name": "Piira",
+        "lat": 59.3308,
+        "lon": 26.3578,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Piira",
+        "lat": 59.3308,
+        "lon": 26.3578,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Piira"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 2,
+      "time": "14:32",
+      "routeStopName": "Palermo",
+      "stopId": "5900382-1",
+      "byCode": {
+        "exists": true,
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Palermo"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 3,
+      "time": "14:33",
+      "routeStopName": "Mäe",
+      "stopId": "5900464-1",
+      "byCode": {
+        "exists": true,
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Mäe"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 4,
+      "time": "14:34",
+      "routeStopName": "Tartu",
+      "stopId": "5900794-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tartu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 5,
+      "time": "14:35",
+      "routeStopName": "Karja",
+      "stopId": "5900209-1",
+      "byCode": {
+        "exists": true,
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Karja"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 6,
+      "time": "14:36",
+      "routeStopName": "Side",
+      "stopId": "5900728-1",
+      "byCode": {
+        "exists": true,
+        "name": "Side",
+        "lat": 59.3425,
+        "lon": 26.3655,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Side",
+        "lat": 59.3425,
+        "lon": 26.3655,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Side"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 7,
+      "time": "14:36",
+      "routeStopName": "Kungla",
+      "stopId": "5900310-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kungla"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 8,
+      "time": "14:37",
+      "routeStopName": "Polikliinik",
+      "stopId": "5900577-1",
+      "byCode": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Polikliinik"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 9,
+      "time": "14:39",
+      "routeStopName": "Bussijaam",
+      "stopId": "5900055-1",
+      "byCode": {
+        "exists": true,
+        "name": "Bussijaam",
+        "lat": 59.3491,
+        "lon": 26.3615,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Bussijaam",
+        "lat": 59.3491,
+        "lon": 26.3615,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Bussijaam"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 10,
+      "time": "14:40",
+      "routeStopName": "Laada",
+      "stopId": "5900338-1",
+      "byCode": {
+        "exists": true,
+        "name": "Laada",
+        "lat": 59.3495,
+        "lon": 26.3622,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Laada",
+        "lat": 59.3495,
+        "lon": 26.3622,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Laada"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 11,
+      "time": "14:41",
+      "routeStopName": "Võidu",
+      "stopId": "5900979-1",
+      "byCode": {
+        "exists": true,
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Võidu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 12,
+      "time": "14:42",
+      "routeStopName": "Raudteejaam",
+      "stopId": "5901241-1",
+      "byCode": {
+        "exists": true,
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Raudteejaam"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 13,
+      "time": "14:43",
+      "routeStopName": "Kauba",
+      "stopId": "5901245-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kauba"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 14,
+      "time": "14:46",
+      "routeStopName": "Õli",
+      "stopId": "5901012-1",
+      "byCode": {
+        "exists": true,
+        "name": "Õli",
+        "lat": 59.3552,
+        "lon": 26.3728,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Õli",
+        "lat": 59.3552,
+        "lon": 26.3728,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Õli"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 15,
+      "time": "14:49",
+      "routeStopName": "Vilepilli",
+      "stopId": "5900867-1",
+      "byCode": {
+        "exists": true,
+        "name": "Vilepilli",
+        "lat": 59.3555,
+        "lon": 26.3715,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Vilepilli",
+        "lat": 59.3555,
+        "lon": 26.3715,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Vilepilli"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 16,
+      "time": "14:52",
+      "routeStopName": "Narva",
+      "stopId": "5900485-1",
+      "byCode": {
+        "exists": true,
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Narva"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 17,
+      "time": "14:57",
+      "routeStopName": "Näpi",
+      "stopId": "5900507-1",
+      "byCode": {
+        "exists": true,
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Näpi"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 18,
+      "time": "14:59",
+      "routeStopName": "Näpi",
+      "stopId": "5900508-1",
+      "byCode": {
+        "exists": true,
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Näpi",
+        "lat": 59.3651,
+        "lon": 26.3851,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Näpi"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 19,
+      "time": "15:00",
+      "routeStopName": "Narva",
+      "stopId": "5900484-1",
+      "byCode": {
+        "exists": true,
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Narva",
+        "lat": 59.3585,
+        "lon": 26.3751,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Narva"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 20,
+      "time": "15:02",
+      "routeStopName": "Kauba",
+      "stopId": "5900220-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kauba",
+        "lat": 59.3524,
+        "lon": 26.3665,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kauba"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 21,
+      "time": "15:03",
+      "routeStopName": "Raudteejaam",
+      "stopId": "5900635-1",
+      "byCode": {
+        "exists": true,
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Raudteejaam",
+        "lat": 59.3582,
+        "lon": 26.3611,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Raudteejaam"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 22,
+      "time": "15:04",
+      "routeStopName": "Võidu",
+      "stopId": "5900980-1",
+      "byCode": {
+        "exists": true,
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Võidu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 23,
+      "time": "15:06",
+      "routeStopName": "Lai",
+      "stopId": "5900346-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lai",
+        "lat": 59.3495,
+        "lon": 26.3572,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lai",
+        "lat": 59.3495,
+        "lon": 26.3572,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lai"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 24,
+      "time": "15:11",
+      "routeStopName": "Keskuse",
+      "stopId": "5900255-1",
+      "byCode": {
+        "exists": true,
+        "name": "Keskuse",
+        "lat": 59.3555,
+        "lon": 26.3268,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Keskuse",
+        "lat": 59.3555,
+        "lon": 26.3268,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Keskuse"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 25,
+      "time": "15:12",
+      "routeStopName": "Polikliinik",
+      "stopId": "5900576-1",
+      "byCode": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Polikliinik"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 26,
+      "time": "15:13",
+      "routeStopName": "Kungla",
+      "stopId": "5900311-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kungla"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 27,
+      "time": "15:13",
+      "routeStopName": "Side",
+      "stopId": "5900729-1",
+      "byCode": {
+        "exists": true,
+        "name": "Side",
+        "lat": 59.3425,
+        "lon": 26.3655,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Side",
+        "lat": 59.3425,
+        "lon": 26.3655,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Side"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 28,
+      "time": "15:14",
+      "routeStopName": "Karja",
+      "stopId": "5900210-1",
+      "byCode": {
+        "exists": true,
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Karja"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 29,
+      "time": "15:15",
+      "routeStopName": "Tartu",
+      "stopId": "5900795-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tartu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 30,
+      "time": "15:16",
+      "routeStopName": "Mäe",
+      "stopId": "5900465-1",
+      "byCode": {
+        "exists": true,
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Mäe"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 31,
+      "time": "15:17",
+      "routeStopName": "Palermo",
+      "stopId": "5900381-1",
+      "byCode": {
+        "exists": true,
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Palermo"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "seq": 32,
+      "time": "15:20",
+      "routeStopName": "Piira",
+      "stopId": "5900565-1",
+      "byCode": {
+        "exists": true,
+        "name": "Piira",
+        "lat": 59.3308,
+        "lon": 26.3578,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Piira",
+        "lat": 59.3308,
+        "lon": 26.3578,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Piira"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 1,
+      "time": "16:00",
+      "routeStopName": "Piira",
+      "stopId": "5900565-1",
+      "byCode": {
+        "exists": true,
+        "name": "Piira",
+        "lat": 59.3308,
+        "lon": 26.3578,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Piira",
+        "lat": 59.3308,
+        "lon": 26.3578,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Piira"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 2,
+      "time": "16:02",
+      "routeStopName": "Palermo",
+      "stopId": "5900382-1",
+      "byCode": {
+        "exists": true,
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Palermo",
+        "lat": 59.3335,
+        "lon": 26.3565,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Palermo"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 3,
+      "time": "16:03",
+      "routeStopName": "Mäe",
+      "stopId": "5900464-1",
+      "byCode": {
+        "exists": true,
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Mäe",
+        "lat": 59.3365,
+        "lon": 26.3555,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Mäe"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 4,
+      "time": "16:04",
+      "routeStopName": "Tartu",
+      "stopId": "5900794-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tartu",
+        "lat": 59.3405,
+        "lon": 26.3575,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tartu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 5,
+      "time": "16:05",
+      "routeStopName": "Karja",
+      "stopId": "5900209-1",
+      "byCode": {
+        "exists": true,
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Karja",
+        "lat": 59.3451,
+        "lon": 26.3685,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Karja"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 6,
+      "time": "16:06",
+      "routeStopName": "Seminari",
+      "stopId": "5900726-1",
+      "byCode": {
+        "exists": true,
+        "name": "Seminari",
+        "lat": 59.3458,
+        "lon": 26.3712,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Seminari",
+        "lat": 59.3458,
+        "lon": 26.3712,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Seminari"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 7,
+      "time": "16:10",
+      "routeStopName": "Polikliinik",
+      "stopId": "5900577-1",
+      "byCode": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Polikliinik"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 8,
+      "time": "16:11",
+      "routeStopName": "Bussijaam",
+      "stopId": "5900055-1",
+      "byCode": {
+        "exists": true,
+        "name": "Bussijaam",
+        "lat": 59.3491,
+        "lon": 26.3615,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Bussijaam",
+        "lat": 59.3491,
+        "lon": 26.3615,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Bussijaam"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 9,
+      "time": "16:12",
+      "routeStopName": "Laada",
+      "stopId": "5900338-1",
+      "byCode": {
+        "exists": true,
+        "name": "Laada",
+        "lat": 59.3495,
+        "lon": 26.3622,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Laada",
+        "lat": 59.3495,
+        "lon": 26.3622,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Laada"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 10,
+      "time": "16:13",
+      "routeStopName": "Võidu",
+      "stopId": "5900979-1",
+      "byCode": {
+        "exists": true,
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Võidu",
+        "lat": 59.3515,
+        "lon": 26.3555,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Võidu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 11,
+      "time": "16:14",
+      "routeStopName": "Arkna tee",
+      "stopId": "5900040-1",
+      "byCode": {
+        "exists": true,
+        "name": "Arkna tee",
+        "lat": 59.3621,
+        "lon": 26.3685,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Arkna tee",
+        "lat": 59.3621,
+        "lon": 26.3685,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Arkna tee"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 12,
+      "time": "16:15",
+      "routeStopName": "Papiaru",
+      "stopId": "5901202-1",
+      "byCode": {
+        "exists": true,
+        "name": "Papiaru",
+        "lat": 59.3655,
+        "lon": 26.3695,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Papiaru",
+        "lat": 59.3655,
+        "lon": 26.3695,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Papiaru"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 13,
+      "time": "16:16",
+      "routeStopName": "Roodevälja",
+      "stopId": "5900660-1",
+      "byCode": {
+        "exists": true,
+        "name": "Roodevälja",
+        "lat": 59.3715,
+        "lon": 26.3685,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Roodevälja",
+        "lat": 59.3715,
+        "lon": 26.3685,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Roodevälja"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "seq": 14,
+      "time": "16:20",
+      "routeStopName": "Lihakombinaat",
+      "stopId": "5900659-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lihakombinaat",
+        "lat": 59.3785,
+        "lon": 26.3651,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lihakombinaat",
+        "lat": 59.3785,
+        "lon": 26.3651,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lihakombinaat"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 1,
+      "time": "14:00",
+      "routeStopName": "Tõrma kalmistu",
+      "stopId": "5900823-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tõrma kalmistu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 2,
+      "time": "14:01",
+      "routeStopName": "Pauluse kalmistu",
+      "stopId": "5901156-1",
+      "byCode": {
+        "exists": true,
+        "name": "Pauluse kalmistu",
+        "lat": 59.3395,
+        "lon": 26.3412,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Pauluse kalmistu",
+        "lat": 59.3395,
+        "lon": 26.3412,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Pauluse kalmistu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 3,
+      "time": "14:02",
+      "routeStopName": "Lilleoru",
+      "stopId": "5900542-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lilleoru",
+        "lat": 59.3385,
+        "lon": 26.3451,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lilleoru",
+        "lat": 59.3385,
+        "lon": 26.3451,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lilleoru"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 4,
+      "time": "14:03",
+      "routeStopName": "Ööbiku",
+      "stopId": "5901018-1",
+      "byCode": {
+        "exists": true,
+        "name": "Ööbiku",
+        "lat": 59.3405,
+        "lon": 26.3385,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Ööbiku",
+        "lat": 59.3405,
+        "lon": 26.3385,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Ööbiku"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 5,
+      "time": "14:04",
+      "routeStopName": "Haigla",
+      "stopId": "5900079-1",
+      "byCode": {
+        "exists": true,
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Haigla"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 6,
+      "time": "14:05",
+      "routeStopName": "Saueaugu",
+      "stopId": "5900710-1",
+      "byCode": {
+        "exists": true,
+        "name": "Saueaugu",
+        "lat": 59.3465,
+        "lon": 26.3355,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Saueaugu",
+        "lat": 59.3465,
+        "lon": 26.3355,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Saueaugu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 7,
+      "time": "14:07",
+      "routeStopName": "Seminari",
+      "stopId": "5900726-1",
+      "byCode": {
+        "exists": true,
+        "name": "Seminari",
+        "lat": 59.3458,
+        "lon": 26.3712,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Seminari",
+        "lat": 59.3458,
+        "lon": 26.3712,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Seminari"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 8,
+      "time": "14:08",
+      "routeStopName": "Polikliinik",
+      "stopId": "5900577-1",
+      "byCode": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Polikliinik"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 9,
+      "time": "14:09",
+      "routeStopName": "Keskväljak",
+      "stopId": "5900232-1",
+      "byCode": {
+        "exists": true,
+        "name": "Keskväljak",
+        "lat": 59.3482,
+        "lon": 26.3591,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Keskväljak",
+        "lat": 59.3482,
+        "lon": 26.3591,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Keskväljak"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 10,
+      "time": "14:10",
+      "routeStopName": "Carl Robert Jakobsoni",
+      "stopId": "5900056-1",
+      "byCode": {
+        "exists": true,
+        "name": "Carl Robert Jakobsoni",
+        "lat": 59.3458,
+        "lon": 26.3571,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Carl Robert Jakobsoni",
+        "lat": 59.3458,
+        "lon": 26.3571,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Carl Robert Jakobsoni"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 11,
+      "time": "14:11",
+      "routeStopName": "Tarva",
+      "stopId": "5900797-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tarva",
+        "lat": 59.3425,
+        "lon": 26.3515,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tarva",
+        "lat": 59.3425,
+        "lon": 26.3515,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tarva"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 12,
+      "time": "14:13",
+      "routeStopName": "Vallimäe",
+      "stopId": "5900886-1",
+      "byCode": {
+        "exists": true,
+        "name": "Vallimäe",
+        "lat": 59.3465,
+        "lon": 26.3485,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Vallimäe",
+        "lat": 59.3465,
+        "lon": 26.3485,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Vallimäe"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 13,
+      "time": "14:14",
+      "routeStopName": "Tulika",
+      "stopId": "5900815-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tulika"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 14,
+      "time": "14:16",
+      "routeStopName": "Õie",
+      "stopId": "5901011-1",
+      "byCode": {
+        "exists": true,
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Õie"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 15,
+      "time": "14:19",
+      "routeStopName": "Tammiku",
+      "stopId": "5900777-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tammiku",
+        "lat": 59.3315,
+        "lon": 26.3455,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tammiku",
+        "lat": 59.3315,
+        "lon": 26.3455,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tammiku"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "seq": 16,
+      "time": "14:21",
+      "routeStopName": "Tõrma kalmistu",
+      "stopId": "5900822-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tõrma kalmistu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 1,
+      "time": "13:30",
+      "routeStopName": "Tõrma kalmistu",
+      "stopId": "5900823-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tõrma kalmistu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 2,
+      "time": "13:32",
+      "routeStopName": "Tammiku",
+      "stopId": "5900778-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tammiku",
+        "lat": 59.3315,
+        "lon": 26.3455,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tammiku",
+        "lat": 59.3315,
+        "lon": 26.3455,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tammiku"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 3,
+      "time": "13:33",
+      "routeStopName": "Õie",
+      "stopId": "5901010-1",
+      "byCode": {
+        "exists": true,
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Õie",
+        "lat": 59.3318,
+        "lon": 26.3468,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Õie"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 4,
+      "time": "13:34",
+      "routeStopName": "Tulika",
+      "stopId": "5900816-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tulika",
+        "lat": 59.3355,
+        "lon": 26.3485,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tulika"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 5,
+      "time": "13:35",
+      "routeStopName": "Vallimäe",
+      "stopId": "5900887-1",
+      "byCode": {
+        "exists": true,
+        "name": "Vallimäe",
+        "lat": 59.3465,
+        "lon": 26.3485,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Vallimäe",
+        "lat": 59.3465,
+        "lon": 26.3485,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Vallimäe"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 6,
+      "time": "13:36",
+      "routeStopName": "Tarva",
+      "stopId": "5900796-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tarva",
+        "lat": 59.3425,
+        "lon": 26.3515,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tarva",
+        "lat": 59.3425,
+        "lon": 26.3515,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tarva"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 7,
+      "time": "13:39",
+      "routeStopName": "Lai",
+      "stopId": "5900346-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lai",
+        "lat": 59.3495,
+        "lon": 26.3572,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lai",
+        "lat": 59.3495,
+        "lon": 26.3572,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lai"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 8,
+      "time": "13:41",
+      "routeStopName": "Keskuse",
+      "stopId": "5900255-1",
+      "byCode": {
+        "exists": true,
+        "name": "Keskuse",
+        "lat": 59.3555,
+        "lon": 26.3268,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Keskuse",
+        "lat": 59.3555,
+        "lon": 26.3268,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Keskuse"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 9,
+      "time": "13:42",
+      "routeStopName": "Viru",
+      "stopId": "5900953-1",
+      "byCode": {
+        "exists": true,
+        "name": "Viru",
+        "lat": 59.3468,
+        "lon": 26.3622,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Viru",
+        "lat": 59.3468,
+        "lon": 26.3622,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Viru"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 10,
+      "time": "13:45",
+      "routeStopName": "Saueaugu",
+      "stopId": "5900709-1",
+      "byCode": {
+        "exists": true,
+        "name": "Saueaugu",
+        "lat": 59.3465,
+        "lon": 26.3355,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Saueaugu",
+        "lat": 59.3465,
+        "lon": 26.3355,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Saueaugu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 11,
+      "time": "13:46",
+      "routeStopName": "Haigla",
+      "stopId": "5900078-1",
+      "byCode": {
+        "exists": true,
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Haigla",
+        "lat": 59.3435,
+        "lon": 26.3312,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Haigla"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 12,
+      "time": "13:47",
+      "routeStopName": "Ööbiku",
+      "stopId": "5901017-1",
+      "byCode": {
+        "exists": true,
+        "name": "Ööbiku",
+        "lat": 59.3405,
+        "lon": 26.3385,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Ööbiku",
+        "lat": 59.3405,
+        "lon": 26.3385,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Ööbiku"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 13,
+      "time": "13:50",
+      "routeStopName": "Lilleoru",
+      "stopId": "5900541-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lilleoru",
+        "lat": 59.3385,
+        "lon": 26.3451,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lilleoru",
+        "lat": 59.3385,
+        "lon": 26.3451,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lilleoru"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 14,
+      "time": "13:51",
+      "routeStopName": "Pauluse kalmistu",
+      "stopId": "5901107-1",
+      "byCode": {
+        "exists": true,
+        "name": "Pauluse kalmistu",
+        "lat": 59.3395,
+        "lon": 26.3412,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Pauluse kalmistu",
+        "lat": 59.3395,
+        "lon": 26.3412,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Pauluse kalmistu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "seq": 15,
+      "time": "13:54",
+      "routeStopName": "Tõrma kalmistu",
+      "stopId": "5900822-1",
+      "byCode": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Tõrma kalmistu",
+        "lat": 59.3285,
+        "lon": 26.3425,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Tõrma kalmistu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 1,
+      "time": "13:26",
+      "routeStopName": "Põhjakeskus",
+      "stopId": "5900598-1",
+      "byCode": {
+        "exists": true,
+        "name": "Põhjakeskus",
+        "lat": 59.3732,
+        "lon": 26.3268,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Põhjakeskus",
+        "lat": 59.3732,
+        "lon": 26.3268,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Põhjakeskus"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 2,
+      "time": "13:27",
+      "routeStopName": "Näituse",
+      "stopId": "5900505-1",
+      "byCode": {
+        "exists": true,
+        "name": "Näituse",
+        "lat": 59.3685,
+        "lon": 26.3312,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Näituse",
+        "lat": 59.3685,
+        "lon": 26.3312,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Näituse"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 3,
+      "time": "13:28",
+      "routeStopName": "Põhja",
+      "stopId": "5900597-1",
+      "byCode": {
+        "exists": true,
+        "name": "Põhja",
+        "lat": 59.3625,
+        "lon": 26.3455,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Põhja",
+        "lat": 59.3625,
+        "lon": 26.3455,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Põhja"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 4,
+      "time": "13:29",
+      "routeStopName": "Kesk",
+      "stopId": "5900230-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kesk"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 5,
+      "time": "13:30",
+      "routeStopName": "Lääne",
+      "stopId": "5900415-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lääne",
+        "lat": 59.3551,
+        "lon": 26.3415,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lääne",
+        "lat": 59.3551,
+        "lon": 26.3415,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lääne"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 6,
+      "time": "13:33",
+      "routeStopName": "Aiand",
+      "stopId": "5900013-1",
+      "byCode": {
+        "exists": true,
+        "name": "Aiand",
+        "lat": null,
+        "lon": null,
+        "coordinateNumeric": false
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Aiand",
+        "lat": 0,
+        "lon": 0,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Aiand"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": true
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 7,
+      "time": "13:36",
+      "routeStopName": "Rohu",
+      "stopId": "5900653-1",
+      "byCode": {
+        "exists": true,
+        "name": "Rohu",
+        "lat": 59.3515,
+        "lon": 26.3415,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Rohu",
+        "lat": 59.3515,
+        "lon": 26.3415,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Rohu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 8,
+      "time": "13:37",
+      "routeStopName": "Teater",
+      "stopId": "5900800-1",
+      "byCode": {
+        "exists": true,
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Teater"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 9,
+      "time": "13:39",
+      "routeStopName": "Lai",
+      "stopId": "5900346-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lai",
+        "lat": 59.3495,
+        "lon": 26.3572,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lai",
+        "lat": 59.3495,
+        "lon": 26.3572,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lai"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 10,
+      "time": "13:40",
+      "routeStopName": "Keskuse",
+      "stopId": "5900255-1",
+      "byCode": {
+        "exists": true,
+        "name": "Keskuse",
+        "lat": 59.3555,
+        "lon": 26.3268,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Keskuse",
+        "lat": 59.3555,
+        "lon": 26.3268,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Keskuse"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 11,
+      "time": "13:41",
+      "routeStopName": "Polikliinik",
+      "stopId": "5900576-1",
+      "byCode": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Polikliinik"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 12,
+      "time": "13:42",
+      "routeStopName": "Kungla",
+      "stopId": "5900311-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kungla"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 13,
+      "time": "13:43",
+      "routeStopName": "Piiri",
+      "stopId": "5900567-1",
+      "byCode": {
+        "exists": true,
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Piiri"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 14,
+      "time": "13:44",
+      "routeStopName": "Kivi",
+      "stopId": "5900286-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kivi"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "seq": 15,
+      "time": "13:46",
+      "routeStopName": "Rägavere tee",
+      "stopId": "5900670-1",
+      "byCode": {
+        "exists": true,
+        "name": "Rägavere tee",
+        "lat": 59.3425,
+        "lon": 26.3885,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Rägavere tee",
+        "lat": 59.3425,
+        "lon": 26.3885,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Rägavere tee"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 1,
+      "time": "13:00",
+      "routeStopName": "Rägavere tee",
+      "stopId": "5900670-1",
+      "byCode": {
+        "exists": true,
+        "name": "Rägavere tee",
+        "lat": 59.3425,
+        "lon": 26.3885,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Rägavere tee",
+        "lat": 59.3425,
+        "lon": 26.3885,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Rägavere tee"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 2,
+      "time": "13:01",
+      "routeStopName": "Kivi",
+      "stopId": "5900287-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kivi",
+        "lat": 59.3435,
+        "lon": 26.3812,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kivi"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 3,
+      "time": "13:02",
+      "routeStopName": "Piiri",
+      "stopId": "5900566-1",
+      "byCode": {
+        "exists": true,
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Piiri",
+        "lat": 59.3425,
+        "lon": 26.3755,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Piiri"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 4,
+      "time": "13:03",
+      "routeStopName": "Kungla",
+      "stopId": "5900310-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kungla",
+        "lat": 59.3412,
+        "lon": 26.3715,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kungla"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 5,
+      "time": "13:09",
+      "routeStopName": "Polikliinik",
+      "stopId": "5900577-1",
+      "byCode": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Polikliinik",
+        "lat": 59.3465,
+        "lon": 26.3651,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Polikliinik"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 6,
+      "time": "13:10",
+      "routeStopName": "Keskväljak",
+      "stopId": "5900232-1",
+      "byCode": {
+        "exists": true,
+        "name": "Keskväljak",
+        "lat": 59.3482,
+        "lon": 26.3591,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Keskväljak",
+        "lat": 59.3482,
+        "lon": 26.3591,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Keskväljak"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 7,
+      "time": "13:11",
+      "routeStopName": "Carl Robert Jakobsoni",
+      "stopId": "5900056-1",
+      "byCode": {
+        "exists": true,
+        "name": "Carl Robert Jakobsoni",
+        "lat": 59.3458,
+        "lon": 26.3571,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Carl Robert Jakobsoni",
+        "lat": 59.3458,
+        "lon": 26.3571,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Carl Robert Jakobsoni"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 8,
+      "time": "13:12",
+      "routeStopName": "Teater",
+      "stopId": "5900801-1",
+      "byCode": {
+        "exists": true,
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Teater",
+        "lat": 59.3521,
+        "lon": 26.3485,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Teater"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 9,
+      "time": "13:13",
+      "routeStopName": "Rohu",
+      "stopId": "5900655-1",
+      "byCode": {
+        "exists": true,
+        "name": "Rohu",
+        "lat": 59.3515,
+        "lon": 26.3415,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Rohu",
+        "lat": 59.3515,
+        "lon": 26.3415,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Rohu"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 10,
+      "time": "13:15",
+      "routeStopName": "Lääne",
+      "stopId": "5900416-1",
+      "byCode": {
+        "exists": true,
+        "name": "Lääne",
+        "lat": 59.3551,
+        "lon": 26.3415,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Lääne",
+        "lat": 59.3551,
+        "lon": 26.3415,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Lääne"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 11,
+      "time": "13:16",
+      "routeStopName": "Kesk",
+      "stopId": "5900229-1",
+      "byCode": {
+        "exists": true,
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Kesk",
+        "lat": 59.3541,
+        "lon": 26.3512,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Kesk"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 12,
+      "time": "13:17",
+      "routeStopName": "Põhja",
+      "stopId": "5900596-1",
+      "byCode": {
+        "exists": true,
+        "name": "Põhja",
+        "lat": 59.3625,
+        "lon": 26.3455,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Põhja",
+        "lat": 59.3625,
+        "lon": 26.3455,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Põhja"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 13,
+      "time": "13:19",
+      "routeStopName": "Näituse",
+      "stopId": "5901194-1",
+      "byCode": {
+        "exists": true,
+        "name": "Näituse",
+        "lat": 59.3685,
+        "lon": 26.3312,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Näituse",
+        "lat": 59.3685,
+        "lon": 26.3312,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Näituse"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "seq": 14,
+      "time": "13:20",
+      "routeStopName": "Põhjakeskus",
+      "stopId": "5900598-1",
+      "byCode": {
+        "exists": true,
+        "name": "Põhjakeskus",
+        "lat": 59.3732,
+        "lon": 26.3268,
+        "coordinateNumeric": true
+      },
+      "routeGroup": {
+        "exists": true,
+        "name": "Põhjakeskus",
+        "lat": 59.3732,
+        "lon": 26.3268,
+        "coordinateNumeric": true,
+        "codeInCodes": true,
+        "codeInDisplayCodes": false,
+        "codeInAny": true
+      },
+      "codeMembership": {
+        "groupsContainingStopId": [
+          "Põhjakeskus"
+        ],
+        "groupCount": 1
+      },
+      "checks": {
+        "byCodeExists": true,
+        "byCodeNameMatchesRoute": true,
+        "groupNameMismatch": false,
+        "codeDisplayMismatch": false,
+        "coordinateWarning": false
+      }
+    }
+  ]
+}
