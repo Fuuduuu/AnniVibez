@@ -194,7 +194,7 @@ export function BussTab({ savedPlaces = [] }) {
   function confirmMapDestinationCandidate() {
     if (!selectedMapCandidate) return;
     setDestination(selectedMapCandidate);
-    setSelectedPlaceLabel(`Kaardilt valitud koht · lähim peatus: ${selectedMapCandidate}`);
+    setSelectedPlaceLabel(selectedMapCandidate);
     setPlaceQuery(selectedMapCandidate);
     setMapPickerOpen(false);
     clearMapPickState();
@@ -432,12 +432,14 @@ export function BussTab({ savedPlaces = [] }) {
             />
             {mapPickedPoint && (
               <div style={{ marginTop: 10, fontSize: 12, color: AV.textSoft, display: 'grid', gap: 8 }}>
-                <div>
-                  Kaardilt valitud punkt: {mapPickedPoint.lat.toFixed(5)}, {mapPickedPoint.lon.toFixed(5)}
-                </div>
+                <div>Koht valitud ✓</div>
                 {mapDestinationCandidates.length > 0 ? (
                   <>
-                    <div style={{ fontSize: 10, ...labelStyle }}>Vali sihtkoha peatus</div>
+                    <div style={{ fontSize: 10, ...labelStyle }}>
+                      {mapDestinationCandidates.length === 1
+                        ? 'Lähim peatus sihtkohale'
+                        : 'Mitu peatust on lähedal — vali sobivam'}
+                    </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       {mapDestinationCandidates.map(candidate => {
                         const active = selectedMapCandidate === candidate.groupName;
@@ -473,12 +475,12 @@ export function BussTab({ savedPlaces = [] }) {
                         color: selectedMapCandidate ? AV.sage : '#98a0aa',
                       }}
                     >
-                      Kasuta valitud peatust
+                      Kasuta seda sihtkohta
                     </button>
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: AV.muted }}>
-                    Lähikandidaate ei leitud. Proovi kaardil teist punkti.
+                    Valitud kohale ei leitud sobivat peatust. Proovi kaardil teist kohta.
                   </div>
                 )}
               </div>

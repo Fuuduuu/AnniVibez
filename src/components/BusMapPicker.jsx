@@ -157,9 +157,9 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
         background: '#f9fbff',
       }}
     >
-      <h3 style={{ margin: '0 0 6px', fontSize: 17 }}>Vali sihtkoht kaardilt</h3>
+      <h3 style={{ margin: '0 0 6px', fontSize: 17 }}>Kuhu soovid minna?</h3>
       <p style={{ margin: '0 0 12px', fontSize: 13, color: '#465569' }}>
-        Puuduta kaardil kohta, kuhu soovid minna.
+        Puuduta kaardil kohta, kuhu soovid jõuda.
       </p>
 
       <div
@@ -176,12 +176,14 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
       <div style={{ marginTop: 10, fontSize: 13, color: '#1f2937' }}>
         {pickedPoint ? (
           <>
-            <div>
-              Valitud punkt: {pickedPoint.lat.toFixed(5)}, {pickedPoint.lon.toFixed(5)}
-            </div>
             {pickedPoint.nearestStopNames.length > 0 && (
               <div style={{ marginTop: 4, color: '#4b5563' }}>
                 Lähimad peatused: {pickedPoint.nearestStopNames.join(', ')}
+              </div>
+            )}
+            {pickedPoint.nearestStopNames.length === 0 && (
+              <div style={{ marginTop: 4, color: '#4b5563' }}>
+                Koht valitud ✓
               </div>
             )}
           </>
