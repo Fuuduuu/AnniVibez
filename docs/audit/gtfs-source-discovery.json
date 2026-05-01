@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-05-01T11:23:40.663Z",
+  "sourceDocsScanned": [
+    "docs/audit/route-pattern-stopid-report.md",
+    "docs/audit/route-pattern-busdata-compare-report.md"
+  ],
+  "checkedUrls": [
+    "https://peatus.ee/gtfs/gtfs.zip",
+    "https://eu-gtfs.remix.com/estonia_unified_gtfs.zip",
+    "https://eu-gtfs.remix.com/laanevirumaa.zip",
+    "https://eu-gtfs.remix.com/laane-virumaa.zip",
+    "https://eu-gtfs.remix.com/läänevirumaa.zip",
+    "https://eu-gtfs.remix.com/west-viru.zip",
+    "https://eu-gtfs.remix.com/laane-viru.zip"
+  ],
+  "results": [
+    {
+      "url": "https://peatus.ee/gtfs/gtfs.zip",
+      "methodUsed": "HEAD",
+      "httpStatus": 200,
+      "contentType": "text/html; charset=utf-8",
+      "contentLength": 1311,
+      "reachable": true,
+      "notes": "Redirected to https://peatus.ee/reitti/gtfs/gtfs.zip"
+    },
+    {
+      "url": "https://eu-gtfs.remix.com/estonia_unified_gtfs.zip",
+      "methodUsed": "HEAD",
+      "httpStatus": 200,
+      "contentType": "application/zip",
+      "contentLength": 67236682,
+      "reachable": true,
+      "notes": null
+    },
+    {
+      "url": "https://eu-gtfs.remix.com/laanevirumaa.zip",
+      "methodUsed": "HEAD -> GET(range)",
+      "httpStatus": 403,
+      "contentType": "application/xml",
+      "contentLength": null,
+      "reachable": false,
+      "notes": "HEAD blocked/limited with status 403; tried safe range GET."
+    },
+    {
+      "url": "https://eu-gtfs.remix.com/laane-virumaa.zip",
+      "methodUsed": "HEAD -> GET(range)",
+      "httpStatus": 403,
+      "contentType": "application/xml",
+      "contentLength": null,
+      "reachable": false,
+      "notes": "HEAD blocked/limited with status 403; tried safe range GET."
+    },
+    {
+      "url": "https://eu-gtfs.remix.com/läänevirumaa.zip",
+      "methodUsed": "HEAD -> GET(range)",
+      "httpStatus": 403,
+      "contentType": "application/xml",
+      "contentLength": null,
+      "reachable": false,
+      "notes": "HEAD blocked/limited with status 403; tried safe range GET. Redirected to https://eu-gtfs.remix.com/l%C3%A4%C3%A4nevirumaa.zip"
+    },
+    {
+      "url": "https://eu-gtfs.remix.com/west-viru.zip",
+      "methodUsed": "HEAD -> GET(range)",
+      "httpStatus": 403,
+      "contentType": "application/xml",
+      "contentLength": null,
+      "reachable": false,
+      "notes": "HEAD blocked/limited with status 403; tried safe range GET."
+    },
+    {
+      "url": "https://eu-gtfs.remix.com/laane-viru.zip",
+      "methodUsed": "HEAD -> GET(range)",
+      "httpStatus": 403,
+      "contentType": "application/xml",
+      "contentLength": null,
+      "reachable": false,
+      "notes": "HEAD blocked/limited with status 403; tried safe range GET."
+    }
+  ],
+  "summary": {
+    "checkedCount": 7,
+    "reachableCount": 2,
+    "recommendedSource": {
+      "url": "https://eu-gtfs.remix.com/estonia_unified_gtfs.zip",
+      "methodUsed": "HEAD",
+      "httpStatus": 200,
+      "contentType": "application/zip",
+      "contentLength": 67236682
+    },
+    "recommendationNote": "Recommended based on reachable ZIP-like response and regional-first priority."
+  }
+}
