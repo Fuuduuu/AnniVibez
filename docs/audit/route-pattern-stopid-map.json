@@ -1,0 +1,907 @@
+{
+  "generatedAt": "2026-05-01T10:23:59.416Z",
+  "sourceDir": "docs/audit/raw/peatus-ee",
+  "patterns": [
+    {
+      "lineNumber": "1",
+      "patternName": "Piira - Näpi - Piira",
+      "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+      "stops": [
+        {
+          "seq": 1,
+          "stopName": "Piira",
+          "stopId": "5900565-1",
+          "time": "14:30",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 2,
+          "stopName": "Palermo",
+          "stopId": "5900382-1",
+          "time": "14:32",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 3,
+          "stopName": "Mäe",
+          "stopId": "5900464-1",
+          "time": "14:33",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 4,
+          "stopName": "Tartu",
+          "stopId": "5900794-1",
+          "time": "14:34",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 5,
+          "stopName": "Karja",
+          "stopId": "5900209-1",
+          "time": "14:35",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 6,
+          "stopName": "Side",
+          "stopId": "5900728-1",
+          "time": "14:36",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 7,
+          "stopName": "Kungla",
+          "stopId": "5900310-1",
+          "time": "14:36",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 8,
+          "stopName": "Polikliinik",
+          "stopId": "5900577-1",
+          "time": "14:37",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 9,
+          "stopName": "Bussijaam",
+          "stopId": "5900055-1",
+          "time": "14:39",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 10,
+          "stopName": "Laada",
+          "stopId": "5900338-1",
+          "time": "14:40",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 11,
+          "stopName": "Võidu",
+          "stopId": "5900979-1",
+          "time": "14:41",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 12,
+          "stopName": "Raudteejaam",
+          "stopId": "5901241-1",
+          "time": "14:42",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 13,
+          "stopName": "Kauba",
+          "stopId": "5901245-1",
+          "time": "14:43",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 14,
+          "stopName": "Õli",
+          "stopId": "5901012-1",
+          "time": "14:46",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 15,
+          "stopName": "Vilepilli",
+          "stopId": "5900867-1",
+          "time": "14:49",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 16,
+          "stopName": "Narva",
+          "stopId": "5900485-1",
+          "time": "14:52",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 17,
+          "stopName": "Näpi",
+          "stopId": "5900507-1",
+          "time": "14:57",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 18,
+          "stopName": "Näpi",
+          "stopId": "5900508-1",
+          "time": "14:59",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 19,
+          "stopName": "Narva",
+          "stopId": "5900484-1",
+          "time": "15:00",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 20,
+          "stopName": "Kauba",
+          "stopId": "5900220-1",
+          "time": "15:02",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 21,
+          "stopName": "Raudteejaam",
+          "stopId": "5900635-1",
+          "time": "15:03",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 22,
+          "stopName": "Võidu",
+          "stopId": "5900980-1",
+          "time": "15:04",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 23,
+          "stopName": "Lai",
+          "stopId": "5900346-1",
+          "time": "15:06",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 24,
+          "stopName": "Keskuse",
+          "stopId": "5900255-1",
+          "time": "15:11",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 25,
+          "stopName": "Polikliinik",
+          "stopId": "5900576-1",
+          "time": "15:12",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 26,
+          "stopName": "Kungla",
+          "stopId": "5900311-1",
+          "time": "15:13",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 27,
+          "stopName": "Side",
+          "stopId": "5900729-1",
+          "time": "15:13",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 28,
+          "stopName": "Karja",
+          "stopId": "5900210-1",
+          "time": "15:14",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 29,
+          "stopName": "Tartu",
+          "stopId": "5900795-1",
+          "time": "15:15",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 30,
+          "stopName": "Mäe",
+          "stopId": "5900465-1",
+          "time": "15:16",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 31,
+          "stopName": "Palermo",
+          "stopId": "5900381-1",
+          "time": "15:17",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 32,
+          "stopName": "Piira",
+          "stopId": "5900565-1",
+          "time": "15:20",
+          "sourceFile": "Liin 1 Piira - Näpi - Piira.txt",
+          "presentInBusData": true
+        }
+      ]
+    },
+    {
+      "lineNumber": "2",
+      "patternName": "Piira - Lihakombinaat",
+      "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+      "stops": [
+        {
+          "seq": 1,
+          "stopName": "Piira",
+          "stopId": "5900565-1",
+          "time": "16:00",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 2,
+          "stopName": "Palermo",
+          "stopId": "5900382-1",
+          "time": "16:02",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 3,
+          "stopName": "Mäe",
+          "stopId": "5900464-1",
+          "time": "16:03",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 4,
+          "stopName": "Tartu",
+          "stopId": "5900794-1",
+          "time": "16:04",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 5,
+          "stopName": "Karja",
+          "stopId": "5900209-1",
+          "time": "16:05",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 6,
+          "stopName": "Seminari",
+          "stopId": "5900726-1",
+          "time": "16:06",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 7,
+          "stopName": "Polikliinik",
+          "stopId": "5900577-1",
+          "time": "16:10",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 8,
+          "stopName": "Bussijaam",
+          "stopId": "5900055-1",
+          "time": "16:11",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 9,
+          "stopName": "Laada",
+          "stopId": "5900338-1",
+          "time": "16:12",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 10,
+          "stopName": "Võidu",
+          "stopId": "5900979-1",
+          "time": "16:13",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 11,
+          "stopName": "Arkna tee",
+          "stopId": "5900040-1",
+          "time": "16:14",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 12,
+          "stopName": "Papiaru",
+          "stopId": "5901202-1",
+          "time": "16:15",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 13,
+          "stopName": "Roodevälja",
+          "stopId": "5900660-1",
+          "time": "16:16",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 14,
+          "stopName": "Lihakombinaat",
+          "stopId": "5900659-1",
+          "time": "16:20",
+          "sourceFile": "Liin2 Piira - Lihakombinaat.txt",
+          "presentInBusData": true
+        }
+      ]
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Keskväljak - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+      "stops": [
+        {
+          "seq": 1,
+          "stopName": "Tõrma kalmistu",
+          "stopId": "5900823-1",
+          "time": "14:00",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 2,
+          "stopName": "Pauluse kalmistu",
+          "stopId": "5901156-1",
+          "time": "14:01",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 3,
+          "stopName": "Lilleoru",
+          "stopId": "5900542-1",
+          "time": "14:02",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 4,
+          "stopName": "Ööbiku",
+          "stopId": "5901018-1",
+          "time": "14:03",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 5,
+          "stopName": "Haigla",
+          "stopId": "5900079-1",
+          "time": "14:04",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 6,
+          "stopName": "Saueaugu",
+          "stopId": "5900710-1",
+          "time": "14:05",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 7,
+          "stopName": "Seminari",
+          "stopId": "5900726-1",
+          "time": "14:07",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 8,
+          "stopName": "Polikliinik",
+          "stopId": "5900577-1",
+          "time": "14:08",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 9,
+          "stopName": "Keskväljak",
+          "stopId": "5900232-1",
+          "time": "14:09",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 10,
+          "stopName": "Carl Robert Jakobsoni",
+          "stopId": "5900056-1",
+          "time": "14:10",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 11,
+          "stopName": "Tarva",
+          "stopId": "5900797-1",
+          "time": "14:11",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 12,
+          "stopName": "Vallimäe",
+          "stopId": "5900886-1",
+          "time": "14:13",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 13,
+          "stopName": "Tulika",
+          "stopId": "5900815-1",
+          "time": "14:14",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 14,
+          "stopName": "Õie",
+          "stopId": "5901011-1",
+          "time": "14:16",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 15,
+          "stopName": "Tammiku",
+          "stopId": "5900777-1",
+          "time": "14:19",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 16,
+          "stopName": "Tõrma kalmistu",
+          "stopId": "5900822-1",
+          "time": "14:21",
+          "sourceFile": "Liin3 Tõrma - Keskväljak - Tõrma.txt",
+          "presentInBusData": true
+        }
+      ]
+    },
+    {
+      "lineNumber": "3",
+      "patternName": "Tõrma - Koidula - Tõrma",
+      "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+      "stops": [
+        {
+          "seq": 1,
+          "stopName": "Tõrma kalmistu",
+          "stopId": "5900823-1",
+          "time": "13:30",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 2,
+          "stopName": "Tammiku",
+          "stopId": "5900778-1",
+          "time": "13:32",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 3,
+          "stopName": "Õie",
+          "stopId": "5901010-1",
+          "time": "13:33",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 4,
+          "stopName": "Tulika",
+          "stopId": "5900816-1",
+          "time": "13:34",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 5,
+          "stopName": "Vallimäe",
+          "stopId": "5900887-1",
+          "time": "13:35",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 6,
+          "stopName": "Tarva",
+          "stopId": "5900796-1",
+          "time": "13:36",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 7,
+          "stopName": "Lai",
+          "stopId": "5900346-1",
+          "time": "13:39",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 8,
+          "stopName": "Keskuse",
+          "stopId": "5900255-1",
+          "time": "13:41",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 9,
+          "stopName": "Viru",
+          "stopId": "5900953-1",
+          "time": "13:42",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 10,
+          "stopName": "Saueaugu",
+          "stopId": "5900709-1",
+          "time": "13:45",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 11,
+          "stopName": "Haigla",
+          "stopId": "5900078-1",
+          "time": "13:46",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 12,
+          "stopName": "Ööbiku",
+          "stopId": "5901017-1",
+          "time": "13:47",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 13,
+          "stopName": "Lilleoru",
+          "stopId": "5900541-1",
+          "time": "13:50",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 14,
+          "stopName": "Pauluse kalmistu",
+          "stopId": "5901107-1",
+          "time": "13:51",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 15,
+          "stopName": "Tõrma kalmistu",
+          "stopId": "5900822-1",
+          "time": "13:54",
+          "sourceFile": "Liin3 Tõrma - Koidula - Tõrma.txt",
+          "presentInBusData": true
+        }
+      ]
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Põhjakeskus - Rägavere tee",
+      "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+      "stops": [
+        {
+          "seq": 1,
+          "stopName": "Põhjakeskus",
+          "stopId": "5900598-1",
+          "time": "13:26",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 2,
+          "stopName": "Näituse",
+          "stopId": "5900505-1",
+          "time": "13:27",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 3,
+          "stopName": "Põhja",
+          "stopId": "5900597-1",
+          "time": "13:28",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 4,
+          "stopName": "Kesk",
+          "stopId": "5900230-1",
+          "time": "13:29",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 5,
+          "stopName": "Lääne",
+          "stopId": "5900415-1",
+          "time": "13:30",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 6,
+          "stopName": "Aiand",
+          "stopId": "5900013-1",
+          "time": "13:33",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 7,
+          "stopName": "Rohu",
+          "stopId": "5900653-1",
+          "time": "13:36",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 8,
+          "stopName": "Teater",
+          "stopId": "5900800-1",
+          "time": "13:37",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 9,
+          "stopName": "Lai",
+          "stopId": "5900346-1",
+          "time": "13:39",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 10,
+          "stopName": "Keskuse",
+          "stopId": "5900255-1",
+          "time": "13:40",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 11,
+          "stopName": "Polikliinik",
+          "stopId": "5900576-1",
+          "time": "13:41",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 12,
+          "stopName": "Kungla",
+          "stopId": "5900311-1",
+          "time": "13:42",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 13,
+          "stopName": "Piiri",
+          "stopId": "5900567-1",
+          "time": "13:43",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 14,
+          "stopName": "Kivi",
+          "stopId": "5900286-1",
+          "time": "13:44",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 15,
+          "stopName": "Rägavere tee",
+          "stopId": "5900670-1",
+          "time": "13:46",
+          "sourceFile": "Liin5 Põhjakeskus - Rägavere tee.txt",
+          "presentInBusData": true
+        }
+      ]
+    },
+    {
+      "lineNumber": "5",
+      "patternName": "Rägavere tee - Põhjakeskus",
+      "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+      "stops": [
+        {
+          "seq": 1,
+          "stopName": "Rägavere tee",
+          "stopId": "5900670-1",
+          "time": "13:00",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 2,
+          "stopName": "Kivi",
+          "stopId": "5900287-1",
+          "time": "13:01",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 3,
+          "stopName": "Piiri",
+          "stopId": "5900566-1",
+          "time": "13:02",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 4,
+          "stopName": "Kungla",
+          "stopId": "5900310-1",
+          "time": "13:03",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 5,
+          "stopName": "Polikliinik",
+          "stopId": "5900577-1",
+          "time": "13:09",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 6,
+          "stopName": "Keskväljak",
+          "stopId": "5900232-1",
+          "time": "13:10",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 7,
+          "stopName": "Carl Robert Jakobsoni",
+          "stopId": "5900056-1",
+          "time": "13:11",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 8,
+          "stopName": "Teater",
+          "stopId": "5900801-1",
+          "time": "13:12",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 9,
+          "stopName": "Rohu",
+          "stopId": "5900655-1",
+          "time": "13:13",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 10,
+          "stopName": "Lääne",
+          "stopId": "5900416-1",
+          "time": "13:15",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 11,
+          "stopName": "Kesk",
+          "stopId": "5900229-1",
+          "time": "13:16",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 12,
+          "stopName": "Põhja",
+          "stopId": "5900596-1",
+          "time": "13:17",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 13,
+          "stopName": "Näituse",
+          "stopId": "5901194-1",
+          "time": "13:19",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        },
+        {
+          "seq": 14,
+          "stopName": "Põhjakeskus",
+          "stopId": "5900598-1",
+          "time": "13:20",
+          "sourceFile": "Liin5 Rägavere tee - Põhjakeskus.txt",
+          "presentInBusData": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "patternCount": 6,
+    "stopRefCount": 106,
+    "uniqueStopIdCount": 80,
+    "lineNumbers": [
+      "1",
+      "2",
+      "3",
+      "5"
+    ]
+  }
+}

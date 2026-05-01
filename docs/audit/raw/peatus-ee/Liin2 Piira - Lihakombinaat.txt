@@ -1,0 +1,85 @@
+Piira - Lihakombinaat
+
+Piira
+Departure time was at
+16:00
+5900565-1
+Järgmine 17:00
+
+Palermo
+Departure time was at
+16:02
+5900382-1
+Järgmine 17:02
+
+Mäe
+Departure time was at
+16:03
+5900464-1
+Järgmine 17:03
+
+Tartu
+Departure time was at
+16:04
+5900794-1
+Järgmine 17:04
+
+Karja
+Departure time was at
+16:05
+5900209-1
+Järgmine 17:05
+
+Seminari
+Departure time was at
+16:06
+5900726-1
+Järgmine 17:06
+
+Polikliinik
+Departure time was at
+16:10
+5900577-1
+Järgmine 17:10
+
+Bussijaam
+Departure time was at
+16:11
+5900055-1
+Järgmine 17:11
+
+Laada
+Departure time was at
+16:12
+5900338-1
+Järgmine 17:12
+
+Võidu
+Departure time was at
+16:13
+5900979-1
+Järgmine 17:13
+
+Arkna tee
+Departure time was at
+16:14
+5900040-1
+Järgmine 17:14
+
+Papiaru
+Departure time was at
+16:15
+5901202-1
+Järgmine 17:15
+
+Roodevälja
+Departure time was at
+16:16
+5900660-1
+Järgmine 17:16
+
+Lihakombinaat
+Departure time was at
+16:20
+5900659-1
+Järgmine 17:20

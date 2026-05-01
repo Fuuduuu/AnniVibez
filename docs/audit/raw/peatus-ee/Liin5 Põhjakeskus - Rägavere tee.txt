@@ -1,0 +1,91 @@
+Põhjakeskus - Rägavere tee
+
+Põhjakeskus
+Departure time was at
+13:26
+5900598-1
+Järgmine 14:26
+
+Näituse
+Departure time was at
+13:27
+5900505-1
+Järgmine 14:27
+
+Põhja
+Departure time was at
+13:28
+5900597-1
+Järgmine 14:28
+
+Kesk
+Departure time was at
+13:29
+5900230-1
+Järgmine 14:29
+
+Lääne
+Departure time was at
+13:30
+5900415-1
+Järgmine 14:30
+
+Aiand
+Departure time was at
+13:33
+5900013-1
+Järgmine 14:33
+
+Rohu
+Departure time was at
+13:36
+5900653-1
+Järgmine 14:36
+
+Teater
+Departure time was at
+13:37
+5900800-1
+Järgmine 14:37
+
+Lai
+Departure time was at
+13:39
+5900346-1
+Järgmine 14:39
+
+Keskuse
+Departure time was at
+13:40
+5900255-1
+Järgmine 14:40
+
+Polikliinik
+Departure time was at
+13:41
+5900576-1
+Järgmine 14:41
+
+Kungla
+Departure time was at
+13:42
+5900311-1
+Järgmine 14:42
+
+Piiri
+Departure time was at
+13:43
+5900567-1
+Järgmine 14:43
+
+Kivi
+Departure time was at
+13:44
+5900286-1
+Järgmine 14:44
+
+Rägavere tee
+Departure time was at
+13:46
+5900670-1
+Järgmine 14:46

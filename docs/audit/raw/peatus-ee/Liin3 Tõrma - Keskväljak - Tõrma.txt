@@ -1,0 +1,97 @@
+Tõrma - Keskväljak - Tõrma
+
+Tõrma kalmistu
+Departure time was at
+14:00
+5900823-1
+Järgmine 16:00
+
+Pauluse kalmistu
+Departure time was at
+14:01
+5901156-1
+Järgmine 16:01
+
+Lilleoru
+Departure time was at
+14:02
+5900542-1
+Järgmine 16:02
+
+Ööbiku
+Departure time was at
+14:03
+5901018-1
+Järgmine 16:03
+
+Haigla
+Departure time was at
+14:04
+5900079-1
+Järgmine 16:04
+
+Saueaugu
+Departure time was at
+14:05
+5900710-1
+Järgmine 16:05
+
+Seminari
+Departure time was at
+14:07
+5900726-1
+Järgmine 16:07
+
+Polikliinik
+Departure time was at
+14:08
+5900577-1
+Järgmine 16:08
+
+Keskväljak
+Departure time was at
+14:09
+5900232-1
+Järgmine 16:09
+
+Carl Robert Jakobsoni
+Departure time was at
+14:10
+5900056-1
+Järgmine 16:10
+
+Tarva
+Departure time was at
+14:11
+5900797-1
+Järgmine 16:11
+
+Vallimäe
+Departure time was at
+14:13
+5900886-1
+Järgmine 16:13
+
+Tulika
+Departure time was at
+14:14
+5900815-1
+Järgmine 16:14
+
+Õie
+Departure time was at
+14:16
+5901011-1
+Järgmine 16:16
+
+Tammiku
+Departure time was at
+14:19
+5900777-1
+Järgmine 16:19
+
+Tõrma kalmistu
+Departure time was at
+14:21
+5900822-1
+Järgmine 16:21

@@ -1,0 +1,193 @@
+Piira - Näpi - Piira
+
+Piira
+Departure time was at
+14:30
+5900565-1
+Järgmine 16:30
+
+Palermo
+Departure time was at
+14:32
+5900382-1
+Järgmine 16:32
+
+Mäe
+Departure time was at
+14:33
+5900464-1
+Järgmine 16:33
+
+Tartu
+Departure time was at
+14:34
+5900794-1
+Järgmine 16:34
+
+Karja
+Departure time was at
+14:35
+5900209-1
+Järgmine 16:35
+
+Side
+Departure time was at
+14:36
+5900728-1
+Järgmine 16:36
+
+Kungla
+Departure time was at
+14:36
+5900310-1
+Järgmine 16:36
+
+Polikliinik
+Departure time was at
+14:37
+5900577-1
+Järgmine 16:37
+
+Bussijaam
+Departure time was at
+14:39
+5900055-1
+Järgmine 16:39
+
+Laada
+Departure time was at
+14:40
+5900338-1
+Järgmine 16:40
+
+Võidu
+Departure time was at
+14:41
+5900979-1
+Järgmine 16:41
+
+Raudteejaam
+Departure time was at
+14:42
+5901241-1
+Järgmine 16:42
+
+Kauba
+Departure time was at
+14:43
+5901245-1
+Järgmine 16:43
+
+Õli
+Departure time was at
+14:46
+5901012-1
+Järgmine 16:46
+
+Vilepilli
+Departure time was at
+14:49
+5900867-1
+Järgmine 16:49
+
+Narva
+Departure time was at
+14:52
+5900485-1
+Järgmine 16:52
+
+Näpi
+Departure time was at
+14:57
+5900507-1
+Järgmine 16:57
+
+Näpi
+Departure time was at
+14:59
+5900508-1
+Järgmine 16:59
+
+Narva
+Departure time was at
+15:00
+5900484-1
+Järgmine 17:00
+
+Kauba
+Departure time was at
+15:02
+5900220-1
+Järgmine 17:02
+
+Raudteejaam
+Departure time was at
+15:03
+5900635-1
+Järgmine 17:03
+
+Võidu
+Departure time was at
+15:04
+5900980-1
+Järgmine 17:04
+
+Lai
+Departure time was at
+15:06
+5900346-1
+Järgmine 17:06
+
+Keskuse
+Departure time was at
+15:11
+5900255-1
+Järgmine 17:11
+
+Polikliinik
+Departure time was at
+15:12
+5900576-1
+Järgmine 17:12
+
+Kungla
+Departure time was at
+15:13
+5900311-1
+Järgmine 17:13
+
+Side
+Departure time was at
+15:13
+5900729-1
+Järgmine 17:13
+
+Karja
+Departure time was at
+15:14
+5900210-1
+Järgmine 17:14
+
+Tartu
+Departure time was at
+15:15
+5900795-1
+Järgmine 17:15
+
+Mäe
+Departure time was at
+15:16
+5900465-1
+Järgmine 17:16
+
+Palermo
+Departure time was at
+15:17
+5900381-1
+Järgmine 17:17
+
+Piira
+Departure time was at
+15:20
+5900565-1
+Järgmine 17:20

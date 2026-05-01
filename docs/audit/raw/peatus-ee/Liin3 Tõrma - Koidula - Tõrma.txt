@@ -1,0 +1,91 @@
+Tõrma - Koidula - Tõrma
+
+Tõrma kalmistu
+Departure time was at
+13:30
+5900823-1
+Järgmine 15:30
+
+Tammiku
+Departure time was at
+13:32
+5900778-1
+Järgmine 15:32
+
+Õie
+Departure time was at
+13:33
+5901010-1
+Järgmine 15:33
+
+Tulika
+Departure time was at
+13:34
+5900816-1
+Järgmine 15:34
+
+Vallimäe
+Departure time was at
+13:35
+5900887-1
+Järgmine 15:35
+
+Tarva
+Departure time was at
+13:36
+5900796-1
+Järgmine 15:36
+
+Lai
+Departure time was at
+13:39
+5900346-1
+Järgmine 15:39
+
+Keskuse
+Departure time was at
+13:41
+5900255-1
+Järgmine 15:41
+
+Viru
+Departure time was at
+13:42
+5900953-1
+Järgmine 15:42
+
+Saueaugu
+Departure time was at
+13:45
+5900709-1
+Järgmine 15:45
+
+Haigla
+Departure time was at
+13:46
+5900078-1
+Järgmine 15:46
+
+Ööbiku
+Departure time was at
+13:47
+5901017-1
+Järgmine 15:47
+
+Lilleoru
+Departure time was at
+13:50
+5900541-1
+Järgmine 15:50
+
+Pauluse kalmistu
+Departure time was at
+13:51
+5901107-1
+Järgmine 15:51
+
+Tõrma kalmistu
+Departure time was at
+13:54
+5900822-1
+Järgmine 15:54
