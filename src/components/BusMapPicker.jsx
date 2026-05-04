@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BUS_DATA } from '../data/busData';
@@ -11,6 +11,7 @@ const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION = '&copy; OpenStreetMap contributors';
 const LINE_BADGE_MIN_ZOOM = 15;
 const LINE_BADGE_PANE = 'lineBadgePane';
+const LINE_FILTER_OPTIONS = ['all', '1', '2', '3', '5'];
 
 function isFiniteNumber(value) {
   return Number.isFinite(value);
@@ -92,6 +93,14 @@ const STOP_STYLE_IDLE = {
   fillOpacity: 0.56,
 };
 
+const STOP_STYLE_FADED = {
+  radius: 2.7,
+  weight: 0.9,
+  color: '#c7cedb',
+  fillColor: '#e8ecf4',
+  fillOpacity: 0.34,
+};
+
 const STOP_STYLE_NEAREST = {
   radius: 4.2,
   weight: 1.6,
@@ -155,6 +164,9 @@ export function BusMapPicker({
   const currentPositionLayerRef = useRef(null);
   const nearestOriginLayerRef = useRef(null);
   const lineBadgeLayerRef = useRef(null);
+  const markerEntriesRef = useRef([]);
+  const lineBadgeEntriesRef = useRef([]);
+  const [activeLineFilter, setActiveLineFilter] = useState('all');
 
   const stopPoints = useMemo(() => {
     const rows = Object.entries(BUS_DATA?.by_code || {});
@@ -169,6 +181,11 @@ export function BusMapPicker({
       .filter(stop => isFiniteNumber(stop.lat) && isFiniteNumber(stop.lon));
   }, []);
 
+  function servesActiveLine(lines, activeLine) {
+    if (!activeLine || activeLine === 'all') return true;
+    return Array.isArray(lines) && lines.includes(activeLine);
+  }
+
   function syncLineBadgeVisibility(map) {
     const layer = lineBadgeLayerRef.current;
     if (!map || !layer) return;
@@ -182,21 +199,38 @@ export function BusMapPicker({
     }
   }
 
-  function applyMarkerVisuals(nearestNames, selectedName) {
+  function applyLineBadgeVisuals(activeLine) {
+    const entries = lineBadgeEntriesRef.current;
+    entries.forEach(({ marker, lines }) => {
+      const isMatch = servesActiveLine(lines, activeLine);
+      marker.setOpacity(isMatch ? 1 : 0.2);
+      marker.setZIndexOffset(isMatch ? 120 : 40);
+    });
+  }
+
+  function applyMarkerVisuals(nearestNames, selectedName, activeLine) {
     const nearestSet = new Set(
       (Array.isArray(nearestNames) ? nearestNames : [])
         .map(normalizeStopName)
         .filter(Boolean)
     );
     const selectedKey = normalizeStopName(selectedName);
+    const entries = markerEntriesRef.current;
     const grouped = markerGroupsByNameRef.current;
 
-    grouped.forEach((markers, rawName) => {
-      const key = normalizeStopName(rawName);
+    entries.forEach(({ marker, name, lines }) => {
+      const key = normalizeStopName(name);
       const isSelected = !!selectedKey && key === selectedKey;
       const isNearest = nearestSet.has(key);
-      const style = isSelected ? STOP_STYLE_SELECTED : isNearest ? STOP_STYLE_NEAREST : STOP_STYLE_IDLE;
-      markers.forEach(marker => marker.setStyle(style));
+      const isLineMatch = servesActiveLine(lines, activeLine);
+      const style = isSelected
+        ? STOP_STYLE_SELECTED
+        : isNearest
+          ? STOP_STYLE_NEAREST
+          : (activeLine !== 'all' && !isLineMatch)
+            ? STOP_STYLE_FADED
+            : STOP_STYLE_IDLE;
+      marker.setStyle(style);
     });
 
     grouped.forEach((markers, rawName) => {
@@ -274,13 +308,20 @@ export function BusMapPicker({
     const lineBadgeLayer = L.layerGroup();
     lineBadgeLayerRef.current = lineBadgeLayer;
     const groupedMarkers = new Map();
+    const markerEntries = [];
+    const lineBadgeEntries = [];
     stopPoints.forEach(stop => {
       const marker = L.circleMarker([stop.lat, stop.lon], STOP_STYLE_IDLE).addTo(stopsLayer);
       if (!groupedMarkers.has(stop.name)) groupedMarkers.set(stop.name, []);
       groupedMarkers.get(stop.name).push(marker);
+      markerEntries.push({
+        marker,
+        name: stop.name,
+        lines: stop.lines,
+      });
 
       if (stop.lines.length > 0) {
-        L.marker([stop.lat, stop.lon], {
+        const lineBadgeMarker = L.marker([stop.lat, stop.lon], {
           interactive: false,
           keyboard: false,
           pane: LINE_BADGE_PANE,
@@ -291,10 +332,17 @@ export function BusMapPicker({
             iconAnchor: [0, 0],
           }),
         }).addTo(lineBadgeLayer);
+        lineBadgeEntries.push({
+          marker: lineBadgeMarker,
+          lines: stop.lines,
+        });
       }
     });
     markerGroupsByNameRef.current = groupedMarkers;
-    applyMarkerVisuals(highlightStopNames, selectedStopName);
+    markerEntriesRef.current = markerEntries;
+    lineBadgeEntriesRef.current = lineBadgeEntries;
+    applyMarkerVisuals(highlightStopNames, selectedStopName, 'all');
+    applyLineBadgeVisuals('all');
     applyContextMarkers(currentPosition, nearestOriginStop);
     syncLineBadgeVisibility(map);
 
@@ -357,13 +405,16 @@ export function BusMapPicker({
       nearestOriginLayerRef.current = null;
       lineBadgeLayerRef.current = null;
       markerGroupsByNameRef.current = new Map();
+      markerEntriesRef.current = [];
+      lineBadgeEntriesRef.current = [];
     };
   }, [initialCenter, stopPoints]);
 
   useEffect(() => {
     if (!mapRef.current) return;
-    applyMarkerVisuals(highlightStopNames, selectedStopName);
-  }, [highlightStopNames, selectedStopName]);
+    applyMarkerVisuals(highlightStopNames, selectedStopName, activeLineFilter);
+    applyLineBadgeVisuals(activeLineFilter);
+  }, [highlightStopNames, selectedStopName, activeLineFilter]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -379,15 +430,74 @@ export function BusMapPicker({
 
   return (
     <div
-      ref={mapHostRef}
-      aria-label="Sihtkoha kaart"
       style={{
+        position: 'relative',
         height: '100%',
         width: '100%',
-        borderRadius: 12,
-        overflow: 'hidden',
-        border: '1px solid #d6dde6',
       }}
-    />
+    >
+      <div
+        ref={mapHostRef}
+        aria-label="Sihtkoha kaart"
+        style={{
+          height: '100%',
+          width: '100%',
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: '1px solid #d6dde6',
+        }}
+      />
+
+      <div
+        aria-label="Liinifilter"
+        style={{
+          position: 'absolute',
+          top: 10,
+          left: 10,
+          zIndex: 720,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '4px 6px',
+          borderRadius: 999,
+          background: 'rgba(255, 255, 255, 0.92)',
+          border: '1px solid #d7dde8',
+          boxShadow: '0 2px 7px rgba(15, 23, 42, 0.12)',
+          backdropFilter: 'blur(1px)',
+        }}
+      >
+        {LINE_FILTER_OPTIONS.map((option) => {
+          const active = activeLineFilter === option;
+          const isAll = option === 'all';
+          const lineColor = isAll ? '#6f7787' : colorHexForLine(option);
+          const label = isAll ? 'Kõik' : option;
+          const bg = active ? lineColor : '#ffffff';
+          const fg = active ? (option === '3' ? '#1f2937' : '#ffffff') : '#495463';
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => setActiveLineFilter(option)}
+              aria-pressed={active}
+              style={{
+                border: `1px solid ${active ? lineColor : '#c8d0dd'}`,
+                background: bg,
+                color: fg,
+                borderRadius: 999,
+                minWidth: isAll ? 36 : 24,
+                height: 24,
+                padding: isAll ? '0 8px' : '0 6px',
+                fontSize: 12,
+                fontWeight: 700,
+                lineHeight: 1,
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
