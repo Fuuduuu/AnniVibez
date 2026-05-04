@@ -28,6 +28,8 @@ Status: compact low-token state snapshot for future Codex passes.
 - PASS `28B` direct-route candidate-search MVP is deployed/smoked
 - map picker UX design spec saved: `docs/audit/map-picker-ux-design-spec.md`
 - PASS `28C_UI_MAP_PICKER_LAYOUT` is implemented, committed, and deployed/smoked
+- PASS `28D_MAP_MARKER_VISUALS` is implemented, committed, and deployed/smoked
+- PASS `28E_MAP_CONTEXT_MARKERS` is implemented, committed, and deployed/smoked
 - map picker now opens as full-screen modal/overlay with bottom-sheet decision UI
 - map decision states include:
   - `Lähim peatus sihtkohale`
@@ -35,9 +37,13 @@ Status: compact low-token state snapshot for future Codex passes.
 - map confirm action is:
   - `Kasuta seda sihtkohta`
 - raw coordinate UX copy is removed from normal flow
+- map context markers are active:
+  - `Minu asukoht` (currentPosition)
+  - `Lähim peatus` (effectiveOrigin context)
 - direct-route candidate matrix search is active in `BussTab` (origin x destination)
 - transfer routing is not implemented yet
 - map line colors are not implemented yet
+- map line filter is not implemented yet
 - route polylines are not implemented yet
 - Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
@@ -112,8 +118,8 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
-- `PASS 28D_MAP_MARKER_VISUALS`
-- `PASS 28D_MAP_LINE_COLOR_DATA_LAYER` (if line-color data priority is chosen first)
+- `PASS 28F_MAP_LINE_COLOR_DATA_LAYER`
+- `PASS 28G_MAP_LINE_BADGE_MARKERS`
 
 ## Known deploy notes
 

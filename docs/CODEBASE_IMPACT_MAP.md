@@ -12,8 +12,8 @@ This map defines:
 
 | File | Responsibility | Common pass types | Risk | Notes |
 |---|---|---|---|---|
-| `src/components/BussTab.jsx` | Buss destination UI, POI/place search, direct-route candidate matrix, map modal integration, route cards | bus-ui, place-search, direct-route-search, map-picker-ui | high | affects main bus UX and route decisions |
-| `src/components/BusMapPicker.jsx` | Leaflet/OSM map surface, destination pin, nearestStops payload, stop marker layer | map-picker, map-picker-ui, map-marker-visuals | high | map input aid; not the routing engine |
+| `src/components/BussTab.jsx` | Buss destination UI, POI/place search, direct-route candidate matrix, map modal integration, route cards, context-marker prop wiring | bus-ui, place-search, direct-route-search, map-picker-ui | high | passes `currentPosition`, `nearestOriginStop`, `highlightStopNames`, `selectedStopName` into map surface |
+| `src/components/BusMapPicker.jsx` | Leaflet/OSM map surface, destination pin, nearestStops payload, stop marker layer, context markers (`Minu asukoht`, `Lähim peatus`) | map-picker, map-picker-ui, map-marker-visuals | high | owns map marker visual layer; map input aid, not routing engine |
 | `src/components/BussCard.jsx` | Home card bus widget | bus-ui, home-widget | medium | keep separate from BussTab unless pass says otherwise |
 | `src/utils/bus.js` | `depsWithMeta`, `nearest`, route filtering, `emptyReason` | bus-engine | high | `nearest` uses GTFS-preferred stop-point coords; `depsWithMeta` stays protected |
 | `src/data/busData.js` | stops, groups, schedules | bus-data | high | protected timetable/source data |
@@ -36,7 +36,7 @@ This map defines:
 | `direct-route-search` | `AGENTS`, `CURRENT_STATE`, direct-route plan, `BussTab`, `poiData`, `busData` | `BussTab` | `bus.js` rewrite, transfers | build, route-empty-state/source smoke |
 | `map-picker-ui` | `AGENTS`, `CURRENT_STATE`, map UX spec, `BussTab`, `BusMapPicker` | `BussTab`, `BusMapPicker` | `bus.js`, `busData`, Üllata | build, modal/mobile/source smoke |
 | `map-marker-visuals` | `AGENTS`, `CURRENT_STATE`, map UX spec, `BusMapPicker` | `BusMapPicker` | routing engine, `busData` | build, marker/source smoke |
-| `map-line-color-data` | `AGENTS`, `CURRENT_STATE`, routing plans, `BussTab` (and optional map UI) | narrow UI/data wiring only | transfers/engine rewrite | build, route-card/map smoke |
+| `map-line-color-data` | `AGENTS`, `CURRENT_STATE`, map-context goals doc, routing plans, `BussTab`/`BusMapPicker` as needed | narrow UI/data wiring only | transfers/engine rewrite | build, route-card/map smoke |
 | `ullata-ui` | `AGENTS`, `CURRENT_STATE`, `LooTab` | `LooTab` | bus files | build, UI/source smoke |
 | `ullata-api` | `AGENTS`, `CURRENT_STATE`, `ullata.js` | `ullata.js` | bus files | API smoke |
 | `deploy` | `DEPLOYMENT`, `CURRENT_STATE`, git status | none | source | build, deploy, canonical/API smoke |
@@ -46,8 +46,8 @@ This map defines:
 
 ```mermaid
 flowchart TD
-    BussTab["src/components/BussTab.jsx<br/>POI search, map modal, direct-route matrix, route cards"]
-    BusMapPicker["src/components/BusMapPicker.jsx<br/>Leaflet map, stop markers, pin, nearestStops payload"]
+    BussTab["src/components/BussTab.jsx<br/>POI search, map modal, direct-route matrix, route cards, context-marker prop wiring"]
+    BusMapPicker["src/components/BusMapPicker.jsx<br/>Leaflet map, stop markers, destination pin, nearestStops payload, context markers"]
     BussCard["src/components/BussCard.jsx<br/>Home bus widget"]
     BusUtils["src/utils/bus.js<br/>depsWithMeta, nearest, emptyReason"]
     BusData["src/data/busData.js<br/>stops, groups, schedules"]

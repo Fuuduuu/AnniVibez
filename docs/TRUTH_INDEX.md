@@ -38,6 +38,7 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/BUS_POI_DESTINATION_PLAN.md`
 - `docs/audit/direct-route-candidate-search-plan.md` (routing planning guidance)
 - `docs/audit/map-picker-ux-design-spec.md` (UX/design guidance extracted from artifact; implementation truth stays in repo code)
+- `docs/audit/map-context-and-line-goals.md` (map UX/design planning guidance for upcoming line-color/filter/highlight phases)
 - `docs/CODEBASE_IMPACT_MAP.md`
 - `docs/PROTECTED_SURFACES.md`
 - `docs/SECURITY_APPEND.md`

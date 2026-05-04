@@ -158,18 +158,22 @@ flowchart TD
     G -->|No| Y["Open narrow fix pass"]
 ```
 
-### E) Map picker UI/data flow (PASS 28C layout)
+### E) Map picker UI/data flow (PASS 28C/28D/28E state)
 
 ```mermaid
 flowchart TD
     A["Vali kaardilt"] --> B["Full-screen modal/overlay"]
-    B --> C["Map tap"]
-    C --> D["onPick(lat, lon, nearestStops)"]
-    D --> E["Bottom-sheet candidates"]
-    E -->|1 candidate| F["Lähim peatus sihtkohale"]
-    E -->|>1 candidates| G["Mitu peatust on lähedal"]
-    E --> H["Kasuta seda sihtkohta"]
-    H --> I["Set destination + recalculate routes"]
+    B --> C["Render context markers"]
+    C --> C1["Minu asukoht (currentPosition)"]
+    C --> C2["Lähim peatus (effectiveOrigin context)"]
+    B --> D["Map tap"]
+    D --> E["Destination pin"]
+    E --> F["onPick(lat, lon, nearestStops)"]
+    F --> G["Bottom-sheet candidates"]
+    G -->|1 candidate| H["Lähim peatus sihtkohale"]
+    G -->|>1 candidates| I["Mitu peatust on lähedal"]
+    G --> J["Kasuta seda sihtkohta"]
+    J --> K["Set destination + recalculate routes"]
 ```
 
 ### F) Coordinate flow (GTFS layer -> nearest/map)
@@ -181,6 +185,17 @@ flowchart TD
     B --> D["src/components/BusMapPicker.jsx markers"]
     C --> E["Destination/origin candidate resolution"]
     D --> E
+```
+
+### G) Map visual roadmap (locked order)
+
+```mermaid
+flowchart LR
+    A["Context markers"] --> B["Line color data layer"]
+    B --> C["Line badge markers"]
+    C --> D["Line filter"]
+    D --> E["Geometry source discovery"]
+    E --> F["Route highlight by direction"]
 ```
 
 ## Notes
