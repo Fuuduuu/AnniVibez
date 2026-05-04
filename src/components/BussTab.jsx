@@ -5,6 +5,13 @@ import { POI_DATA } from '../data/poiData';
 import { BusMapPicker } from './BusMapPicker';
 import { depsWithMeta, nearest, wd } from '../utils/bus';
 
+const DESTINATION_UNRESOLVED_REASON = 'Sihtkohta ei leitud. Proovi teist nime või vali peatus nimekirjast.';
+const DIRECT_CONNECTION_MISSING_REASON = 'Valitud suunal ei leitud praegu sobivat otseliini.';
+const MAP_OUT_OF_AREA_REASON = 'Valitud punkt on teeninduspiirkonnast väljas. Vali lähem sihtkoht.';
+const ORIGIN_CANDIDATE_LIMIT = 5;
+const DESTINATION_CANDIDATE_LIMIT = 3;
+const ROUTE_OPTION_LIMIT = 3;
+
 function DepRow({ d }) {
   return (
     <div style={{ padding: '10px 0', borderBottom: `1px solid ${AV.border}` }}>
@@ -58,6 +65,11 @@ export function BussTab({ savedPlaces = [] }) {
   const [mapPickedPoint, setMapPickedPoint] = useState(null);
   const [mapDestinationCandidates, setMapDestinationCandidates] = useState([]);
   const [selectedMapCandidate, setSelectedMapCandidate] = useState('');
+  const [activeMapDestinationCandidates, setActiveMapDestinationCandidates] = useState([]);
+  const [selectedDestinationSource, setSelectedDestinationSource] = useState('none');
+  const [selectedPoiId, setSelectedPoiId] = useState('');
+  const [destinationResolutionError, setDestinationResolutionError] = useState('');
+  const [mapPickError, setMapPickError] = useState('');
 
   function originCodesFrom(stopLike) {
     const raw =
@@ -123,10 +135,33 @@ export function BussTab({ savedPlaces = [] }) {
     return rank;
   }
 
+  function dedupeGroupNames(values) {
+    const out = [];
+    const seen = new Set();
+    for (const raw of values || []) {
+      const name = String(raw || '').trim();
+      if (!name) continue;
+      const key = normalizeSearchText(name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(name);
+    }
+    return out;
+  }
+
+  function isNoBusesReason(reason) {
+    return typeof reason === 'string' && reason.toLowerCase().includes('täna enam busse pole');
+  }
+
+  function isFiniteCoord(value) {
+    return Number.isFinite(Number(value));
+  }
+
   function clearMapPickState() {
     setMapPickedPoint(null);
     setMapDestinationCandidates([]);
     setSelectedMapCandidate('');
+    setMapPickError('');
   }
 
   function resolveDestinationGroupFromMapStop(rawStopName) {
@@ -179,6 +214,19 @@ export function BussTab({ savedPlaces = [] }) {
   function handleMapPick(payload) {
     const lat = Number(payload?.lat);
     const lon = Number(payload?.lon);
+    const nearestHit = Number.isFinite(lat) && Number.isFinite(lon) ? nearest(lat, lon) : null;
+
+    if (nearestHit?.dist != null && nearestHit.dist > 3000) {
+      setMapPickedPoint(Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null);
+      setMapDestinationCandidates([]);
+      setSelectedMapCandidate('');
+      setMapPickError(MAP_OUT_OF_AREA_REASON);
+      setDestinationResolutionError(MAP_OUT_OF_AREA_REASON);
+      return;
+    }
+
+    setDestinationResolutionError('');
+    setMapPickError('');
     const nearestStops = Array.isArray(payload?.nearestStops) ? payload.nearestStops : [];
     const candidates = resolveMapDestinationCandidates(nearestStops, lat, lon);
 
@@ -193,6 +241,13 @@ export function BussTab({ savedPlaces = [] }) {
 
   function confirmMapDestinationCandidate() {
     if (!selectedMapCandidate) return;
+    setActiveMapDestinationCandidates(
+      dedupeGroupNames(mapDestinationCandidates.map(candidate => candidate.groupName)).slice(0, DESTINATION_CANDIDATE_LIMIT)
+    );
+    setSelectedDestinationSource('map');
+    setSelectedPoiId('');
+    setDestinationResolutionError('');
+    setMapPickError('');
     setDestination(selectedMapCandidate);
     setSelectedPlaceLabel(selectedMapCandidate);
     setPlaceQuery(selectedMapCandidate);
@@ -200,71 +255,174 @@ export function BussTab({ savedPlaces = [] }) {
     clearMapPickState();
   }
 
-  function findRouteOptions(origin, selectedDestination, service, nearbyCandidates, destinationDisplayName = '') {
+  function buildOriginCandidates(origin, nearbyCandidates) {
+    const merged = [origin, ...(Array.isArray(nearbyCandidates) ? nearbyCandidates : [])];
+    const out = [];
+    const seen = new Set();
+
+    for (const candidate of merged) {
+      if (!candidate) continue;
+      const key = String(candidate?.code || candidate?.stopId || candidate?.name || '').trim();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(candidate);
+      if (out.length >= ORIGIN_CANDIDATE_LIMIT) break;
+    }
+
+    return out;
+  }
+
+  function buildDestinationCandidates(selectedDestination, destinationSource, poiId, mapCandidates, fallbackError) {
     if (!selectedDestination) {
-      return { options: [], reason: '' };
+      return { candidates: [], unresolvedReason: fallbackError || '' };
+    }
+
+    if (destinationSource === 'map') {
+      if (fallbackError === MAP_OUT_OF_AREA_REASON) {
+        return { candidates: [], unresolvedReason: MAP_OUT_OF_AREA_REASON };
+      }
+      const mapNames = dedupeGroupNames(
+        Array.isArray(mapCandidates) && mapCandidates.length > 0 ? mapCandidates : [selectedDestination]
+      ).slice(0, DESTINATION_CANDIDATE_LIMIT);
+      return {
+        candidates: mapNames,
+        unresolvedReason: mapNames.length > 0 ? '' : DESTINATION_UNRESOLVED_REASON,
+      };
+    }
+
+    if (destinationSource === 'poi' && poiId) {
+      const poi = POI_DATA.find(item => item.id === poiId && item.enabled);
+      const names = [];
+
+      if (poi) {
+        names.push(...(Array.isArray(poi.preferredStopGroups) ? poi.preferredStopGroups.slice(0, 2) : []));
+        if (poi.coordVerified && isFiniteCoord(poi.lat) && isFiniteCoord(poi.lon)) {
+          const nearestPoi = nearest(Number(poi.lat), Number(poi.lon));
+          const nearestNames = [
+            ...(Array.isArray(nearestPoi?.candidates)
+              ? nearestPoi.candidates.map(choice => choice?.groupName || choice?.name)
+              : []),
+            nearestPoi?.groupName || nearestPoi?.name || '',
+          ];
+          names.push(...nearestNames);
+        }
+      }
+
+      if (!names.length) names.push(selectedDestination);
+      const resolved = dedupeGroupNames(names).slice(0, DESTINATION_CANDIDATE_LIMIT);
+      return {
+        candidates: resolved,
+        unresolvedReason: resolved.length > 0 ? '' : DESTINATION_UNRESOLVED_REASON,
+      };
+    }
+
+    const dropdown = dedupeGroupNames([selectedDestination]).slice(0, DESTINATION_CANDIDATE_LIMIT);
+    return {
+      candidates: dropdown,
+      unresolvedReason: dropdown.length > 0 ? '' : DESTINATION_UNRESOLVED_REASON,
+    };
+  }
+
+  function findRouteOptions(origin, selectedDestination, service, nearbyCandidates, destinationDisplayName = '', destinationSource = 'none', poiId = '', mapCandidates = [], fallbackError = '') {
+    if (!selectedDestination) {
+      return { options: [], reason: fallbackError || '' };
     }
     if (!origin) {
       return { options: [], reason: 'Vali lähtekoht, et näha marsruute' };
     }
 
-    const originName = origin?.groupName || origin?.name || '';
-    if (originName && originName === selectedDestination) {
-      return { options: [], reason: 'Vali erinev sihtkoht' };
-    }
-
-    const originCodes = originCodesFrom(origin);
-    if (!originCodes.length) {
+    const originCandidates = buildOriginCandidates(origin, nearbyCandidates);
+    if (!originCandidates.length) {
       return { options: [], reason: 'Vali lähtekoht, et näha marsruute' };
     }
-    const displayDestinationName = typeof destinationDisplayName === 'string' ? destinationDisplayName.trim() : '';
-    const destinationName = displayDestinationName || (typeof selectedDestination === 'string' ? selectedDestination.trim() : '');
 
-    const primary = depsWithMeta(originCodes, 5, { destination: selectedDestination, service });
-    const mappedPrimary = primary.departures.map(dep => ({
-      ...dep,
-      originName: origin?.groupName || origin?.name || 'Valitud peatus',
-      originDist: origin?.dist ?? null,
-      originStopId: dep.originStopId || origin?.stopId || origin?.code || null,
-      destinationName: destinationName || 'Valitud sihtkoht',
-    }));
-    if (mappedPrimary.length > 0) {
-      return { options: mappedPrimary.slice(0, 5), reason: '' };
+    const { candidates: destinationCandidates, unresolvedReason } = buildDestinationCandidates(
+      selectedDestination,
+      destinationSource,
+      poiId,
+      mapCandidates,
+      fallbackError
+    );
+    if (!destinationCandidates.length) {
+      return { options: [], reason: unresolvedReason || DESTINATION_UNRESOLVED_REASON };
     }
 
-    const fallbackPool = Array.isArray(nearbyCandidates)
-      ? nearbyCandidates.filter(choice => choice?.code && choice.code !== origin?.code).slice(0, 2)
-      : [];
-
+    const displayDestinationName = typeof destinationDisplayName === 'string' ? destinationDisplayName.trim() : '';
     const merged = [];
-    for (const alt of fallbackPool) {
-      const altCodes = originCodesFrom(alt);
-      if (!altCodes.length) continue;
-      const altResult = depsWithMeta(altCodes, 5, { destination: selectedDestination, service });
-      if (!altResult.departures.length) continue;
-      for (const dep of altResult.departures) {
-        merged.push({
-          ...dep,
-          originName: alt?.groupName || alt?.name || 'Valitud peatus',
-          originDist: alt?.dist ?? null,
-          originStopId: dep.originStopId || alt?.stopId || alt?.code || null,
-          destinationName: destinationName || 'Valitud sihtkoht',
-        });
+    let sawNoBuses = false;
+    let sawOtherNoRoute = false;
+    let testedPairCount = 0;
+    let sameOriginDestinationSkips = 0;
+
+    for (let destinationPriority = 0; destinationPriority < destinationCandidates.length; destinationPriority += 1) {
+      const destinationCandidate = destinationCandidates[destinationPriority];
+      for (let originPriority = 0; originPriority < originCandidates.length; originPriority += 1) {
+        const originCandidate = originCandidates[originPriority];
+        const originName = originCandidate?.groupName || originCandidate?.name || '';
+        if (originName && originName === destinationCandidate) {
+          sameOriginDestinationSkips += 1;
+          continue;
+        }
+
+        const originCodes = originCodesFrom(originCandidate);
+        if (!originCodes.length) continue;
+
+        testedPairCount += 1;
+        const result = depsWithMeta(originCodes, 5, { destination: destinationCandidate, service });
+        if (result.departures.length) {
+          for (const dep of result.departures) {
+            merged.push({
+              ...dep,
+              originName: originCandidate?.groupName || originCandidate?.name || 'Valitud peatus',
+              originDist: originCandidate?.dist ?? null,
+              originStopId: dep.originStopId || originCandidate?.stopId || originCandidate?.code || null,
+              destinationName: displayDestinationName || destinationCandidate || 'Valitud sihtkoht',
+              destinationPriority,
+              originPriority,
+              testedDestination: destinationCandidate,
+            });
+          }
+        } else if (isNoBusesReason(result.reason)) {
+          sawNoBuses = true;
+        } else {
+          sawOtherNoRoute = true;
+        }
       }
     }
 
-    merged.sort((a, b) => a.time.localeCompare(b.time));
+    if (!merged.length) {
+      if (testedPairCount === 0 && sameOriginDestinationSkips > 0) {
+        return { options: [], reason: 'Vali erinev sihtkoht' };
+      }
+      if (sawNoBuses && !sawOtherNoRoute) {
+        return { options: [], reason: `Täna enam busse pole · ${service}` };
+      }
+      return { options: [], reason: DIRECT_CONNECTION_MISSING_REASON };
+    }
+
+    merged.sort((a, b) => {
+      const timeCmp = a.time.localeCompare(b.time);
+      if (timeCmp !== 0) return timeCmp;
+      const originDistA = Number.isFinite(a.originDist) ? a.originDist : Number.POSITIVE_INFINITY;
+      const originDistB = Number.isFinite(b.originDist) ? b.originDist : Number.POSITIVE_INFINITY;
+      if (originDistA !== originDistB) return originDistA - originDistB;
+      if ((a.destinationPriority || 0) !== (b.destinationPriority || 0)) {
+        return (a.destinationPriority || 0) - (b.destinationPriority || 0);
+      }
+      return (a.originPriority || 0) - (b.originPriority || 0);
+    });
+
     const deduped = [];
     const seen = new Set();
     for (const item of merged) {
-      const key = `${item.line}|${item.v || ''}|${item.time}|${item.originStopId || item.originName}`;
+      const key = `${item.line}|${item.v || ''}|${item.time}|${item.originStopId || item.originName}|${item.testedDestination}`;
       if (seen.has(key)) continue;
       seen.add(key);
       deduped.push(item);
-      if (deduped.length >= 5) break;
+      if (deduped.length >= ROUTE_OPTION_LIMIT) break;
     }
 
-    return { options: deduped, reason: deduped.length > 0 ? '' : primary.reason };
+    return { options: deduped, reason: '' };
   }
 
   function gpsClick() {
@@ -338,6 +496,10 @@ export function BussTab({ savedPlaces = [] }) {
     setDestination(result.routeDestination);
     setSelectedPlaceLabel(result.type === 'poi' ? result.label : '');
     setPlaceQuery(result.label);
+    setSelectedDestinationSource(result.type === 'poi' ? 'poi' : 'dropdown');
+    setSelectedPoiId(result.type === 'poi' ? result.id : '');
+    setActiveMapDestinationCandidates([]);
+    setDestinationResolutionError('');
     setMapPickerOpen(false);
     clearMapPickState();
   }
@@ -350,11 +512,15 @@ export function BussTab({ savedPlaces = [] }) {
       destination,
       wd(),
       nearbyOriginCandidates,
-      selectedPlaceLabel
+      selectedPlaceLabel,
+      selectedDestinationSource,
+      selectedPoiId,
+      activeMapDestinationCandidates,
+      destinationResolutionError
     );
     setRouteOptions(options);
     setEmptyReason(reason);
-  }, [effectiveOrigin, destination, nearbyOriginCandidates, selectedPlaceLabel]);
+  }, [effectiveOrigin, destination, nearbyOriginCandidates, selectedPlaceLabel, selectedDestinationSource, selectedPoiId, activeMapDestinationCandidates, destinationResolutionError]);
 
   const gpsLabel = {
     idle: 'Leia lähim peatus (GPS)',
@@ -480,7 +646,7 @@ export function BussTab({ savedPlaces = [] }) {
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: AV.muted }}>
-                    Valitud kohale ei leitud sobivat peatust. Proovi kaardil teist kohta.
+                    {mapPickError || 'Valitud kohale ei leitud sobivat peatust. Proovi kaardil teist kohta.'}
                   </div>
                 )}
               </div>
@@ -567,6 +733,10 @@ export function BussTab({ savedPlaces = [] }) {
             setDestination(nextDestination);
             setSelectedPlaceLabel('');
             setPlaceQuery(nextDestination || '');
+            setSelectedPoiId('');
+            setSelectedDestinationSource(nextDestination ? 'dropdown' : 'none');
+            setActiveMapDestinationCandidates([]);
+            setDestinationResolutionError('');
             setMapPickerOpen(false);
             clearMapPickState();
           }}
@@ -746,7 +916,9 @@ export function BussTab({ savedPlaces = [] }) {
       <div style={card}>
         <div style={{ fontSize: 10, ...labelStyle, marginBottom: 2 }}>Marsruut</div>
         {!destination ? (
-          <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>Vali sihtkoht, et näha marsruute</div>
+          <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>
+            {destinationResolutionError || 'Vali sihtkoht, et näha marsruute'}
+          </div>
         ) : !effectiveOrigin ? (
           <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>Vali lähtekoht, et näha marsruute</div>
         ) : routeOptions.length === 0 ? (
