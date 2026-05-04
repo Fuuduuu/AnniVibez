@@ -52,11 +52,11 @@ function normalizeStopName(value) {
 }
 
 const STOP_STYLE_IDLE = {
-  radius: 2.5,
+  radius: 3.1,
   weight: 1,
-  color: '#b0b8cc',
-  fillColor: '#d6dced',
-  fillOpacity: 0.42,
+  color: '#9aa6bf',
+  fillColor: '#ccd5e8',
+  fillOpacity: 0.56,
 };
 
 const STOP_STYLE_NEAREST = {
@@ -75,16 +75,52 @@ const STOP_STYLE_SELECTED = {
   fillOpacity: 1,
 };
 
+const ORIGIN_STOP_STYLE = {
+  radius: 7.2,
+  weight: 2,
+  color: '#1a7e7e',
+  fillColor: '#85d6d6',
+  fillOpacity: 0.82,
+};
+
+const ORIGIN_STOP_INNER_STYLE = {
+  radius: 3.4,
+  weight: 1.4,
+  color: '#0f5f5f',
+  fillColor: '#0f5f5f',
+  fillOpacity: 0.95,
+};
+
+const CURRENT_POSITION_STYLE = {
+  radius: 7.8,
+  weight: 2.1,
+  color: '#d64848',
+  fillColor: '#ff9a9a',
+  fillOpacity: 0.9,
+};
+
+const CURRENT_POSITION_INNER_STYLE = {
+  radius: 3.6,
+  weight: 1.5,
+  color: '#b32424',
+  fillColor: '#b32424',
+  fillOpacity: 0.96,
+};
+
 export function BusMapPicker({
   initialCenter = RAKVERE_CENTER,
   onPick,
   highlightStopNames = [],
   selectedStopName = '',
+  currentPosition = null,
+  nearestOriginStop = null,
 }) {
   const mapHostRef = useRef(null);
   const mapRef = useRef(null);
   const pickedPinLayerRef = useRef(null);
   const markerGroupsByNameRef = useRef(new Map());
+  const currentPositionLayerRef = useRef(null);
+  const nearestOriginLayerRef = useRef(null);
 
   const stopPoints = useMemo(() => {
     const rows = Object.entries(BUS_DATA?.by_code || {});
@@ -130,6 +166,37 @@ export function BusMapPicker({
     }
   }
 
+  function applyContextMarkers(position, originStop) {
+    if (!mapRef.current) return;
+
+    if (currentPositionLayerRef.current) {
+      currentPositionLayerRef.current.remove();
+      currentPositionLayerRef.current = null;
+    }
+    if (nearestOriginLayerRef.current) {
+      nearestOriginLayerRef.current.remove();
+      nearestOriginLayerRef.current = null;
+    }
+
+    const posLat = Number(position?.lat);
+    const posLon = Number(position?.lon);
+    if (isFiniteNumber(posLat) && isFiniteNumber(posLon)) {
+      const layer = L.layerGroup().addTo(mapRef.current);
+      L.circleMarker([posLat, posLon], CURRENT_POSITION_STYLE).addTo(layer);
+      L.circleMarker([posLat, posLon], CURRENT_POSITION_INNER_STYLE).addTo(layer);
+      currentPositionLayerRef.current = layer;
+    }
+
+    const originLat = Number(originStop?.lat);
+    const originLon = Number(originStop?.lon);
+    if (isFiniteNumber(originLat) && isFiniteNumber(originLon)) {
+      const layer = L.layerGroup().addTo(mapRef.current);
+      L.circleMarker([originLat, originLon], ORIGIN_STOP_STYLE).addTo(layer);
+      L.circleMarker([originLat, originLon], ORIGIN_STOP_INNER_STYLE).addTo(layer);
+      nearestOriginLayerRef.current = layer;
+    }
+  }
+
   useEffect(() => {
     if (!mapHostRef.current || mapRef.current) return;
 
@@ -158,6 +225,7 @@ export function BusMapPicker({
     });
     markerGroupsByNameRef.current = groupedMarkers;
     applyMarkerVisuals(highlightStopNames, selectedStopName);
+    applyContextMarkers(currentPosition, nearestOriginStop);
 
     map.on('click', event => {
       const lat = roundCoord(event.latlng.lat);
@@ -210,6 +278,8 @@ export function BusMapPicker({
       map.remove();
       mapRef.current = null;
       pickedPinLayerRef.current = null;
+      currentPositionLayerRef.current = null;
+      nearestOriginLayerRef.current = null;
       markerGroupsByNameRef.current = new Map();
     };
   }, [initialCenter, stopPoints]);
@@ -218,6 +288,11 @@ export function BusMapPicker({
     if (!mapRef.current) return;
     applyMarkerVisuals(highlightStopNames, selectedStopName);
   }, [highlightStopNames, selectedStopName]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    applyContextMarkers(currentPosition, nearestOriginStop);
+  }, [currentPosition, nearestOriginStop]);
 
   useEffect(() => {
     if (!mapRef.current) return;

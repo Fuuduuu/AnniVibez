@@ -60,6 +60,7 @@ export function BussTab({ savedPlaces = [] }) {
   const [selectedPlaceLabel, setSelectedPlaceLabel] = useState('');
   const [emptyReason, setEmptyReason] = useState('');
   const [gpsState, setGpsState] = useState('idle');
+  const [currentPosition, setCurrentPosition] = useState(null);
   const [activePill, setActivePill] = useState(null);
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const [mapPickedPoint, setMapPickedPoint] = useState(null);
@@ -433,6 +434,11 @@ export function BussTab({ savedPlaces = [] }) {
     }
     navigator.geolocation.getCurrentPosition(
       p => {
+        const nextLat = Number(p?.coords?.latitude);
+        const nextLon = Number(p?.coords?.longitude);
+        if (Number.isFinite(nextLat) && Number.isFinite(nextLon)) {
+          setCurrentPosition({ lat: nextLat, lon: nextLon });
+        }
         const g = nearest(p.coords.latitude, p.coords.longitude);
         if (g) setDetectedOrigin(g);
         setGpsState('ok');
@@ -535,6 +541,22 @@ export function BussTab({ savedPlaces = [] }) {
     Number.isFinite(effectiveOrigin?.lat) && Number.isFinite(effectiveOrigin?.lon)
       ? [effectiveOrigin.lat, effectiveOrigin.lon]
       : undefined;
+  const nearestOriginStopForMap = (() => {
+    const name = effectiveOrigin?.groupName || effectiveOrigin?.name || '';
+    const directLat = Number(effectiveOrigin?.lat);
+    const directLon = Number(effectiveOrigin?.lon);
+    if (Number.isFinite(directLat) && Number.isFinite(directLon)) {
+      return { name, lat: directLat, lon: directLon };
+    }
+    const code = effectiveOrigin?.code || effectiveOrigin?.stopId;
+    const fallback = code ? BUS_DATA.by_code?.[code] : null;
+    const fallbackLat = Number(fallback?.lat);
+    const fallbackLon = Number(fallback?.lon);
+    if (Number.isFinite(fallbackLat) && Number.isFinite(fallbackLon)) {
+      return { name: name || fallback?.name || '', lat: fallbackLat, lon: fallbackLon };
+    }
+    return null;
+  })();
   const closeMapPicker = () => {
     setMapPickerOpen(false);
     clearMapPickState();
@@ -649,6 +671,8 @@ export function BussTab({ savedPlaces = [] }) {
                   onPick={handleMapPick}
                   highlightStopNames={mapDestinationCandidates.map(candidate => candidate.groupName)}
                   selectedStopName={selectedMapCandidate}
+                  currentPosition={currentPosition}
+                  nearestOriginStop={nearestOriginStopForMap}
                 />
               </div>
               <div
