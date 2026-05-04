@@ -17,8 +17,14 @@ Status: compact low-token state snapshot for future Codex passes.
   - `Mine peatusesse`
   - `Sõida liiniga`
   - `Välju peatuses`
-- POI/place-first destination direction is accepted
-- local POI dataset file exists (`src/data/poiData.js`) and is not wired to UI yet
+- POI/place-first destination search is wired in `BussTab`
+- popular place chips are active in bus destination UI
+- map destination picker is integrated in `BussTab` via `BusMapPicker`
+- GTFS stop-point coordinate layer exists in `src/data/gtfsStopCoords.js`
+- `nearest(...)` and `BusMapPicker` prefer GTFS stop-point coords by stopId
+- `src/data/busData.js` was not overwritten during GTFS coordinate wiring
+- PASS `27F2` is accepted/live
+- Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
 - Üllata save persistence uses localStorage key `annivibe_saved_ideas`
 - build/deploy workflow for Cloudflare Pages is documented and in use
@@ -32,6 +38,8 @@ Status: compact low-token state snapshot for future Codex passes.
   - `depsWithMeta(...)`
 - coordinate-to-stop resolver remains:
   - `nearest(...)`
+- GTFS coordinate precedence for stop points:
+  - `GTFS_STOP_COORDS_BY_ID[stopId] -> BUS_DATA.by_code[stopId] -> legacy fallback`
 - origin code resolution is protected:
   - `displayCodes || codes || [code]`
 - nearby candidate logic remains active
@@ -45,10 +53,10 @@ Status: compact low-token state snapshot for future Codex passes.
 - users should search places, not internal stop names
 - stop-name search remains fallback/advanced path
 - current implementation state:
-  - POI dataset exists
-  - place-search UI not implemented yet
-  - map picker not implemented yet
-- map remains future input method, not a new routing engine
+  - POI dataset is active input for enabled place search
+  - place-search UI is implemented in `BussTab`
+  - map picker is implemented as destination input aid
+- map is an input aid, not a new routing engine
 
 ## Protected boundaries
 
@@ -88,10 +96,7 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
-- `PASS 26C — WORKFLOW_AND_BUS_LOGIC_DIAGRAMS`
-- `PASS 25D — PLACE_SEARCH_UI_NO_MAP`
-- `PASS 25E — ROUTE_RECOMMENDATION_SCORING_NO_MAP`
-- `PASS 25F — MAP_PICKER_SKELETON`
+- `PASS 28A — DIRECT_ROUTE_CANDIDATE_SEARCH_PLAN`
 
 ## Known deploy notes
 

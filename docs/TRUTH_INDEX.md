@@ -30,6 +30,7 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/PROMPT_SYSTEM.md`
 - `docs/PROMPT_TEMPLATES.md`
 - `docs/CURRENT_STATE.md`
+- `docs/ROUTING_UX_PRINCIPLES.md` (product/UX guidance; not raw data/audit truth)
 - `docs/TOKEN_BUDGET_RULES.md`
 - `docs/MERMAID_DIAGRAMS.md`
 - `docs/assets/annivibe-sniper-matrix.png` (visual aid; source-of-truth in `docs/CODEBASE_IMPACT_MAP.md`)
