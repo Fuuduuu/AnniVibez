@@ -24,6 +24,7 @@ Status: compact low-token state snapshot for future Codex passes.
 - `nearest(...)` and `BusMapPicker` prefer GTFS stop-point coords by stopId
 - `src/data/busData.js` was not overwritten during GTFS coordinate wiring
 - PASS `27F2` is accepted/live
+- PASS `28A` direct-route candidate-search planning is completed (docs-only)
 - Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
 - Üllata save persistence uses localStorage key `annivibe_saved_ideas`
@@ -96,7 +97,7 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
-- `PASS 28A — DIRECT_ROUTE_CANDIDATE_SEARCH_PLAN`
+- `PASS 28B — DIRECT_ROUTE_CANDIDATE_SEARCH_MVP`
 
 ## Known deploy notes
 
