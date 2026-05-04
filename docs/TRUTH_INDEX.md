@@ -36,9 +36,13 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/assets/annivibe-sniper-matrix.png` (visual aid; source-of-truth in `docs/CODEBASE_IMPACT_MAP.md`)
 - `docs/DEPLOYMENT.md`
 - `docs/BUS_POI_DESTINATION_PLAN.md`
+- `docs/audit/map-picker-ux-design-spec.md` (UX/design guidance extracted from artifact; implementation truth stays in repo code)
 - `docs/CODEBASE_IMPACT_MAP.md`
 - `docs/PROTECTED_SURFACES.md`
 - `docs/SECURITY_APPEND.md`
+
+Input artifact note:
+- `docs/audit/bus map picker design.zip` is reference input, not source-of-truth (and should not be treated as canonical implementation state unless explicitly committed and accepted).
 
 ## Historical / duplicate / not-yet-instantiated docs
 

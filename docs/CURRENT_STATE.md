@@ -25,6 +25,8 @@ Status: compact low-token state snapshot for future Codex passes.
 - `src/data/busData.js` was not overwritten during GTFS coordinate wiring
 - PASS `27F2` is accepted/live
 - PASS `28A` direct-route candidate-search planning is completed (docs-only)
+- PASS `28B` direct-route candidate-search MVP is deployed/smoked
+- map picker UX design spec saved: `docs/audit/map-picker-ux-design-spec.md`
 - Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
 - Üllata save persistence uses localStorage key `annivibe_saved_ideas`
@@ -97,7 +99,7 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
-- `PASS 28B — DIRECT_ROUTE_CANDIDATE_SEARCH_MVP`
+- `PASS 28C_UI_MAP_PICKER_LAYOUT`
 
 ## Known deploy notes
 
