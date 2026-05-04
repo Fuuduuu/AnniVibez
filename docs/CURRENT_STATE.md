@@ -27,6 +27,18 @@ Status: compact low-token state snapshot for future Codex passes.
 - PASS `28A` direct-route candidate-search planning is completed (docs-only)
 - PASS `28B` direct-route candidate-search MVP is deployed/smoked
 - map picker UX design spec saved: `docs/audit/map-picker-ux-design-spec.md`
+- PASS `28C_UI_MAP_PICKER_LAYOUT` is implemented, committed, and deployed/smoked
+- map picker now opens as full-screen modal/overlay with bottom-sheet decision UI
+- map decision states include:
+  - `Lähim peatus sihtkohale`
+  - `Mitu peatust on lähedal`
+- map confirm action is:
+  - `Kasuta seda sihtkohta`
+- raw coordinate UX copy is removed from normal flow
+- direct-route candidate matrix search is active in `BussTab` (origin x destination)
+- transfer routing is not implemented yet
+- map line colors are not implemented yet
+- route polylines are not implemented yet
 - Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
 - Üllata save persistence uses localStorage key `annivibe_saved_ideas`
@@ -46,6 +58,7 @@ Status: compact low-token state snapshot for future Codex passes.
 - origin code resolution is protected:
   - `displayCodes || codes || [code]`
 - nearby candidate logic remains active
+- map pin destination flow remains active and feeds destination candidates
 - route-card intent is:
   - walk to origin stop
   - take line
@@ -99,7 +112,8 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
-- `PASS 28C_UI_MAP_PICKER_LAYOUT`
+- `PASS 28D_MAP_MARKER_VISUALS`
+- `PASS 28D_MAP_LINE_COLOR_DATA_LAYER` (if line-color data priority is chosen first)
 
 ## Known deploy notes
 

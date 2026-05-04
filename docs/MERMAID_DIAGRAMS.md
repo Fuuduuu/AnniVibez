@@ -75,6 +75,27 @@ flowchart TD
     K --> O["Välju peatuses"]
 ```
 
+### A2) Current destination/routing flow (PASS 28B + 28C)
+
+```mermaid
+flowchart TD
+    A["Sihtkoha sisend"] --> A1{"POI / Map / Dropdown?"}
+    A1 -->|POI| B1["POI preferredStopGroups (+ nearest only if coordVerified)"]
+    A1 -->|Map| B2["Map nearestStops candidates"]
+    A1 -->|Dropdown| B3["Single selected group"]
+    B1 --> C["Destination candidates (max 3)"]
+    B2 --> C
+    B3 --> C
+    D["effectiveOrigin"] --> E["Origin candidates (max 5)"]
+    C --> F["Origin x Destination matrix test"]
+    E --> F
+    F --> G["depsWithMeta(...)"]
+    G --> H{"Direct routes found?"}
+    H -->|Yes| I["Sort + dedupe + show best first"]
+    H -->|No| J["Direct-route empty state"]
+    I --> K["Route cards"]
+```
+
 ### B) BussTab UI state machine (source-backed)
 
 ```mermaid
@@ -137,11 +158,38 @@ flowchart TD
     G -->|No| Y["Open narrow fix pass"]
 ```
 
+### E) Map picker UI/data flow (PASS 28C layout)
+
+```mermaid
+flowchart TD
+    A["Vali kaardilt"] --> B["Full-screen modal/overlay"]
+    B --> C["Map tap"]
+    C --> D["onPick(lat, lon, nearestStops)"]
+    D --> E["Bottom-sheet candidates"]
+    E -->|1 candidate| F["Lähim peatus sihtkohale"]
+    E -->|>1 candidates| G["Mitu peatust on lähedal"]
+    E --> H["Kasuta seda sihtkohta"]
+    H --> I["Set destination + recalculate routes"]
+```
+
+### F) Coordinate flow (GTFS layer -> nearest/map)
+
+```mermaid
+flowchart TD
+    A["GTFS audit outputs"] --> B["src/data/gtfsStopCoords.js"]
+    B --> C["src/utils/bus.js nearest()"]
+    B --> D["src/components/BusMapPicker.jsx markers"]
+    C --> E["Destination/origin candidate resolution"]
+    D --> E
+```
+
 ## Notes
 
 - Diagrams A/B/C are source-backed by current files.
 - Diagram D is intentionally conceptual (process governance).
 - Future map diagrams remain planning-only until PASS 25C/25D/25E work is explicitly unlocked.
+- `docs/CODEBASE_IMPACT_MAP.md` remains the source-of-truth for codebase impact/surface diagrams.
+- Figma/FigJam visuals are visual aids only.
 
 ## Codebase impact / sniper maps
 

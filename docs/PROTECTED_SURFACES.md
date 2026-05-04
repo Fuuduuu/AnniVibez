@@ -22,11 +22,22 @@ Rules:
 
 - `src/components/BussTab.jsx`
 - `src/components/BussCard.jsx`
+- `src/components/BusMapPicker.jsx`
 
 Rules:
 - BussTab owns destination-first UI, route cards, origin override, POI/search/map integration
 - BussCard owns home bus widget
+- BusMapPicker is map UI/input aid (pin + nearestStops payload), not routing engine
 - do not touch in data-only or docs-only passes
+
+## GTFS coordinate layer
+
+- `src/data/gtfsStopCoords.js`
+
+Rules:
+- GTFS stop-point data layer used by nearest/map marker surfaces
+- coordinate-layer changes must be narrow and audit-backed
+- do not mix with route-engine rewrites
 
 ## POI data
 
@@ -61,4 +72,3 @@ Rules:
 Rules:
 - docs-only passes must not touch runtime/source/package files
 - no build required unless package/runtime files changed
-
