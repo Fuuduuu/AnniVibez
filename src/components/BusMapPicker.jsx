@@ -47,10 +47,44 @@ function dedupeNames(names) {
   return out;
 }
 
-export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }) {
+function normalizeStopName(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+const STOP_STYLE_IDLE = {
+  radius: 2.5,
+  weight: 1,
+  color: '#b0b8cc',
+  fillColor: '#d6dced',
+  fillOpacity: 0.42,
+};
+
+const STOP_STYLE_NEAREST = {
+  radius: 4.2,
+  weight: 1.6,
+  color: '#7c4dff',
+  fillColor: '#c3adff',
+  fillOpacity: 0.92,
+};
+
+const STOP_STYLE_SELECTED = {
+  radius: 5.5,
+  weight: 2.2,
+  color: '#5f35bf',
+  fillColor: '#8f6bff',
+  fillOpacity: 1,
+};
+
+export function BusMapPicker({
+  initialCenter = RAKVERE_CENTER,
+  onPick,
+  highlightStopNames = [],
+  selectedStopName = '',
+}) {
   const mapHostRef = useRef(null);
   const mapRef = useRef(null);
   const pickedPinLayerRef = useRef(null);
+  const markerGroupsByNameRef = useRef(new Map());
 
   const stopPoints = useMemo(() => {
     const rows = Object.entries(BUS_DATA?.by_code || {});
@@ -63,6 +97,38 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
       }))
       .filter(stop => isFiniteNumber(stop.lat) && isFiniteNumber(stop.lon));
   }, []);
+
+  function applyMarkerVisuals(nearestNames, selectedName) {
+    const nearestSet = new Set(
+      (Array.isArray(nearestNames) ? nearestNames : [])
+        .map(normalizeStopName)
+        .filter(Boolean)
+    );
+    const selectedKey = normalizeStopName(selectedName);
+    const grouped = markerGroupsByNameRef.current;
+
+    grouped.forEach((markers, rawName) => {
+      const key = normalizeStopName(rawName);
+      const isSelected = !!selectedKey && key === selectedKey;
+      const isNearest = nearestSet.has(key);
+      const style = isSelected ? STOP_STYLE_SELECTED : isNearest ? STOP_STYLE_NEAREST : STOP_STYLE_IDLE;
+      markers.forEach(marker => marker.setStyle(style));
+    });
+
+    grouped.forEach((markers, rawName) => {
+      const key = normalizeStopName(rawName);
+      if (nearestSet.has(key)) {
+        markers.forEach(marker => marker.bringToFront());
+      }
+    });
+    if (selectedKey) {
+      grouped.forEach((markers, rawName) => {
+        if (normalizeStopName(rawName) === selectedKey) {
+          markers.forEach(marker => marker.bringToFront());
+        }
+      });
+    }
+  }
 
   useEffect(() => {
     if (!mapHostRef.current || mapRef.current) return;
@@ -84,17 +150,14 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
     }).addTo(map);
 
     const stopsLayer = L.layerGroup().addTo(map);
+    const groupedMarkers = new Map();
     stopPoints.forEach(stop => {
-      L.circleMarker([stop.lat, stop.lon], {
-        radius: 3,
-        weight: 1,
-        color: '#2563eb',
-        fillColor: '#60a5fa',
-        fillOpacity: 0.7,
-      })
-        .bindTooltip(stop.name)
-        .addTo(stopsLayer);
+      const marker = L.circleMarker([stop.lat, stop.lon], STOP_STYLE_IDLE).addTo(stopsLayer);
+      if (!groupedMarkers.has(stop.name)) groupedMarkers.set(stop.name, []);
+      groupedMarkers.get(stop.name).push(marker);
     });
+    markerGroupsByNameRef.current = groupedMarkers;
+    applyMarkerVisuals(highlightStopNames, selectedStopName);
 
     map.on('click', event => {
       const lat = roundCoord(event.latlng.lat);
@@ -103,13 +166,22 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
       if (pickedPinLayerRef.current) {
         pickedPinLayerRef.current.remove();
       }
-      pickedPinLayerRef.current = L.circleMarker([lat, lon], {
-        radius: 7,
+      const pinLayer = L.layerGroup().addTo(map);
+      L.circleMarker([lat, lon], {
+        radius: 12,
         weight: 2,
-        color: '#b91c1c',
-        fillColor: '#ef4444',
-        fillOpacity: 0.9,
-      }).addTo(map);
+        color: '#6f4acb',
+        fillColor: '#d8c8ff',
+        fillOpacity: 0.34,
+      }).addTo(pinLayer);
+      L.circleMarker([lat, lon], {
+        radius: 6.8,
+        weight: 2.2,
+        color: '#5f35bf',
+        fillColor: '#8f6bff',
+        fillOpacity: 0.96,
+      }).addTo(pinLayer);
+      pickedPinLayerRef.current = pinLayer;
 
       let helperName = null;
       try {
@@ -138,8 +210,14 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
       map.remove();
       mapRef.current = null;
       pickedPinLayerRef.current = null;
+      markerGroupsByNameRef.current = new Map();
     };
   }, [initialCenter, stopPoints]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    applyMarkerVisuals(highlightStopNames, selectedStopName);
+  }, [highlightStopNames, selectedStopName]);
 
   useEffect(() => {
     if (!mapRef.current) return;

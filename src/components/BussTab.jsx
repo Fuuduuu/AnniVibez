@@ -647,6 +647,8 @@ export function BussTab({ savedPlaces = [] }) {
                 <BusMapPicker
                   initialCenter={mapInitialCenter}
                   onPick={handleMapPick}
+                  highlightStopNames={mapDestinationCandidates.map(candidate => candidate.groupName)}
+                  selectedStopName={selectedMapCandidate}
                 />
               </div>
               <div
