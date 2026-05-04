@@ -1,0 +1,545 @@
+{
+  "generatedAt": "2026-05-04T23:26:59.017Z",
+  "gtfsSource": {
+    "recommendedSource": "https://eu-gtfs.remix.com/estonia_unified_gtfs.zip",
+    "cacheZipPath": ".artifacts/gtfs/estonia_unified_gtfs.zip",
+    "cacheUsed": true,
+    "downloadedNow": false,
+    "extractedDir": ".artifacts/gtfs",
+    "extractedFiles": {
+      "stops.txt": true,
+      "routes.txt": true,
+      "trips.txt": true,
+      "shapes.txt": true,
+      "stop_times.txt": true
+    }
+  },
+  "shapes": {
+    "shapesTxtExists": true,
+    "totalShapePointCount": 2306859,
+    "uniqueShapeIdCount": 4423,
+    "relevantShapeIdCount": 68,
+    "relevantShapeWithGeometryCount": 68
+  },
+  "routePatternComparison": {
+    "source": "docs/audit/route-pattern-stopid-map.json",
+    "linePatternCounts": {
+      "1": 1,
+      "2": 1,
+      "3": 2,
+      "5": 2
+    },
+    "candidateTripsTouchingTargetStops": 3724,
+    "ambiguousTripAssignments": 2331,
+    "rakvereTripsAssigned": 1393,
+    "unmappedPatternStopCodes": []
+  },
+  "lines": [
+    {
+      "lineNumber": "1",
+      "patternCount": 1,
+      "patternNames": [
+        "Piira - Näpi - Piira"
+      ],
+      "routeIds": [
+        "12ea785386b06e57e2eb1f48139650b2",
+        "1e8ff333d66a208095a65ea3944107a8",
+        "21b0942800b03c3468dc66a3304fa0b3",
+        "2f15805a7f8d8c3e8c109832fa854f3e",
+        "301d7b17524c38778e55f1af1d79bc9e",
+        "35e99a4d0049b77aece2fb06d5cc870e",
+        "53d707428aa10467d1b2faea49ba8d92",
+        "609b19c4bd3235dd0da05dd3d707d5b5",
+        "748cb45a7228434ca9ff97c559f6f340",
+        "74bef93413e370a32f66084fd1dab323",
+        "822c99d2adbb1232b091a9f4d0a55131",
+        "95dcb79c0f92c30be08c75aac56b8e0d",
+        "ae999dee53e09b43c3016cf78cbe2755",
+        "c0c52460524608f6b2a8719e771b2647",
+        "c5913ca63f66463373aca65a0604ce66",
+        "c6d03d4884b9ed8b357a2728e233944b",
+        "e511f4cf8621406204188d8ecb235313",
+        "e58f7713897e914a330bcebe6b9a7304",
+        "f0634d167e2fb2b979e7065926856531",
+        "f6fe65d16f77c7cd4a3d2add59670877"
+      ],
+      "routeLongNames": [
+        "Aseri - Rannu - Viru-Nigula - Rakvere",
+        "Piira - Lihakombinaat",
+        "Piira - Näpi - Piira",
+        "Rakvere - Laekvere",
+        "Rakvere - Laekvere - Avinurme - Mustvee",
+        "Rakvere - Laekvere - Avinurme - Tudulinna OSALISELT NÕUDELIIN",
+        "Rakvere - Pajusti - Viru-Jaagupi - Vinni - Rakvere",
+        "Rakvere - Roela - Rasivere",
+        "Rakvere - Roela - Simuna - Väike-Maarja - Rakvere",
+        "Rakvere - Tamsalu - Järva-Jaani",
+        "Rakvere - Vinni - Tudu - Tudulinna",
+        "Rakvere - Viru-Jaagupi - Simuna",
+        "Rakvere - Väike-Maarja - Kiltsi - Rakke",
+        "Rakvere - Väike-Maarja - Rakke",
+        "Rakvere - Väike-Maarja - Simuna - Roela - Rakvere",
+        "Rakvere - Väike-Maarja - Tamsalu",
+        "Tamsalu - Karitsa - Rakvere - Lasila",
+        "Tamsalu - Väike-Maarja - Simuna - Rakvere",
+        "Väike-Maarja - Simuna - Rakvere"
+      ],
+      "tripCount": 710,
+      "tripsWithShape": 710,
+      "tripsWithoutShape": 0,
+      "uniqueShapeIds": [
+        "12ea785386b06e57e2eb1f48139650b2-A-IB",
+        "12ea785386b06e57e2eb1f48139650b2-A-OB",
+        "1e8ff333d66a208095a65ea3944107a8-A-IB",
+        "21b0942800b03c3468dc66a3304fa0b3-A-IB",
+        "21b0942800b03c3468dc66a3304fa0b3-A-OB",
+        "2f15805a7f8d8c3e8c109832fa854f3e-A-IB",
+        "2f15805a7f8d8c3e8c109832fa854f3e-B-IB",
+        "301d7b17524c38778e55f1af1d79bc9e-A-IB",
+        "301d7b17524c38778e55f1af1d79bc9e-B-IB",
+        "301d7b17524c38778e55f1af1d79bc9e-D-IB",
+        "35e99a4d0049b77aece2fb06d5cc870e-A-IB",
+        "53d707428aa10467d1b2faea49ba8d92-A-IB",
+        "53d707428aa10467d1b2faea49ba8d92-A-OB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-A-IB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-A-OB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-B-IB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-B-OB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-C-IB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-C-OB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-D-IB",
+        "609b19c4bd3235dd0da05dd3d707d5b5-E-IB",
+        "748cb45a7228434ca9ff97c559f6f340-A-IB",
+        "748cb45a7228434ca9ff97c559f6f340-A-OB",
+        "74bef93413e370a32f66084fd1dab323-A-IB",
+        "74bef93413e370a32f66084fd1dab323-B-IB",
+        "822c99d2adbb1232b091a9f4d0a55131-C-OB",
+        "95dcb79c0f92c30be08c75aac56b8e0d-A-IB",
+        "ae999dee53e09b43c3016cf78cbe2755-A-IB",
+        "c0c52460524608f6b2a8719e771b2647-A-OB",
+        "c5913ca63f66463373aca65a0604ce66-A-IB",
+        "c5913ca63f66463373aca65a0604ce66-A-OB",
+        "c6d03d4884b9ed8b357a2728e233944b-A-OB",
+        "e511f4cf8621406204188d8ecb235313-Rdtj_Rkv-st-IB",
+        "e58f7713897e914a330bcebe6b9a7304-A-IB",
+        "e58f7713897e914a330bcebe6b9a7304-Variant_-_A-IB",
+        "f0634d167e2fb2b979e7065926856531-A-IB",
+        "f0634d167e2fb2b979e7065926856531-A-OB",
+        "f6fe65d16f77c7cd4a3d2add59670877-A-IB",
+        "f6fe65d16f77c7cd4a3d2add59670877-A-OB",
+        "f6fe65d16f77c7cd4a3d2add59670877-B-IB",
+        "f6fe65d16f77c7cd4a3d2add59670877-B-OB"
+      ],
+      "directionIds": [
+        "1",
+        "0"
+      ],
+      "headsignSamples": [
+        "Rakvere bussijaam",
+        "Rakke",
+        "Lasila kool",
+        "Tudulinna",
+        "Rasivere",
+        "Tamsalu",
+        "Laekvere",
+        "Roela",
+        "Rasivere teerist",
+        "Aseri",
+        "Avinurme",
+        "Mustvee"
+      ],
+      "dominantShapeIds": [
+        {
+          "shapeId": "c6d03d4884b9ed8b357a2728e233944b-A-OB",
+          "tripCount": 56
+        },
+        {
+          "shapeId": "609b19c4bd3235dd0da05dd3d707d5b5-A-OB",
+          "tripCount": 36
+        },
+        {
+          "shapeId": "301d7b17524c38778e55f1af1d79bc9e-A-IB",
+          "tripCount": 36
+        },
+        {
+          "shapeId": "c0c52460524608f6b2a8719e771b2647-A-OB",
+          "tripCount": 30
+        },
+        {
+          "shapeId": "12ea785386b06e57e2eb1f48139650b2-A-IB",
+          "tripCount": 24
+        },
+        {
+          "shapeId": "609b19c4bd3235dd0da05dd3d707d5b5-A-IB",
+          "tripCount": 24
+        },
+        {
+          "shapeId": "12ea785386b06e57e2eb1f48139650b2-A-OB",
+          "tripCount": 24
+        },
+        {
+          "shapeId": "301d7b17524c38778e55f1af1d79bc9e-B-IB",
+          "tripCount": 24
+        }
+      ],
+      "geometryDistinctByEndpoints": true,
+      "mappedPatternCoverage": 1,
+      "mappedPatternNames": [
+        "Piira - Näpi - Piira"
+      ],
+      "shapePatternExamples": [
+        {
+          "shapeId": "c6d03d4884b9ed8b357a2728e233944b-A-OB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 1
+        },
+        {
+          "shapeId": "c0c52460524608f6b2a8719e771b2647-A-OB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 0.29
+        },
+        {
+          "shapeId": "2f15805a7f8d8c3e8c109832fa854f3e-B-IB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 0.226
+        },
+        {
+          "shapeId": "2f15805a7f8d8c3e8c109832fa854f3e-A-IB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 0.226
+        },
+        {
+          "shapeId": "e58f7713897e914a330bcebe6b9a7304-A-IB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 0.194
+        },
+        {
+          "shapeId": "e58f7713897e914a330bcebe6b9a7304-Variant_-_A-IB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 0.194
+        },
+        {
+          "shapeId": "822c99d2adbb1232b091a9f4d0a55131-C-OB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 0.129
+        },
+        {
+          "shapeId": "609b19c4bd3235dd0da05dd3d707d5b5-B-IB",
+          "patternName": "Piira - Näpi - Piira",
+          "overlapScore": 0.129
+        }
+      ],
+      "patternMatchConfidence": "high"
+    },
+    {
+      "lineNumber": "2",
+      "patternCount": 1,
+      "patternNames": [
+        "Piira - Lihakombinaat"
+      ],
+      "routeIds": [
+        "4d6d3ca69659c5e40b1d63c8c8f82576",
+        "c0c52460524608f6b2a8719e771b2647"
+      ],
+      "routeLongNames": [
+        "Piira - Lihakombinaat",
+        "Rakvere - Kunda"
+      ],
+      "tripCount": 270,
+      "tripsWithShape": 270,
+      "tripsWithoutShape": 0,
+      "uniqueShapeIds": [
+        "4d6d3ca69659c5e40b1d63c8c8f82576-A-IB",
+        "4d6d3ca69659c5e40b1d63c8c8f82576-Lihakombinaat-IB",
+        "c0c52460524608f6b2a8719e771b2647-A-IB"
+      ],
+      "directionIds": [
+        "0"
+      ],
+      "headsignSamples": [
+        "Kunda pargi",
+        "Lihakombinaat"
+      ],
+      "dominantShapeIds": [
+        {
+          "shapeId": "4d6d3ca69659c5e40b1d63c8c8f82576-A-IB",
+          "tripCount": 210
+        },
+        {
+          "shapeId": "4d6d3ca69659c5e40b1d63c8c8f82576-Lihakombinaat-IB",
+          "tripCount": 30
+        },
+        {
+          "shapeId": "c0c52460524608f6b2a8719e771b2647-A-IB",
+          "tripCount": 30
+        }
+      ],
+      "geometryDistinctByEndpoints": true,
+      "mappedPatternCoverage": 1,
+      "mappedPatternNames": [
+        "Piira - Lihakombinaat"
+      ],
+      "shapePatternExamples": [
+        {
+          "shapeId": "c0c52460524608f6b2a8719e771b2647-A-IB",
+          "patternName": "Piira - Lihakombinaat",
+          "overlapScore": 1
+        },
+        {
+          "shapeId": "4d6d3ca69659c5e40b1d63c8c8f82576-Lihakombinaat-IB",
+          "patternName": "Piira - Lihakombinaat",
+          "overlapScore": 0.429
+        },
+        {
+          "shapeId": "4d6d3ca69659c5e40b1d63c8c8f82576-A-IB",
+          "patternName": "Piira - Lihakombinaat",
+          "overlapScore": 0.357
+        }
+      ],
+      "patternMatchConfidence": "high"
+    },
+    {
+      "lineNumber": "3",
+      "patternCount": 2,
+      "patternNames": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ],
+      "routeIds": [
+        "32a3c95590248efabbda9eb63cf36d37",
+        "4f0cff576cdb40a922c0ed26baa8f417",
+        "53b3ddadd670d12ddec6b8d68663656a-1"
+      ],
+      "routeLongNames": [
+        "Rakvere - Väike-Maarja - Rakke - Salla - Rakke",
+        "Tapa - Tamsalu - Rakvere",
+        "Tõrma - Keskväljak - Tõrma"
+      ],
+      "tripCount": 148,
+      "tripsWithShape": 148,
+      "tripsWithoutShape": 0,
+      "uniqueShapeIds": [
+        "32a3c95590248efabbda9eb63cf36d37-A-IB",
+        "4f0cff576cdb40a922c0ed26baa8f417-Variant_-_A-IB",
+        "53b3ddadd670d12ddec6b8d68663656a-1-A-IB",
+        "53b3ddadd670d12ddec6b8d68663656a-1-B-IB"
+      ],
+      "directionIds": [
+        "0"
+      ],
+      "headsignSamples": [
+        "Rakvere bussijaam",
+        "Tõrma kalmistu"
+      ],
+      "dominantShapeIds": [
+        {
+          "shapeId": "53b3ddadd670d12ddec6b8d68663656a-1-A-IB",
+          "tripCount": 56
+        },
+        {
+          "shapeId": "53b3ddadd670d12ddec6b8d68663656a-1-B-IB",
+          "tripCount": 53
+        },
+        {
+          "shapeId": "4f0cff576cdb40a922c0ed26baa8f417-Variant_-_A-IB",
+          "tripCount": 21
+        },
+        {
+          "shapeId": "32a3c95590248efabbda9eb63cf36d37-A-IB",
+          "tripCount": 18
+        }
+      ],
+      "geometryDistinctByEndpoints": true,
+      "mappedPatternCoverage": 2,
+      "mappedPatternNames": [
+        "Tõrma - Keskväljak - Tõrma",
+        "Tõrma - Koidula - Tõrma"
+      ],
+      "shapePatternExamples": [
+        {
+          "shapeId": "53b3ddadd670d12ddec6b8d68663656a-1-A-IB",
+          "patternName": "Tõrma - Koidula - Tõrma",
+          "overlapScore": 1
+        },
+        {
+          "shapeId": "53b3ddadd670d12ddec6b8d68663656a-1-B-IB",
+          "patternName": "Tõrma - Keskväljak - Tõrma",
+          "overlapScore": 1
+        },
+        {
+          "shapeId": "32a3c95590248efabbda9eb63cf36d37-A-IB",
+          "patternName": "Tõrma - Keskväljak - Tõrma",
+          "overlapScore": 0.188
+        },
+        {
+          "shapeId": "4f0cff576cdb40a922c0ed26baa8f417-Variant_-_A-IB",
+          "patternName": "Tõrma - Keskväljak - Tõrma",
+          "overlapScore": 0.188
+        }
+      ],
+      "patternMatchConfidence": "high"
+    },
+    {
+      "lineNumber": "5",
+      "patternCount": 2,
+      "patternNames": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ],
+      "routeIds": [
+        "2a8b2e872dfb3be121bc6744e94c1d96",
+        "3b6b6b36bb5f523b25c94f6939119c6d",
+        "44141986312c5340b6b056fb9919de38",
+        "5502285d83cb385b714e502ff1767d7c",
+        "63fbea8bef218a020bab39f68992ecca",
+        "85ef71b13cb2e28850d4f6078a369d8b",
+        "acbcf98a8a63a5f81737d4bf35b16589",
+        "c0dcd09d66cc1752b3785d5f3c68e7bc",
+        "d9eb3bcf2bf546f4498be7d89f852e50",
+        "da40b6c57ea4c9cbf3ef50d64b508108",
+        "ddfbb7a12acfae8741ff13541b9185a3",
+        "e509e4ff42c2a5719a39071cd8ba14a1"
+      ],
+      "routeLongNames": [
+        "Kallaste-Mustvee-Rannapungerja-Tudulinna-Tudu-Rakvere",
+        "Rakvere - Haljala - Viitna - Valgejõe - Tallinn",
+        "Rakvere - Kandle - Karula - Karepa - Rakvere",
+        "Rakvere - Tallinn",
+        "Rakvere - Vihula - Vergi - Võsu - Rakvere",
+        "Rakvere - Viitna - Käsmu - Võsu - Vihula - Rakvere",
+        "Rägavere tee - Põhjakeskus",
+        "Tallinn - Rakvere",
+        "Tallinn - Valgejõe - Viitna - Haljala - Rakvere"
+      ],
+      "tripCount": 265,
+      "tripsWithShape": 265,
+      "tripsWithoutShape": 0,
+      "uniqueShapeIds": [
+        "2a8b2e872dfb3be121bc6744e94c1d96-A-IB",
+        "3b6b6b36bb5f523b25c94f6939119c6d-A-IB",
+        "44141986312c5340b6b056fb9919de38-A-IB",
+        "44141986312c5340b6b056fb9919de38-B-IB",
+        "5502285d83cb385b714e502ff1767d7c-A-IB",
+        "5502285d83cb385b714e502ff1767d7c-A-OB",
+        "5502285d83cb385b714e502ff1767d7c-B-OB",
+        "5502285d83cb385b714e502ff1767d7c-Pihlaga-IB",
+        "5502285d83cb385b714e502ff1767d7c-Pihlaga-OB",
+        "63fbea8bef218a020bab39f68992ecca-A-IB",
+        "63fbea8bef218a020bab39f68992ecca-Variant_-_A-IB",
+        "85ef71b13cb2e28850d4f6078a369d8b-A-IB",
+        "85ef71b13cb2e28850d4f6078a369d8b-A-OB",
+        "acbcf98a8a63a5f81737d4bf35b16589-A-IB",
+        "c0dcd09d66cc1752b3785d5f3c68e7bc-A-IB",
+        "d9eb3bcf2bf546f4498be7d89f852e50-A-IB",
+        "d9eb3bcf2bf546f4498be7d89f852e50-B-IB",
+        "da40b6c57ea4c9cbf3ef50d64b508108-A-IB",
+        "ddfbb7a12acfae8741ff13541b9185a3-A-IB",
+        "e509e4ff42c2a5719a39071cd8ba14a1-A-IB"
+      ],
+      "directionIds": [
+        "0",
+        "1"
+      ],
+      "headsignSamples": [
+        "Rakvere bussijaam",
+        "Põhjakeskus",
+        "Kallaste",
+        "Rakvere",
+        "Rägavere tee"
+      ],
+      "dominantShapeIds": [
+        {
+          "shapeId": "85ef71b13cb2e28850d4f6078a369d8b-A-IB",
+          "tripCount": 68
+        },
+        {
+          "shapeId": "85ef71b13cb2e28850d4f6078a369d8b-A-OB",
+          "tripCount": 68
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-A-IB",
+          "tripCount": 21
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-A-OB",
+          "tripCount": 14
+        },
+        {
+          "shapeId": "3b6b6b36bb5f523b25c94f6939119c6d-A-IB",
+          "tripCount": 14
+        },
+        {
+          "shapeId": "da40b6c57ea4c9cbf3ef50d64b508108-A-IB",
+          "tripCount": 14
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-B-OB",
+          "tripCount": 7
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-Pihlaga-IB",
+          "tripCount": 7
+        }
+      ],
+      "geometryDistinctByEndpoints": true,
+      "mappedPatternCoverage": 2,
+      "mappedPatternNames": [
+        "Põhjakeskus - Rägavere tee",
+        "Rägavere tee - Põhjakeskus"
+      ],
+      "shapePatternExamples": [
+        {
+          "shapeId": "85ef71b13cb2e28850d4f6078a369d8b-A-IB",
+          "patternName": "Rägavere tee - Põhjakeskus",
+          "overlapScore": 1
+        },
+        {
+          "shapeId": "85ef71b13cb2e28850d4f6078a369d8b-A-OB",
+          "patternName": "Põhjakeskus - Rägavere tee",
+          "overlapScore": 1
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-A-IB",
+          "patternName": "Rägavere tee - Põhjakeskus",
+          "overlapScore": 0.5
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-Pihlaga-IB",
+          "patternName": "Rägavere tee - Põhjakeskus",
+          "overlapScore": 0.5
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-B-OB",
+          "patternName": "Põhjakeskus - Rägavere tee",
+          "overlapScore": 0.467
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-A-OB",
+          "patternName": "Põhjakeskus - Rägavere tee",
+          "overlapScore": 0.467
+        },
+        {
+          "shapeId": "5502285d83cb385b714e502ff1767d7c-Pihlaga-OB",
+          "patternName": "Põhjakeskus - Rägavere tee",
+          "overlapScore": 0.467
+        },
+        {
+          "shapeId": "acbcf98a8a63a5f81737d4bf35b16589-A-IB",
+          "patternName": "Põhjakeskus - Rägavere tee",
+          "overlapScore": 0.2
+        }
+      ],
+      "patternMatchConfidence": "high"
+    }
+  ],
+  "directionChecks": {
+    "line5DistinctDirectionGeometry": true,
+    "line3CircularPatternsDistinguishable": true
+  },
+  "recommendation": {
+    "result": "GTFS shapes usable",
+    "reason": "Rakvere-matched trips for lines 1/2/3/5 are shape-backed and line 5 direction geometry is distinguishable.",
+    "nextPass": "PASS 28J — MAP_ROUTE_HIGHLIGHT_BY_DIRECTION",
+    "note": "No straight stop-to-stop polyline MVP; route highlight must use real geometry."
+  }
+}
