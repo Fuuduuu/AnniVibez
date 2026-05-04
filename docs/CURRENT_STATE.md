@@ -30,6 +30,9 @@ Status: compact low-token state snapshot for future Codex passes.
 - PASS `28C_UI_MAP_PICKER_LAYOUT` is implemented, committed, and deployed/smoked
 - PASS `28D_MAP_MARKER_VISUALS` is implemented, committed, and deployed/smoked
 - PASS `28E_MAP_CONTEXT_MARKERS` is implemented, committed, and deployed/smoked
+- PASS `28F_MAP_LINE_COLOR_DATA_LAYER` is live (`src/data/stopLineMap.js`)
+- PASS `28G_MAP_LINE_BADGE_MARKERS` is live
+- PASS `28H_MAP_LINE_FILTER` is live
 - map picker now opens as full-screen modal/overlay with bottom-sheet decision UI
 - map decision states include:
   - `Lähim peatus sihtkohale`
@@ -40,11 +43,19 @@ Status: compact low-token state snapshot for future Codex passes.
 - map context markers are active:
   - `Minu asukoht` (currentPosition)
   - `Lähim peatus` (effectiveOrigin context)
+- map line filter control is active:
+  - `Kõik | 1 | 2 | 3 | 5`
+  - default: `Kõik`
+  - selected line highlights relevant stops
+  - unrelated stops fade, not disappear
+  - multi-line stops remain visible if they serve selected line
 - direct-route candidate matrix search is active in `BussTab` (origin x destination)
 - transfer routing is not implemented yet
-- map line colors are not implemented yet
-- map line filter is not implemented yet
+- map line color data layer is implemented (`STOP_TO_LINES`, `LINE_COLORS`, `LINE_PATTERNS`)
+- line badges are implemented in `BusMapPicker`
 - route polylines are not implemented yet
+- route highlight by direction is not implemented yet
+- geocoding is not implemented
 - Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
 - Üllata save persistence uses localStorage key `annivibe_saved_ideas`
@@ -118,8 +129,8 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
-- `PASS 28F_MAP_LINE_COLOR_DATA_LAYER`
-- `PASS 28G_MAP_LINE_BADGE_MARKERS`
+- `PASS 28I_ROUTE_GEOMETRY_SOURCE_DISCOVERY`
+- `PASS 28J_MAP_ROUTE_HIGHLIGHT_BY_DIRECTION`
 
 ## Known deploy notes
 

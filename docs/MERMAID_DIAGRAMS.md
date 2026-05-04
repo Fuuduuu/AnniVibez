@@ -158,11 +158,14 @@ flowchart TD
     G -->|No| Y["Open narrow fix pass"]
 ```
 
-### E) Map picker UI/data flow (PASS 28C/28D/28E state)
+### E) Map picker UI/data flow (PASS 28C/28D/28E/28H state)
 
 ```mermaid
 flowchart TD
     A["Vali kaardilt"] --> B["Full-screen modal/overlay"]
+    B --> B1["Liinifilter: Kõik | 1 | 2 | 3 | 5"]
+    B1 --> B2["Selected line highlights stops"]
+    B1 --> B3["Unrelated stops fade"]
     B --> C["Render context markers"]
     C --> C1["Minu asukoht (currentPosition)"]
     C --> C2["Lähim peatus (effectiveOrigin context)"]
@@ -205,6 +208,10 @@ flowchart LR
 - Future map diagrams remain planning-only until PASS 25C/25D/25E work is explicitly unlocked.
 - `docs/CODEBASE_IMPACT_MAP.md` remains the source-of-truth for codebase impact/surface diagrams.
 - Figma/FigJam visuals are visual aids only.
+- Current map visual state includes:
+  - line color data layer (`src/data/stopLineMap.js`)
+  - line badges
+  - line filter (`Kõik | 1 | 2 | 3 | 5`, default `Kõik`)
 
 ## Codebase impact / sniper maps
 

@@ -11,17 +11,21 @@ Status: PASS 28E follow-up planning lock (docs-only).
 - marker visuals were improved in prior map-marker pass
 - `Minu asukoht` marker is implemented
 - `Lähim peatus` marker is implemented
-- line colors are not implemented yet
-- line filter is not implemented yet
+- line color data layer is implemented (`src/data/stopLineMap.js`)
+- line badges are implemented
+- line filter is implemented (`Kõik | 1 | 2 | 3 | 5`, default `Kõik`)
 - route polyline/highlight is not implemented yet
 
 ## 2. Locked next goal order
 
-1. `PASS 28F — MAP_LINE_COLOR_DATA_LAYER`
-2. `PASS 28G — MAP_LINE_BADGE_MARKERS`
-3. `PASS 28H — MAP_LINE_FILTER`
-4. `PASS 28I — ROUTE_GEOMETRY_SOURCE_DISCOVERY`
-5. `PASS 28J — MAP_ROUTE_HIGHLIGHT_BY_DIRECTION`
+Completed:
+- `PASS 28F — MAP_LINE_COLOR_DATA_LAYER`
+- `PASS 28G — MAP_LINE_BADGE_MARKERS`
+- `PASS 28H — MAP_LINE_FILTER`
+
+Next:
+1. `PASS 28I — ROUTE_GEOMETRY_SOURCE_DISCOVERY`
+2. `PASS 28J — MAP_ROUTE_HIGHLIGHT_BY_DIRECTION`
 
 ## 3. Locked marker rules
 

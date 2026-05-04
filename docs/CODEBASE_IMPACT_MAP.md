@@ -13,11 +13,12 @@ This map defines:
 | File | Responsibility | Common pass types | Risk | Notes |
 |---|---|---|---|---|
 | `src/components/BussTab.jsx` | Buss destination UI, POI/place search, direct-route candidate matrix, map modal integration, route cards, context-marker prop wiring | bus-ui, place-search, direct-route-search, map-picker-ui | high | passes `currentPosition`, `nearestOriginStop`, `highlightStopNames`, `selectedStopName` into map surface |
-| `src/components/BusMapPicker.jsx` | Leaflet/OSM map surface, destination pin, nearestStops payload, stop marker layer, context markers (`Minu asukoht`, `Lähim peatus`) | map-picker, map-picker-ui, map-marker-visuals | high | owns map marker visual layer; map input aid, not routing engine |
+| `src/components/BusMapPicker.jsx` | Leaflet/OSM map surface, destination pin, nearestStops payload, stop marker layer, context markers (`Minu asukoht`, `Lähim peatus`), line badges, line filter visual layer | map-picker, map-picker-ui, map-marker-visuals, map-line-filter | high | owns map marker/filter visual layer; map input aid, not routing engine |
 | `src/components/BussCard.jsx` | Home card bus widget | bus-ui, home-widget | medium | keep separate from BussTab unless pass says otherwise |
 | `src/utils/bus.js` | `depsWithMeta`, `nearest`, route filtering, `emptyReason` | bus-engine | high | `nearest` uses GTFS-preferred stop-point coords; `depsWithMeta` stays protected |
 | `src/data/busData.js` | stops, groups, schedules | bus-data | high | protected timetable/source data |
 | `src/data/gtfsStopCoords.js` | verified GTFS stop-point coordinate layer keyed by stopId | bus-data, coord-layer | medium/high | stop-point truth layer for nearest/map markers |
+| `src/data/stopLineMap.js` | line metadata layer (`STOP_TO_LINES`, `LINE_COLORS`, `LINE_PATTERNS`) | map-line-color-data, map-line-filter | medium | derived from route-pattern audit data; supports map visuals only |
 | `src/data/poiData.js` | local POI/place dataset | poi-data | low/medium | data-only until imported |
 | `src/components/LooTab.jsx` | Üllata UI, saved ideas | ullata-ui | medium | unrelated to bus |
 | `functions/api/ullata.js` | Gemini/OpenAI/local provider chain | ullata-api | high | API/provider surface |
@@ -36,7 +37,8 @@ This map defines:
 | `direct-route-search` | `AGENTS`, `CURRENT_STATE`, direct-route plan, `BussTab`, `poiData`, `busData` | `BussTab` | `bus.js` rewrite, transfers | build, route-empty-state/source smoke |
 | `map-picker-ui` | `AGENTS`, `CURRENT_STATE`, map UX spec, `BussTab`, `BusMapPicker` | `BussTab`, `BusMapPicker` | `bus.js`, `busData`, Üllata | build, modal/mobile/source smoke |
 | `map-marker-visuals` | `AGENTS`, `CURRENT_STATE`, map UX spec, `BusMapPicker` | `BusMapPicker` | routing engine, `busData` | build, marker/source smoke |
-| `map-line-color-data` | `AGENTS`, `CURRENT_STATE`, map-context goals doc, routing plans, `BussTab`/`BusMapPicker` as needed | narrow UI/data wiring only | transfers/engine rewrite | build, route-card/map smoke |
+| `map-line-color-data` | `AGENTS`, `CURRENT_STATE`, map-context goals doc, route-pattern audit, `stopLineMap` | `stopLineMap` (+ generator script when needed) | routing engine, transfers | build + data/source checks |
+| `map-line-filter` | `AGENTS`, `CURRENT_STATE`, map-context goals doc, `BusMapPicker`, `stopLineMap` | `BusMapPicker` | routing engine, `busData`, transfers | build, marker/filter/source smoke |
 | `ullata-ui` | `AGENTS`, `CURRENT_STATE`, `LooTab` | `LooTab` | bus files | build, UI/source smoke |
 | `ullata-api` | `AGENTS`, `CURRENT_STATE`, `ullata.js` | `ullata.js` | bus files | API smoke |
 | `deploy` | `DEPLOYMENT`, `CURRENT_STATE`, git status | none | source | build, deploy, canonical/API smoke |
@@ -52,6 +54,7 @@ flowchart TD
     BusUtils["src/utils/bus.js<br/>depsWithMeta, nearest, emptyReason"]
     BusData["src/data/busData.js<br/>stops, groups, schedules"]
     GtfsCoords["src/data/gtfsStopCoords.js<br/>GTFS stop-point coordinates by stopId"]
+    StopLineMap["src/data/stopLineMap.js<br/>STOP_TO_LINES, LINE_COLORS, LINE_PATTERNS"]
     PoiData["src/data/poiData.js<br/>local POI/place dataset"]
     LooTab["src/components/LooTab.jsx<br/>Üllata UI, saved ideas"]
     Ullata["functions/api/ullata.js<br/>Gemini/OpenAI/local provider chain"]
@@ -65,6 +68,7 @@ flowchart TD
     BusMapPicker --> BusUtils
     BusMapPicker --> BusData
     BusMapPicker --> GtfsCoords
+    BusMapPicker --> StopLineMap
     BusUtils --> GtfsCoords
     BussCard --> BusUtils
     BussCard --> BusData
@@ -83,6 +87,7 @@ flowchart TD
     class BusUtils highRisk;
     class BusData data;
     class GtfsCoords data;
+    class StopLineMap data;
     class PoiData data;
     class BussTab ui;
     class BusMapPicker ui;
