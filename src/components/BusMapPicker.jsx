@@ -3,11 +3,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BUS_DATA } from '../data/busData';
 import { GTFS_STOP_COORDS_BY_ID } from '../data/gtfsStopCoords';
+import { LINE_COLORS, STOP_TO_LINES } from '../data/stopLineMap';
 import { nearest } from '../utils/bus';
 
 const RAKVERE_CENTER = [59.3469, 26.3557];
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION = '&copy; OpenStreetMap contributors';
+const LINE_BADGE_MIN_ZOOM = 15;
+const LINE_BADGE_PANE = 'lineBadgePane';
 
 function isFiniteNumber(value) {
   return Number.isFinite(value);
@@ -49,6 +52,36 @@ function dedupeNames(names) {
 
 function normalizeStopName(value) {
   return String(value || '').trim().toLowerCase();
+}
+
+function colorHexForLine(lineNumber) {
+  const token = LINE_COLORS?.[String(lineNumber)] || '';
+  if (token === 'blue') return '#2d6cdf';
+  if (token === 'green') return '#2f9e44';
+  if (token === 'yellow') return '#c99700';
+  if (token === 'orange') return '#e67700';
+  return '#6f7787';
+}
+
+function badgeHtmlForLines(rawLines) {
+  const lines = Array.isArray(rawLines) ? rawLines.slice() : [];
+  if (!lines.length) return '';
+
+  if (lines.length === 1) {
+    const line = lines[0];
+    const color = colorHexForLine(line);
+    return `<div style="transform: translate(-50%, -145%); display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 999px; border: 1.6px solid ${color}; background: #ffffff; color: ${color}; font-size: 10px; line-height: 1; font-weight: 700; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18); padding: 0 4px;">${line}</div>`;
+  }
+
+  const chips = lines.slice(0, 3).map((line) => {
+    const color = colorHexForLine(line);
+    return `<span style="display: inline-flex; align-items: center; justify-content: center; min-width: 14px; height: 14px; border-radius: 999px; background: ${color}; color: #fff; font-size: 9px; line-height: 1; font-weight: 700; padding: 0 3px;">${line}</span>`;
+  });
+  if (lines.length > 3) {
+    chips.push('<span style="display: inline-flex; align-items: center; justify-content: center; min-width: 14px; height: 14px; border-radius: 999px; background: #8f96a3; color: #fff; font-size: 9px; line-height: 1; font-weight: 700; padding: 0 3px;">+</span>');
+  }
+
+  return `<div style="transform: translate(-50%, -145%); display: inline-flex; align-items: center; gap: 2px; border: 1.2px solid #b8bfcc; border-radius: 999px; background: rgba(255, 255, 255, 0.96); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.16); padding: 2px 4px;">${chips.join('')}</div>`;
 }
 
 const STOP_STYLE_IDLE = {
@@ -121,6 +154,7 @@ export function BusMapPicker({
   const markerGroupsByNameRef = useRef(new Map());
   const currentPositionLayerRef = useRef(null);
   const nearestOriginLayerRef = useRef(null);
+  const lineBadgeLayerRef = useRef(null);
 
   const stopPoints = useMemo(() => {
     const rows = Object.entries(BUS_DATA?.by_code || {});
@@ -130,9 +164,23 @@ export function BusMapPicker({
         name: stop?.name || GTFS_STOP_COORDS_BY_ID?.[code]?.stopName || code,
         lat: GTFS_STOP_COORDS_BY_ID?.[code]?.lat ?? stop?.lat,
         lon: GTFS_STOP_COORDS_BY_ID?.[code]?.lon ?? stop?.lon,
+        lines: Array.isArray(STOP_TO_LINES?.[code]) ? STOP_TO_LINES[code] : [],
       }))
       .filter(stop => isFiniteNumber(stop.lat) && isFiniteNumber(stop.lon));
   }, []);
+
+  function syncLineBadgeVisibility(map) {
+    const layer = lineBadgeLayerRef.current;
+    if (!map || !layer) return;
+    const showBadges = map.getZoom() >= LINE_BADGE_MIN_ZOOM;
+    if (showBadges && !map.hasLayer(layer)) {
+      layer.addTo(map);
+      return;
+    }
+    if (!showBadges && map.hasLayer(layer)) {
+      map.removeLayer(layer);
+    }
+  }
 
   function applyMarkerVisuals(nearestNames, selectedName) {
     const nearestSet = new Set(
@@ -211,21 +259,44 @@ export function BusMapPicker({
     const map = L.map(mapHostRef.current, { zoomControl: true }).setView(center, 13);
     mapRef.current = map;
 
+    if (!map.getPane(LINE_BADGE_PANE)) {
+      const pane = map.createPane(LINE_BADGE_PANE);
+      pane.style.zIndex = '350';
+      pane.style.pointerEvents = 'none';
+    }
+
     L.tileLayer(TILE_URL, {
       maxZoom: 19,
       attribution: TILE_ATTRIBUTION,
     }).addTo(map);
 
     const stopsLayer = L.layerGroup().addTo(map);
+    const lineBadgeLayer = L.layerGroup();
+    lineBadgeLayerRef.current = lineBadgeLayer;
     const groupedMarkers = new Map();
     stopPoints.forEach(stop => {
       const marker = L.circleMarker([stop.lat, stop.lon], STOP_STYLE_IDLE).addTo(stopsLayer);
       if (!groupedMarkers.has(stop.name)) groupedMarkers.set(stop.name, []);
       groupedMarkers.get(stop.name).push(marker);
+
+      if (stop.lines.length > 0) {
+        L.marker([stop.lat, stop.lon], {
+          interactive: false,
+          keyboard: false,
+          pane: LINE_BADGE_PANE,
+          icon: L.divIcon({
+            className: '',
+            html: badgeHtmlForLines(stop.lines),
+            iconSize: [0, 0],
+            iconAnchor: [0, 0],
+          }),
+        }).addTo(lineBadgeLayer);
+      }
     });
     markerGroupsByNameRef.current = groupedMarkers;
     applyMarkerVisuals(highlightStopNames, selectedStopName);
     applyContextMarkers(currentPosition, nearestOriginStop);
+    syncLineBadgeVisibility(map);
 
     map.on('click', event => {
       const lat = roundCoord(event.latlng.lat);
@@ -271,6 +342,10 @@ export function BusMapPicker({
       onPick?.({ lat, lon, nearestStops: nearestStopNames });
     });
 
+    map.on('zoomend', () => {
+      syncLineBadgeVisibility(map);
+    });
+
     const resizeTimer = setTimeout(() => map.invalidateSize(), 0);
 
     return () => {
@@ -280,6 +355,7 @@ export function BusMapPicker({
       pickedPinLayerRef.current = null;
       currentPositionLayerRef.current = null;
       nearestOriginLayerRef.current = null;
+      lineBadgeLayerRef.current = null;
       markerGroupsByNameRef.current = new Map();
     };
   }, [initialCenter, stopPoints]);
