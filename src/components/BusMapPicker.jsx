@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BUS_DATA } from '../data/busData';
@@ -51,7 +51,6 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
   const mapHostRef = useRef(null);
   const mapRef = useRef(null);
   const pickedPinLayerRef = useRef(null);
-  const [pickedPoint, setPickedPoint] = useState(null);
 
   const stopPoints = useMemo(() => {
     const rows = Object.entries(BUS_DATA?.by_code || {});
@@ -129,7 +128,7 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
         .map(hit => hit.name);
 
       const nearestStopNames = dedupeNames([helperName, ...rawNearest]).slice(0, 3);
-      setPickedPoint({ lat, lon, nearestStopNames });
+      onPick?.({ lat, lon, nearestStops: nearestStopNames });
     });
 
     const resizeTimer = setTimeout(() => map.invalidateSize(), 0);
@@ -150,85 +149,16 @@ export function BusMapPicker({ initialCenter = RAKVERE_CENTER, onPick, onClose }
   }, [initialCenter]);
 
   return (
-    <section
+    <div
+      ref={mapHostRef}
+      aria-label="Sihtkoha kaart"
       style={{
+        height: '100%',
+        width: '100%',
+        borderRadius: 12,
+        overflow: 'hidden',
         border: '1px solid #d6dde6',
-        borderRadius: 14,
-        padding: 14,
-        background: '#f9fbff',
       }}
-    >
-      <h3 style={{ margin: '0 0 6px', fontSize: 17 }}>Kuhu soovid minna?</h3>
-      <p style={{ margin: '0 0 12px', fontSize: 13, color: '#465569' }}>
-        Puuduta kaardil kohta, kuhu soovid jõuda.
-      </p>
-
-      <div
-        ref={mapHostRef}
-        style={{
-          height: 340,
-          width: '100%',
-          borderRadius: 10,
-          overflow: 'hidden',
-          border: '1px solid #d6dde6',
-        }}
-      />
-
-      <div style={{ marginTop: 10, fontSize: 13, color: '#1f2937' }}>
-        {pickedPoint ? (
-          <>
-            {pickedPoint.nearestStopNames.length > 0 && (
-              <div style={{ marginTop: 4, color: '#4b5563' }}>
-                Lähimad peatused: {pickedPoint.nearestStopNames.join(', ')}
-              </div>
-            )}
-            {pickedPoint.nearestStopNames.length === 0 && (
-              <div style={{ marginTop: 4, color: '#4b5563' }}>
-                Koht valitud ✓
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={{ color: '#4b5563' }}>Vali punkt kaardilt, et näha lähimaid peatusi.</div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button
-          onClick={() => {
-            if (!pickedPoint) return;
-            onPick?.({
-              lat: pickedPoint.lat,
-              lon: pickedPoint.lon,
-              nearestStops: pickedPoint.nearestStopNames,
-            });
-          }}
-          disabled={!pickedPoint}
-          style={{
-            padding: '8px 12px',
-            borderRadius: 10,
-            border: '1px solid #9bb0c9',
-            background: pickedPoint ? '#f0f7ff' : '#f4f4f5',
-            color: pickedPoint ? '#0f172a' : '#9ca3af',
-            cursor: pickedPoint ? 'pointer' : 'not-allowed',
-          }}
-        >
-          Kasuta seda sihtkohta
-        </button>
-        <button
-          onClick={() => onClose?.()}
-          style={{
-            padding: '8px 12px',
-            borderRadius: 10,
-            border: '1px solid #d6dde6',
-            background: '#ffffff',
-            color: '#0f172a',
-            cursor: 'pointer',
-          }}
-        >
-          Sulge
-        </button>
-      </div>
-    </section>
+    />
   );
 }

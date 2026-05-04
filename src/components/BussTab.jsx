@@ -535,6 +535,10 @@ export function BussTab({ savedPlaces = [] }) {
     Number.isFinite(effectiveOrigin?.lat) && Number.isFinite(effectiveOrigin?.lon)
       ? [effectiveOrigin.lat, effectiveOrigin.lon]
       : undefined;
+  const closeMapPicker = () => {
+    setMapPickerOpen(false);
+    clearMapPickState();
+  };
 
   return (
     <div style={shell}>
@@ -559,8 +563,7 @@ export function BussTab({ savedPlaces = [] }) {
         <button
           onClick={() => {
             if (mapPickerOpen) {
-              setMapPickerOpen(false);
-              clearMapPickState();
+              closeMapPicker();
               return;
             }
             setMapPickerOpen(true);
@@ -581,32 +584,93 @@ export function BussTab({ savedPlaces = [] }) {
         {mapPickerOpen && (
           <div
             style={{
-              marginBottom: 10,
-              border: `1px solid ${AV.border}`,
-              borderRadius: 12,
-              padding: 10,
-              background: AV.bg,
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1200,
+              background: 'rgba(12, 18, 29, 0.52)',
+              display: 'flex',
+              alignItems: 'stretch',
+              justifyContent: 'center',
+              padding: 0,
             }}
           >
-            <BusMapPicker
-              initialCenter={mapInitialCenter}
-              onPick={handleMapPick}
-              onClose={() => {
-                setMapPickerOpen(false);
-                clearMapPickState();
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Vali sihtkoht kaardilt"
+              style={{
+                width: '100%',
+                maxWidth: 560,
+                background: AV.bg,
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,
               }}
-            />
-            {mapPickedPoint && (
-              <div style={{ marginTop: 10, fontSize: 12, color: AV.textSoft, display: 'grid', gap: 8 }}>
-                <div>Koht valitud ✓</div>
-                {mapDestinationCandidates.length > 0 ? (
+            >
+              <div
+                style={{
+                  padding: '14px 14px 10px',
+                  borderBottom: `1px solid ${AV.border}`,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: AV.text, marginBottom: 4 }}>Vali sihtkoht kaardilt</div>
+                  <div style={{ fontSize: 12, color: AV.muted }}>Puuduta kaardil kohta, kuhu soovid jõuda.</div>
+                </div>
+                <button
+                  onClick={closeMapPicker}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 10,
+                    border: `1px solid ${AV.border}`,
+                    background: AV.bg,
+                    color: AV.textSoft,
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    flexShrink: 0,
+                  }}
+                >
+                  Sulge
+                </button>
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 280,
+                  padding: 10,
+                }}
+              >
+                <BusMapPicker
+                  initialCenter={mapInitialCenter}
+                  onPick={handleMapPick}
+                />
+              </div>
+              <div
+                style={{
+                  borderTop: `1px solid ${AV.border}`,
+                  padding: '12px 12px 14px',
+                  background: '#fff',
+                  borderTopLeftRadius: 16,
+                  borderTopRightRadius: 16,
+                  boxShadow: '0 -8px 24px rgba(15, 23, 42, 0.06)',
+                }}
+              >
+                {!mapPickedPoint ? (
+                  <div style={{ fontSize: 12, color: AV.muted }}>
+                    Puuduta kaardil kohta, kuhu soovid jõuda.
+                  </div>
+                ) : mapDestinationCandidates.length > 0 ? (
                   <>
-                    <div style={{ fontSize: 10, ...labelStyle }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: AV.text, marginBottom: 8 }}>
                       {mapDestinationCandidates.length === 1
                         ? 'Lähim peatus sihtkohale'
-                        : 'Mitu peatust on lähedal — vali sobivam'}
+                        : 'Mitu peatust on lähedal'}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
                       {mapDestinationCandidates.map(candidate => {
                         const active = selectedMapCandidate === candidate.groupName;
                         return (
@@ -614,12 +678,12 @@ export function BussTab({ savedPlaces = [] }) {
                             key={candidate.id}
                             onClick={() => setSelectedMapCandidate(candidate.groupName)}
                             style={{
-                              padding: '6px 10px',
+                              padding: '7px 11px',
                               borderRadius: 100,
                               fontSize: 12,
                               cursor: 'pointer',
                               border: `1.5px solid ${active ? AV.purple : AV.border}`,
-                              background: active ? AV.purpleL : 'none',
+                              background: active ? AV.purpleL : AV.bg,
                               color: active ? AV.purple : AV.muted,
                             }}
                           >
@@ -632,9 +696,10 @@ export function BussTab({ savedPlaces = [] }) {
                       onClick={confirmMapDestinationCandidate}
                       disabled={!selectedMapCandidate}
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: 10,
-                        fontSize: 12,
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: 12,
+                        fontSize: 13,
                         cursor: selectedMapCandidate ? 'pointer' : 'not-allowed',
                         border: `1px solid ${AV.border}`,
                         background: selectedMapCandidate ? AV.sageL : '#f1f3f5',
@@ -650,7 +715,7 @@ export function BussTab({ savedPlaces = [] }) {
                   </div>
                 )}
               </div>
-            )}
+            </div>
           </div>
         )}
         {popularPlaceTargets.length > 0 && (
