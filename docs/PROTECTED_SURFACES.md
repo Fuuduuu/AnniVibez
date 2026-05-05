@@ -39,6 +39,16 @@ Rules:
 - coordinate-layer changes must be narrow and audit-backed
 - do not mix with route-engine rewrites
 
+## Map line/geometry data layers
+
+- `src/data/stopLineMap.js`
+- `src/data/routeShapes.js`
+
+Rules:
+- visual data layers for map badges/filter/route highlight
+- do not rewrite in UI-only tuning passes unless pass explicitly targets line/geometry data
+- do not mix with `depsWithMeta` or route-engine rewrites
+
 ## POI data
 
 - `src/data/poiData.js`
@@ -72,3 +82,4 @@ Rules:
 Rules:
 - docs-only passes must not touch runtime/source/package files
 - no build required unless package/runtime files changed
+- extraction-planning docs must not be mixed with runtime map/route fix passes

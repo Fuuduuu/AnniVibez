@@ -14,7 +14,15 @@ Status: PASS 28E follow-up planning lock (docs-only).
 - line color data layer is implemented (`src/data/stopLineMap.js`)
 - line badges are implemented
 - line filter is implemented (`Kõik | 1 | 2 | 3 | 5`, default `Kõik`)
-- route polyline/highlight is not implemented yet
+- route highlight by direction is implemented using GTFS shapes (`src/data/routeShapes.js`)
+- line 3 and line 5 expose direction selector
+- line 1 and line 2 auto-select their single available pattern
+- map smoothness tuning is live:
+  - `preferCanvas` enabled
+  - marker style updates batched via `requestAnimationFrame`
+  - `LINE_BADGE_MIN_ZOOM = 17`
+  - unrelated stops do not render badges while active line filter is selected
+  - route polyline visual load reduced (`weight`/`opacity`/`smoothFactor`)
 
 ## 2. Locked next goal order
 
@@ -22,10 +30,14 @@ Completed:
 - `PASS 28F — MAP_LINE_COLOR_DATA_LAYER`
 - `PASS 28G — MAP_LINE_BADGE_MARKERS`
 - `PASS 28H — MAP_LINE_FILTER`
+- `PASS 28I — ROUTE_GEOMETRY_SOURCE_DISCOVERY`
+- `PASS 28J — MAP_ROUTE_HIGHLIGHT_BY_DIRECTION`
+- `PASS MAP_SMOOTHNESS_COMMIT`
+- `PASS MAP_VISUAL_LOAD_TUNING_COMMIT`
 
 Next:
-1. `PASS 28I — ROUTE_GEOMETRY_SOURCE_DISCOVERY`
-2. `PASS 28J — MAP_ROUTE_HIGHLIGHT_BY_DIRECTION`
+1. field testing / on-device smoothness validation
+2. `MAP_VISUAL_LOAD_TUNING_2` only if jank returns
 
 ## 3. Locked marker rules
 

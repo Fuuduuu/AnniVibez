@@ -39,6 +39,8 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/audit/direct-route-candidate-search-plan.md` (routing planning guidance)
 - `docs/audit/map-picker-ux-design-spec.md` (UX/design guidance extracted from artifact; implementation truth stays in repo code)
 - `docs/audit/map-context-and-line-goals.md` (map UX/design planning + goal-order lock after PASS 28H)
+- `docs/audit/route-geometry-source-discovery-report.md` (geometry-source audit for map route highlight)
+- `docs/audit/bus-module-extraction-future-plan.md` (future product/architecture guidance; not active runtime truth)
 - `docs/CODEBASE_IMPACT_MAP.md`
 - `docs/PROTECTED_SURFACES.md`
 - `docs/SECURITY_APPEND.md`
@@ -49,11 +51,14 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/audit/route-pattern-stopid-report.md`
 - `docs/audit/route-pattern-busdata-compare.json`
 - `docs/audit/route-pattern-busdata-compare-report.md`
+- `docs/audit/route-geometry-source-discovery.json`
+- `docs/audit/route-geometry-source-discovery-report.md`
 - `docs/audit/gtfs-rakvere-stop-coords.json`
 - `docs/audit/gtfs-rakvere-stop-coords-report.md`
 - `docs/audit/gtfs-coordinate-patch-plan.md`
 - `src/data/gtfsStopCoords.js` (runtime data layer derived from GTFS audit outputs)
 - `src/data/stopLineMap.js` (runtime line-visual data layer derived from route-pattern audit outputs)
+- `src/data/routeShapes.js` (runtime GTFS route-geometry layer for on-map direction highlight)
 
 Input artifact note:
 - `docs/audit/bus map picker design.zip` is reference input, not source-of-truth (and should not be treated as canonical implementation state unless explicitly committed and accepted).

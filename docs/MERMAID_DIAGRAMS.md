@@ -201,6 +201,18 @@ flowchart LR
     E --> F["Route highlight by direction"]
 ```
 
+### H) Live map line visual flow (PASS 28J + smoothness)
+
+```mermaid
+flowchart LR
+    A["Line filter: Kõik | 1 | 2 | 3 | 5"] --> B{"Selected line is Kõik?"}
+    B -->|Yes| C["No route polyline"]
+    B -->|No| D["Direction selector (line 3/5)<br/>line 1/2 auto-select"]
+    D --> E["ROUTE_SHAPES_BY_LINE (GTFS geometry)"]
+    E --> F["Leaflet polyline in routeShapePane"]
+    F --> G["Markers remain above route line"]
+```
+
 ## Notes
 
 - Diagrams A/B/C are source-backed by current files.
@@ -212,6 +224,11 @@ flowchart LR
   - line color data layer (`src/data/stopLineMap.js`)
   - line badges
   - line filter (`Kõik | 1 | 2 | 3 | 5`, default `Kõik`)
+  - route highlight by direction from GTFS shape points (`src/data/routeShapes.js`)
+  - map smoothness tuning (`preferCanvas`, RAF-batched marker updates, `LINE_BADGE_MIN_ZOOM = 17`)
+  - tuning improved smoothness, but additional tuning may still be needed after field testing
+- Future architecture note (not active runtime scope):
+  - AnniVibe bus module may later be extracted into a standalone bus app
 
 ## Codebase impact / sniper maps
 

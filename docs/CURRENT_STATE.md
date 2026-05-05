@@ -33,6 +33,9 @@ Status: compact low-token state snapshot for future Codex passes.
 - PASS `28F_MAP_LINE_COLOR_DATA_LAYER` is live (`src/data/stopLineMap.js`)
 - PASS `28G_MAP_LINE_BADGE_MARKERS` is live
 - PASS `28H_MAP_LINE_FILTER` is live
+- PASS `28I_ROUTE_GEOMETRY_SOURCE_DISCOVERY` is completed
+- PASS `28J_MAP_ROUTE_HIGHLIGHT_BY_DIRECTION` is live
+- PASS `MAP_SMOOTHNESS` + `MAP_VISUAL_LOAD_TUNING` are live
 - map picker now opens as full-screen modal/overlay with bottom-sheet decision UI
 - map decision states include:
   - `Lähim peatus sihtkohale`
@@ -53,8 +56,17 @@ Status: compact low-token state snapshot for future Codex passes.
 - transfer routing is not implemented yet
 - map line color data layer is implemented (`STOP_TO_LINES`, `LINE_COLORS`, `LINE_PATTERNS`)
 - line badges are implemented in `BusMapPicker`
-- route polylines are not implemented yet
-- route highlight by direction is not implemented yet
+- route highlight by direction is live in `BusMapPicker`
+- route line uses GTFS shape points (`src/data/routeShapes.js`), not synthetic stop-to-stop lines
+- line 3 and line 5 expose direction selector in map UI
+- line 1 and line 2 auto-select their single available pattern
+- map smoothness tuning is live:
+  - `preferCanvas` enabled
+  - marker style updates are batched via `requestAnimationFrame`
+  - line-badge threshold is `LINE_BADGE_MIN_ZOOM = 17`
+  - when a line filter is active, unrelated stops stay faded but do not render badges
+  - route polyline visual load reduced with lower weight/opacity and `smoothFactor`
+  - performance is improved, but additional tuning may still be needed if jank returns on target devices
 - geocoding is not implemented
 - Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
@@ -90,6 +102,14 @@ Status: compact low-token state snapshot for future Codex passes.
   - place-search UI is implemented in `BussTab`
   - map picker is implemented as destination input aid
 - map is an input aid, not a new routing engine
+
+## Future direction (not active scope)
+
+- future product direction may include extracting the bus module into a standalone dedicated app
+- this is not current implementation scope
+- current scope remains stabilizing and field-testing the bus module inside AnniVibe first
+- future planning reference:
+  - `docs/audit/bus-module-extraction-future-plan.md`
 
 ## Protected boundaries
 
@@ -129,8 +149,9 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
-- `PASS 28I_ROUTE_GEOMETRY_SOURCE_DISCOVERY`
-- `PASS 28J_MAP_ROUTE_HIGHLIGHT_BY_DIRECTION`
+- field testing / on-device performance validation
+- `MAP_VISUAL_LOAD_TUNING_2` only if jank reappears on target devices
+- `PASS 30A — BUS_MODULE_EXTRACTION_ARCHITECTURE_PLAN` only when extraction planning is explicitly requested
 
 ## Known deploy notes
 
