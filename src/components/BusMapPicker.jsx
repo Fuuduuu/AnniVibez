@@ -15,6 +15,22 @@ const LINE_BADGE_PANE = 'lineBadgePane';
 const ROUTE_SHAPE_PANE = 'routeShapePane';
 const LINE_FILTER_OPTIONS = ['all', '1', '2', '3', '5'];
 
+function scheduleFrame(callback) {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    return window.requestAnimationFrame(callback);
+  }
+  return setTimeout(callback, 0);
+}
+
+function cancelFrame(frameId) {
+  if (!frameId) return;
+  if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+    window.cancelAnimationFrame(frameId);
+    return;
+  }
+  clearTimeout(frameId);
+}
+
 function isFiniteNumber(value) {
   return Number.isFinite(value);
 }
@@ -175,6 +191,8 @@ export function BusMapPicker({
   const routeShapeLayerRef = useRef(null);
   const markerEntriesRef = useRef([]);
   const lineBadgeEntriesRef = useRef([]);
+  const circleRendererRef = useRef(null);
+  const markerVisualFrameRef = useRef(null);
   const [activeLineFilter, setActiveLineFilter] = useState('all');
   const [selectedRouteShapeId, setSelectedRouteShapeId] = useState('');
 
@@ -266,6 +284,7 @@ export function BusMapPicker({
 
   function applyContextMarkers(position, originStop) {
     if (!mapRef.current) return;
+    const renderer = circleRendererRef.current;
 
     if (currentPositionLayerRef.current) {
       currentPositionLayerRef.current.remove();
@@ -280,8 +299,8 @@ export function BusMapPicker({
     const posLon = Number(position?.lon);
     if (isFiniteNumber(posLat) && isFiniteNumber(posLon)) {
       const layer = L.layerGroup().addTo(mapRef.current);
-      L.circleMarker([posLat, posLon], CURRENT_POSITION_STYLE).addTo(layer);
-      L.circleMarker([posLat, posLon], CURRENT_POSITION_INNER_STYLE).addTo(layer);
+      L.circleMarker([posLat, posLon], { ...CURRENT_POSITION_STYLE, renderer }).addTo(layer);
+      L.circleMarker([posLat, posLon], { ...CURRENT_POSITION_INNER_STYLE, renderer }).addTo(layer);
       currentPositionLayerRef.current = layer;
     }
 
@@ -289,10 +308,20 @@ export function BusMapPicker({
     const originLon = Number(originStop?.lon);
     if (isFiniteNumber(originLat) && isFiniteNumber(originLon)) {
       const layer = L.layerGroup().addTo(mapRef.current);
-      L.circleMarker([originLat, originLon], ORIGIN_STOP_STYLE).addTo(layer);
-      L.circleMarker([originLat, originLon], ORIGIN_STOP_INNER_STYLE).addTo(layer);
+      L.circleMarker([originLat, originLon], { ...ORIGIN_STOP_STYLE, renderer }).addTo(layer);
+      L.circleMarker([originLat, originLon], { ...ORIGIN_STOP_INNER_STYLE, renderer }).addTo(layer);
       nearestOriginLayerRef.current = layer;
     }
+  }
+
+  function queueMarkerVisualUpdate(nearestNames, selectedName, activeLine) {
+    if (!mapRef.current) return;
+    cancelFrame(markerVisualFrameRef.current);
+    markerVisualFrameRef.current = scheduleFrame(() => {
+      markerVisualFrameRef.current = null;
+      applyMarkerVisuals(nearestNames, selectedName, activeLine);
+      applyLineBadgeVisuals(activeLine);
+    });
   }
 
   function applyRouteShape(activeLine, shapeId) {
@@ -340,8 +369,9 @@ export function BusMapPicker({
         ? initialCenter
         : RAKVERE_CENTER;
 
-    const map = L.map(mapHostRef.current, { zoomControl: true }).setView(center, 13);
+    const map = L.map(mapHostRef.current, { zoomControl: true, preferCanvas: true }).setView(center, 13);
     mapRef.current = map;
+    circleRendererRef.current = L.canvas({ padding: 0.45 });
 
     if (!map.getPane(ROUTE_SHAPE_PANE)) {
       const pane = map.createPane(ROUTE_SHAPE_PANE);
@@ -366,8 +396,9 @@ export function BusMapPicker({
     const groupedMarkers = new Map();
     const markerEntries = [];
     const lineBadgeEntries = [];
+    const renderer = circleRendererRef.current;
     stopPoints.forEach(stop => {
-      const marker = L.circleMarker([stop.lat, stop.lon], STOP_STYLE_IDLE).addTo(stopsLayer);
+      const marker = L.circleMarker([stop.lat, stop.lon], { ...STOP_STYLE_IDLE, renderer }).addTo(stopsLayer);
       if (!groupedMarkers.has(stop.name)) groupedMarkers.set(stop.name, []);
       groupedMarkers.get(stop.name).push(marker);
       markerEntries.push({
@@ -397,8 +428,7 @@ export function BusMapPicker({
     markerGroupsByNameRef.current = groupedMarkers;
     markerEntriesRef.current = markerEntries;
     lineBadgeEntriesRef.current = lineBadgeEntries;
-    applyMarkerVisuals(highlightStopNames, selectedStopName, 'all');
-    applyLineBadgeVisuals('all');
+    queueMarkerVisualUpdate(highlightStopNames, selectedStopName, 'all');
     applyContextMarkers(currentPosition, nearestOriginStop);
     syncLineBadgeVisibility(map);
 
@@ -410,12 +440,14 @@ export function BusMapPicker({
         pickedPinLayerRef.current.remove();
       }
       const pinLayer = L.layerGroup().addTo(map);
+      const renderer = circleRendererRef.current;
       L.circleMarker([lat, lon], {
         radius: 12,
         weight: 2,
         color: '#6f4acb',
         fillColor: '#d8c8ff',
         fillOpacity: 0.34,
+        renderer,
       }).addTo(pinLayer);
       L.circleMarker([lat, lon], {
         radius: 6.8,
@@ -423,6 +455,7 @@ export function BusMapPicker({
         color: '#5f35bf',
         fillColor: '#8f6bff',
         fillOpacity: 0.96,
+        renderer,
       }).addTo(pinLayer);
       pickedPinLayerRef.current = pinLayer;
 
@@ -456,11 +489,14 @@ export function BusMapPicker({
       clearTimeout(resizeTimer);
       map.remove();
       mapRef.current = null;
+      cancelFrame(markerVisualFrameRef.current);
+      markerVisualFrameRef.current = null;
       pickedPinLayerRef.current = null;
       currentPositionLayerRef.current = null;
       nearestOriginLayerRef.current = null;
       lineBadgeLayerRef.current = null;
       routeShapeLayerRef.current = null;
+      circleRendererRef.current = null;
       markerGroupsByNameRef.current = new Map();
       markerEntriesRef.current = [];
       lineBadgeEntriesRef.current = [];
@@ -488,8 +524,7 @@ export function BusMapPicker({
 
   useEffect(() => {
     if (!mapRef.current) return;
-    applyMarkerVisuals(highlightStopNames, selectedStopName, activeLineFilter);
-    applyLineBadgeVisuals(activeLineFilter);
+    queueMarkerVisualUpdate(highlightStopNames, selectedStopName, activeLineFilter);
   }, [highlightStopNames, selectedStopName, activeLineFilter]);
 
   useEffect(() => {
