@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { BUS_DATA } from '../data/busData';
 import { GTFS_STOP_COORDS_BY_ID } from '../data/gtfsStopCoords';
 import { LINE_COLORS, STOP_TO_LINES } from '../data/stopLineMap';
+import { ROUTE_SHAPES_BY_LINE } from '../data/routeShapes';
 import { nearest } from '../utils/bus';
 
 const RAKVERE_CENTER = [59.3469, 26.3557];
@@ -11,6 +12,7 @@ const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION = '&copy; OpenStreetMap contributors';
 const LINE_BADGE_MIN_ZOOM = 15;
 const LINE_BADGE_PANE = 'lineBadgePane';
+const ROUTE_SHAPE_PANE = 'routeShapePane';
 const LINE_FILTER_OPTIONS = ['all', '1', '2', '3', '5'];
 
 function isFiniteNumber(value) {
@@ -83,6 +85,12 @@ function badgeHtmlForLines(rawLines) {
   }
 
   return `<div style="transform: translate(-50%, -145%); display: inline-flex; align-items: center; gap: 2px; border: 1.2px solid #b8bfcc; border-radius: 999px; background: rgba(255, 255, 255, 0.96); box-shadow: 0 1px 3px rgba(15, 23, 42, 0.16); padding: 2px 4px;">${chips.join('')}</div>`;
+}
+
+function formatPatternLabel(patternName) {
+  return String(patternName || '')
+    .split(/\s*-\s*/g)
+    .join(' → ');
 }
 
 const STOP_STYLE_IDLE = {
@@ -164,9 +172,11 @@ export function BusMapPicker({
   const currentPositionLayerRef = useRef(null);
   const nearestOriginLayerRef = useRef(null);
   const lineBadgeLayerRef = useRef(null);
+  const routeShapeLayerRef = useRef(null);
   const markerEntriesRef = useRef([]);
   const lineBadgeEntriesRef = useRef([]);
   const [activeLineFilter, setActiveLineFilter] = useState('all');
+  const [selectedRouteShapeId, setSelectedRouteShapeId] = useState('');
 
   const stopPoints = useMemo(() => {
     const rows = Object.entries(BUS_DATA?.by_code || {});
@@ -180,6 +190,12 @@ export function BusMapPicker({
       }))
       .filter(stop => isFiniteNumber(stop.lat) && isFiniteNumber(stop.lon));
   }, []);
+
+  const routeShapesForActiveLine = useMemo(() => {
+    if (activeLineFilter === 'all') return [];
+    const shapes = ROUTE_SHAPES_BY_LINE?.[activeLineFilter];
+    return Array.isArray(shapes) ? shapes : [];
+  }, [activeLineFilter]);
 
   function servesActiveLine(lines, activeLine) {
     if (!activeLine || activeLine === 'all') return true;
@@ -279,6 +295,40 @@ export function BusMapPicker({
     }
   }
 
+  function applyRouteShape(activeLine, shapeId) {
+    if (!mapRef.current) return;
+
+    if (routeShapeLayerRef.current) {
+      routeShapeLayerRef.current.remove();
+      routeShapeLayerRef.current = null;
+    }
+
+    if (!activeLine || activeLine === 'all') return;
+
+    const shapes = Array.isArray(ROUTE_SHAPES_BY_LINE?.[activeLine])
+      ? ROUTE_SHAPES_BY_LINE[activeLine]
+      : [];
+    if (!shapes.length) return;
+
+    const selectedShape = shapes.find(shape => shape.shapeId === shapeId) || shapes[0];
+    if (!selectedShape || !Array.isArray(selectedShape.points) || !selectedShape.points.length) return;
+
+    const latLngs = selectedShape.points
+      .map(point => [Number(point.lat), Number(point.lon)])
+      .filter(([lat, lon]) => Number.isFinite(lat) && Number.isFinite(lon));
+    if (!latLngs.length) return;
+
+    routeShapeLayerRef.current = L.polyline(latLngs, {
+      pane: ROUTE_SHAPE_PANE,
+      color: colorHexForLine(activeLine),
+      weight: 4,
+      opacity: 0.62,
+      interactive: false,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(mapRef.current);
+  }
+
   useEffect(() => {
     if (!mapHostRef.current || mapRef.current) return;
 
@@ -292,6 +342,12 @@ export function BusMapPicker({
 
     const map = L.map(mapHostRef.current, { zoomControl: true }).setView(center, 13);
     mapRef.current = map;
+
+    if (!map.getPane(ROUTE_SHAPE_PANE)) {
+      const pane = map.createPane(ROUTE_SHAPE_PANE);
+      pane.style.zIndex = '330';
+      pane.style.pointerEvents = 'none';
+    }
 
     if (!map.getPane(LINE_BADGE_PANE)) {
       const pane = map.createPane(LINE_BADGE_PANE);
@@ -404,11 +460,31 @@ export function BusMapPicker({
       currentPositionLayerRef.current = null;
       nearestOriginLayerRef.current = null;
       lineBadgeLayerRef.current = null;
+      routeShapeLayerRef.current = null;
       markerGroupsByNameRef.current = new Map();
       markerEntriesRef.current = [];
       lineBadgeEntriesRef.current = [];
     };
   }, [initialCenter, stopPoints]);
+
+  useEffect(() => {
+    if (activeLineFilter === 'all') {
+      setSelectedRouteShapeId('');
+      return;
+    }
+
+    if (!routeShapesForActiveLine.length) {
+      setSelectedRouteShapeId('');
+      return;
+    }
+
+    if (routeShapesForActiveLine.some(shape => shape.shapeId === selectedRouteShapeId)) return;
+    setSelectedRouteShapeId(routeShapesForActiveLine[0].shapeId);
+  }, [activeLineFilter, routeShapesForActiveLine, selectedRouteShapeId]);
+
+  useEffect(() => {
+    applyRouteShape(activeLineFilter, selectedRouteShapeId);
+  }, [activeLineFilter, selectedRouteShapeId]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -498,6 +574,57 @@ export function BusMapPicker({
           );
         })}
       </div>
+
+      {activeLineFilter !== 'all' && routeShapesForActiveLine.length > 1 ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            zIndex: 720,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '5px 7px',
+            borderRadius: 10,
+            background: 'rgba(255, 255, 255, 0.92)',
+            border: '1px solid #d7dde8',
+            boxShadow: '0 2px 7px rgba(15, 23, 42, 0.12)',
+            backdropFilter: 'blur(1px)',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#334155',
+              lineHeight: 1.2,
+            }}
+          >
+            Suund
+          </span>
+          <select
+            value={selectedRouteShapeId}
+            onChange={(event) => setSelectedRouteShapeId(event.target.value)}
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: '#334155',
+              borderRadius: 8,
+              border: '1px solid #cdd6e4',
+              background: '#ffffff',
+              padding: '3px 6px',
+              maxWidth: 220,
+            }}
+          >
+            {routeShapesForActiveLine.map((shape) => (
+              <option key={shape.shapeId} value={shape.shapeId}>
+                {formatPatternLabel(shape.patternName)}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
     </div>
   );
 }
