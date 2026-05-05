@@ -10,7 +10,7 @@ import { nearest } from '../utils/bus';
 const RAKVERE_CENTER = [59.3469, 26.3557];
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION = '&copy; OpenStreetMap contributors';
-const LINE_BADGE_MIN_ZOOM = 15;
+const LINE_BADGE_MIN_ZOOM = 17;
 const LINE_BADGE_PANE = 'lineBadgePane';
 const ROUTE_SHAPE_PANE = 'routeShapePane';
 const LINE_FILTER_OPTIONS = ['all', '1', '2', '3', '5'];
@@ -237,8 +237,13 @@ export function BusMapPicker({
     const entries = lineBadgeEntriesRef.current;
     entries.forEach(({ marker, lines }) => {
       const isMatch = servesActiveLine(lines, activeLine);
-      marker.setOpacity(isMatch ? 1 : 0.2);
-      marker.setZIndexOffset(isMatch ? 120 : 40);
+      if (activeLine === 'all') {
+        marker.setOpacity(0.9);
+        marker.setZIndexOffset(80);
+        return;
+      }
+      marker.setOpacity(isMatch ? 1 : 0);
+      marker.setZIndexOffset(isMatch ? 120 : 0);
     });
   }
 
@@ -350,8 +355,9 @@ export function BusMapPicker({
     routeShapeLayerRef.current = L.polyline(latLngs, {
       pane: ROUTE_SHAPE_PANE,
       color: colorHexForLine(activeLine),
-      weight: 4,
-      opacity: 0.62,
+      weight: 3.2,
+      opacity: 0.54,
+      smoothFactor: 1.3,
       interactive: false,
       lineCap: 'round',
       lineJoin: 'round',
@@ -501,7 +507,7 @@ export function BusMapPicker({
       markerEntriesRef.current = [];
       lineBadgeEntriesRef.current = [];
     };
-  }, [initialCenter, stopPoints]);
+  }, [stopPoints]);
 
   useEffect(() => {
     if (activeLineFilter === 'all') {
