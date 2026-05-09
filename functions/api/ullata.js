@@ -8,6 +8,20 @@ const IDEA_KEYS = [
   'easier_version',
 ];
 const PROVIDER_TIMEOUT_MS = 8000;
+const MAX_BODY_BYTES = 12 * 1024;
+const MAX_PROMPT_CHARS = 1200;
+const MAX_SYSTEM_PROMPT_CHARS = 2400;
+const MAX_WITH_CHARS = 40;
+const MAX_MATERIAL_ITEMS = 8;
+const MAX_MATERIAL_ITEM_CHARS = 80;
+const MAX_MOOD_ITEMS = 3;
+const MAX_MOOD_ITEM_CHARS = 40;
+const MAX_EXTRA_TEXT_FIELDS = 6;
+const MAX_EXTRA_TEXT_FIELD_CHARS = 240;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 20;
+// Isolate-local memory guard: lightweight abuse reduction, not a global distributed limiter.
+const RATE_LIMIT_BUCKETS = new Map();
 
 const DEFAULT_SYSTEM_PROMPT =
   'Sa oled soe ja loov ideekaaslane 10-13-aastasele tüdrukule. Anna üks selge ja teostatav idee tooniga "üks kasulik nipp, siis tee oma versioon". Vasta AINULT JSON-ina ilma markdown-ita:{"idea_title":"max 6 sõna","what_to_do":"2-3 lauset konkreetselt","why_it_fits":"1 lause","easy_start_tip":"1 lause kohe alustamiseks","new_tip_or_trick":"1 lause uuest oskusest","make_it_yours":"1 lause oma stiilis","easier_version":"1 lause lihtsam variant"}';
@@ -48,6 +62,171 @@ function json(body, status = 200) {
   });
 }
 
+function badRequest(message) {
+  return json(
+    {
+      error: 'invalid_request',
+      message: message || 'Päring ei ole korrektne.',
+    },
+    400
+  );
+}
+
+function tooManyRequests(retryAfterSeconds) {
+  const waitSeconds = Math.max(1, Number.parseInt(String(retryAfterSeconds), 10) || 1);
+  return new Response(
+    JSON.stringify({
+      error: 'rate_limited',
+      message: 'Proovi hetke pärast uuesti.',
+    }),
+    {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Retry-After': String(waitSeconds),
+      },
+    }
+  );
+}
+
+function getClientKey(request) {
+  const cfIp = request.headers.get('CF-Connecting-IP');
+  if (cfIp && cfIp.trim()) return cfIp.trim();
+
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor && forwardedFor.trim()) {
+    const first = forwardedFor.split(',')[0]?.trim();
+    if (first) return first;
+  }
+
+  return 'unknown';
+}
+
+function applyRateLimit(clientKey) {
+  const now = Date.now();
+  const safeKey = String(clientKey || 'unknown').slice(0, 120);
+  const current = RATE_LIMIT_BUCKETS.get(safeKey);
+
+  if (!current || now - current.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    RATE_LIMIT_BUCKETS.set(safeKey, { count: 1, windowStart: now });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  current.count += 1;
+  const remainingMs = Math.max(0, RATE_LIMIT_WINDOW_MS - (now - current.windowStart));
+  const retryAfterSeconds = Math.ceil(remainingMs / 1000);
+
+  if (current.count > RATE_LIMIT_MAX_REQUESTS) {
+    return { allowed: false, retryAfterSeconds };
+  }
+
+  if (RATE_LIMIT_BUCKETS.size > 2000) {
+    for (const [key, bucket] of RATE_LIMIT_BUCKETS) {
+      if (now - bucket.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+        RATE_LIMIT_BUCKETS.delete(key);
+      }
+    }
+  }
+
+  return { allowed: true, retryAfterSeconds: 0 };
+}
+
+function validateStringLength(value, maxLen) {
+  if (typeof value !== 'string') return false;
+  return value.length <= maxLen;
+}
+
+async function readRequestJsonWithLimit(request) {
+  const contentLengthHeader = request.headers.get('content-length');
+  const declaredLength = Number.parseInt(String(contentLengthHeader || ''), 10);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
+    return { error: 'Päringu sisu on liiga suur.' };
+  }
+
+  let text = '';
+  try {
+    text = await request.text();
+  } catch {
+    return { error: 'Päringu sisu lugemine ebaõnnestus.' };
+  }
+
+  const bodyBytes = new TextEncoder().encode(text).length;
+  if (bodyBytes > MAX_BODY_BYTES) {
+    return { error: 'Päringu sisu on liiga suur.' };
+  }
+
+  if (!text.trim()) {
+    return { value: {} };
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { error: 'Päringu JSON on vigane.' };
+  }
+
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { error: 'Päringu JSON peab olema objekt.' };
+  }
+
+  return { value: parsed };
+}
+
+function validateRequestBody(body) {
+  const allowedTopLevel = new Set(['with', 'materials', 'time', 'mood', 'variationNonce', 'prompt', 'systemPrompt']);
+
+  if ('prompt' in body) {
+    if (typeof body.prompt !== 'string') return 'prompt peab olema tekst.';
+    if (!validateStringLength(body.prompt, MAX_PROMPT_CHARS)) return 'prompt on liiga pikk.';
+  }
+
+  if ('systemPrompt' in body) {
+    if (typeof body.systemPrompt !== 'string') return 'systemPrompt peab olema tekst.';
+    if (!validateStringLength(body.systemPrompt, MAX_SYSTEM_PROMPT_CHARS)) return 'systemPrompt on liiga pikk.';
+  }
+
+  if ('with' in body) {
+    if (typeof body.with !== 'string') return 'with peab olema tekst.';
+    if (!validateStringLength(body.with, MAX_WITH_CHARS)) return 'with on liiga pikk.';
+  }
+
+  if ('materials' in body) {
+    if (!Array.isArray(body.materials)) return 'materials peab olema massiiv.';
+    if (body.materials.length > MAX_MATERIAL_ITEMS) return 'materials sisaldab liiga palju väärtusi.';
+    for (const item of body.materials) {
+      if (typeof item !== 'string') return 'materials väärtused peavad olema tekstid.';
+      if (!validateStringLength(item, MAX_MATERIAL_ITEM_CHARS)) return 'materials väärtus on liiga pikk.';
+    }
+  }
+
+  if ('mood' in body) {
+    if (!Array.isArray(body.mood)) return 'mood peab olema massiiv.';
+    if (body.mood.length > MAX_MOOD_ITEMS) return 'mood sisaldab liiga palju väärtusi.';
+    for (const item of body.mood) {
+      if (typeof item !== 'string') return 'mood väärtused peavad olema tekstid.';
+      if (!validateStringLength(item, MAX_MOOD_ITEM_CHARS)) return 'mood väärtus on liiga pikk.';
+    }
+  }
+
+  let extraTextFieldCount = 0;
+  for (const [key, value] of Object.entries(body)) {
+    if (allowedTopLevel.has(key)) continue;
+    if (typeof value === 'string' && value.trim()) {
+      extraTextFieldCount += 1;
+      if (extraTextFieldCount > MAX_EXTRA_TEXT_FIELDS) {
+        return 'Liiga palju lisateksti välju.';
+      }
+      if (!validateStringLength(value, MAX_EXTRA_TEXT_FIELD_CHARS)) {
+        return `Väli ${key} on liiga pikk.`;
+      }
+    }
+  }
+
+  return '';
+}
+
 function asStringArray(value) {
   if (!Array.isArray(value)) return [];
   return value
@@ -62,8 +241,8 @@ function toInt(value, fallback) {
 
 function normalizePayload(input) {
   const withId = typeof input?.with === 'string' ? input.with : 'endale';
-  const materials = asStringArray(input?.materials).slice(0, 8);
-  const mood = asStringArray(input?.mood).slice(0, 3);
+  const materials = asStringArray(input?.materials).slice(0, MAX_MATERIAL_ITEMS);
+  const mood = asStringArray(input?.mood).slice(0, MAX_MOOD_ITEMS);
   const time = toInt(input?.time, 20);
   const variationNonce = Math.max(0, toInt(input?.variationNonce, 0));
   const prompt = typeof input?.prompt === 'string' ? input.prompt.trim() : '';
@@ -265,11 +444,21 @@ async function generateWithOpenAI(payload, env) {
 }
 
 export async function onRequestPost({ request, env }) {
-  let body = {};
-  try {
-    body = await request.json();
-  } catch {
-    body = {};
+  const clientKey = getClientKey(request);
+  const rateLimit = applyRateLimit(clientKey);
+  if (!rateLimit.allowed) {
+    return tooManyRequests(rateLimit.retryAfterSeconds);
+  }
+
+  const bodyResult = await readRequestJsonWithLimit(request);
+  if (bodyResult.error) {
+    return badRequest(bodyResult.error);
+  }
+
+  const body = bodyResult.value || {};
+  const bodyValidationError = validateRequestBody(body);
+  if (bodyValidationError) {
+    return badRequest(bodyValidationError);
   }
 
   const payload = normalizePayload(body);
