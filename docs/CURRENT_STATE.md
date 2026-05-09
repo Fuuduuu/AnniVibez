@@ -70,6 +70,15 @@ Status: compact low-token state snapshot for future Codex passes.
 - geocoding is not implemented
 - Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
 - Üllata provider chain is `Gemini -> OpenAI -> local`
+- PASS `31B` Ullata API abuse guards are accepted/live and deployed/smoked
+- `AUDIT-001` (Ullata public abuse/cost guard gap) is addressed in runtime
+- Ullata API guardrails now include:
+  - max body-size validation (`Content-Length` + actual bytes)
+  - prompt/systemPrompt length limits
+  - safe `400` on invalid JSON or oversized/invalid request shape
+  - safe `429` rate limit with `Retry-After`
+  - provider fallback order preserved (`Gemini -> OpenAI -> local`)
+  - no raw provider error leakage to client
 - Üllata save persistence uses localStorage key `annivibe_saved_ideas`
 - build/deploy workflow for Cloudflare Pages is documented and in use
 
@@ -149,9 +158,9 @@ Sniper Matrix visual asset:
 
 ## Next likely passes
 
+- `PASS 31C — MAP_CODE_SPLIT_AND_DATA_LAZY_LOAD`
 - field testing / on-device performance validation
 - `MAP_VISUAL_LOAD_TUNING_2` only if jank reappears on target devices
-- `PASS 30A — BUS_MODULE_EXTRACTION_ARCHITECTURE_PLAN` only when extraction planning is explicitly requested
 
 ## Known deploy notes
 

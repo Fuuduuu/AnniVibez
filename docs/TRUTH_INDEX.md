@@ -56,6 +56,8 @@ Need võivad toetada tööd, aga ei tohi canonical truth’i üle kirjutada:
 - `docs/audit/gtfs-rakvere-stop-coords.json`
 - `docs/audit/gtfs-rakvere-stop-coords-report.md`
 - `docs/audit/gtfs-coordinate-patch-plan.md`
+- `docs/audit/full-codebase-audit-report.md` (full read-only codebase audit baseline)
+- `docs/audit/full-codebase-audit-findings.json` (machine-readable findings index)
 - `src/data/gtfsStopCoords.js` (runtime data layer derived from GTFS audit outputs)
 - `src/data/stopLineMap.js` (runtime line-visual data layer derived from route-pattern audit outputs)
 - `src/data/routeShapes.js` (runtime GTFS route-geometry layer for on-map direction highlight)
