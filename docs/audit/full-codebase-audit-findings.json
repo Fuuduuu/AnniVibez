@@ -1,0 +1,156 @@
+{
+  "generatedAt": "2026-05-09T10:26:18.934Z",
+  "head": "49294c93683be441d080fd12cedfaa9dffb75018",
+  "summary": {
+    "critical": 0,
+    "high": 2,
+    "medium": 5,
+    "low": 3,
+    "info": 1
+  },
+  "findings": [
+    {
+      "id": "AUDIT-001",
+      "severity": "HIGH",
+      "category": "security",
+      "files": [
+        "functions/api/ullata.js"
+      ],
+      "summary": "Public /api/ullata provider endpoint has no abuse guard (auth/rate-limit), creating key-cost burn risk.",
+      "recommendation": "Add lightweight abuse controls: per-IP throttling, request budget caps, and reject patterns for abusive bursts.",
+      "suggestedPass": "PASS 31B — ULLATA_API_ABUSE_GUARDS"
+    },
+    {
+      "id": "AUDIT-002",
+      "severity": "HIGH",
+      "category": "performance",
+      "files": [
+        "src/components/BusMapPicker.jsx",
+        "src/data/routeShapes.js",
+        "src/data/stopLineMap.js"
+      ],
+      "summary": "Main bundle is heavy for mobile because map data layers are statically imported into app runtime.",
+      "recommendation": "Code-split/lazy-load BusMapPicker and large map data layers only when map flow opens.",
+      "suggestedPass": "PASS 31C — MAP_CODE_SPLIT_AND_DATA_LAZY_LOAD"
+    },
+    {
+      "id": "AUDIT-003",
+      "severity": "MEDIUM",
+      "category": "security",
+      "files": [
+        "functions/api/ullata.js"
+      ],
+      "summary": "Client-controlled prompt/systemPrompt values are forwarded to providers without strict length limits.",
+      "recommendation": "Enforce max lengths and whitelist/override systemPrompt server-side.",
+      "suggestedPass": "PASS 31D — ULLATA_PROMPT_INPUT_GUARDRAILS"
+    },
+    {
+      "id": "AUDIT-004",
+      "severity": "MEDIUM",
+      "category": "privacy",
+      "files": [
+        "src/components/BussCard.jsx"
+      ],
+      "summary": "Home bus card requests geolocation immediately on render instead of explicit user action.",
+      "recommendation": "Gate geolocation behind explicit CTA, matching BussTab consent behavior.",
+      "suggestedPass": "PASS 31E — HOME_CARD_GPS_CONSENT_TRIGGER"
+    },
+    {
+      "id": "AUDIT-005",
+      "severity": "MEDIUM",
+      "category": "correctness",
+      "files": [
+        "src/components/BusMapPicker.jsx"
+      ],
+      "summary": "Map `setView(initialCenter)` runs whenever initialCenter changes and may interrupt user pan/zoom sessions.",
+      "recommendation": "Add recenter guard to avoid automatic recenter during active manual map interaction.",
+      "suggestedPass": "PASS 31F — MAP_RECENTER_BEHAVIOR_GUARD"
+    },
+    {
+      "id": "AUDIT-006",
+      "severity": "MEDIUM",
+      "category": "deployment/runtime",
+      "files": [
+        "package.json"
+      ],
+      "summary": "No lint/test scripts are defined, reducing automated regression detection.",
+      "recommendation": "Add minimal lint/test scripts and CI execution gates.",
+      "suggestedPass": "PASS 31G — CI_LINT_TEST_BASELINE"
+    },
+    {
+      "id": "AUDIT-007",
+      "severity": "MEDIUM",
+      "category": "code-cleanup",
+      "files": [
+        "src/hooks/useSettings.js",
+        "src/hooks/useSavedPlaces.js",
+        "src/components/SeadedTab.jsx"
+      ],
+      "summary": "Saved-place normalization and geocode-stub logic are duplicated across hooks/components.",
+      "recommendation": "Consolidate into one shared place-storage/geocoding service hook.",
+      "suggestedPass": "PASS 31H — SAVED_PLACE_HOOK_CONSOLIDATION"
+    },
+    {
+      "id": "AUDIT-008",
+      "severity": "LOW",
+      "category": "security/privacy",
+      "files": [
+        "src/hooks/useDiary.js",
+        "src/components/SeadedTab.jsx"
+      ],
+      "summary": "Diary PIN uses reversible base64 in localStorage and entries are plain localStorage text.",
+      "recommendation": "Add local encryption or explicit risk disclosure if encryption is deferred.",
+      "suggestedPass": "PASS 31I — DIARY_LOCAL_PRIVACY_HARDENING"
+    },
+    {
+      "id": "AUDIT-009",
+      "severity": "LOW",
+      "category": "ux",
+      "files": [
+        "src/components/SeadedTab.jsx",
+        "src/hooks/useSettings.js",
+        "src/hooks/useSavedPlaces.js"
+      ],
+      "summary": "Settings UI offers `Leia asukoht` action while backend geocoding is intentionally not connected.",
+      "recommendation": "Disable/hide CTA until geocoding is active, or ship real geocoding provider.",
+      "suggestedPass": "PASS 31J — PLACE_GEOCODE_UI_STATE_FIX"
+    },
+    {
+      "id": "AUDIT-010",
+      "severity": "LOW",
+      "category": "data-integrity",
+      "files": [
+        "src/data/busData.js"
+      ],
+      "summary": "Runtime bus data includes absolute local source paths in metadata.",
+      "recommendation": "Sanitize generator output to remove local machine paths from runtime metadata.",
+      "suggestedPass": "PASS 31K — BUSDATA_META_SANITIZE"
+    },
+    {
+      "id": "AUDIT-011",
+      "severity": "INFO",
+      "category": "data-integrity",
+      "files": [
+        "src/data/busData.js",
+        "src/data/gtfsStopCoords.js",
+        "src/data/stopLineMap.js",
+        "src/data/routeShapes.js"
+      ],
+      "summary": "Current bus/GTFS/line/shape layers are internally consistent (no missing stopId references found in audit checks).",
+      "recommendation": "Keep this consistency validation as a reusable script in future data passes.",
+      "suggestedPass": "PASS 31L — DATA_LAYER_CONSISTENCY_CHECK_AUTOMATION"
+    }
+  ],
+  "recommendedPatchQueue": [
+    "PASS 31B — ULLATA_API_ABUSE_GUARDS",
+    "PASS 31C — MAP_CODE_SPLIT_AND_DATA_LAZY_LOAD",
+    "PASS 31D — ULLATA_PROMPT_INPUT_GUARDRAILS",
+    "PASS 31E — HOME_CARD_GPS_CONSENT_TRIGGER",
+    "PASS 31F — MAP_RECENTER_BEHAVIOR_GUARD",
+    "PASS 31G — CI_LINT_TEST_BASELINE",
+    "PASS 31H — SAVED_PLACE_HOOK_CONSOLIDATION",
+    "PASS 31I — DIARY_LOCAL_PRIVACY_HARDENING",
+    "PASS 31J — PLACE_GEOCODE_UI_STATE_FIX",
+    "PASS 31K — BUSDATA_META_SANITIZE"
+  ]
+}
