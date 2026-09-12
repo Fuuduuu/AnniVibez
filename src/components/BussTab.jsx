@@ -925,8 +925,8 @@ export function BussTab({ savedPlaces = [] }) {
             <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>{emptyReason || `Täna enam busse pole · ${wd()}`}</div>
           ) : (
             <>
-              {routeOptions.map((d, i) => (
-                <DepRow key={`${d.time}-${d.line}-${d.originStopId || i}`} d={d} />
+              {routeOptions.map(d => (
+                <DepRow key={`${d.line}|${d.v || ''}|${d.time}|${d.originStopId || d.originName}|${d.testedDestination}`} d={d} />
               ))}
               <div style={{ fontSize: 11, color: AV.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${AV.border}` }}>
                 Ajad on sõiduplaani järgi
