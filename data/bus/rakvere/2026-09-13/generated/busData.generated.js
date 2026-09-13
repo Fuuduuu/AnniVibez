@@ -204,6 +204,20 @@ export const BUS_DATA = {
       ],
       "coordinateStatus": "NOT_IN_SOURCE"
     },
+    "5900507-1": {
+      "name": "Näpi",
+      "names": [
+        "Näpi"
+      ],
+      "coordinateStatus": "NOT_IN_SOURCE"
+    },
+    "5900508-1": {
+      "name": "Näpi",
+      "names": [
+        "Näpi"
+      ],
+      "coordinateStatus": "NOT_IN_SOURCE"
+    },
     "5900541-1": {
       "name": "Lilleoru",
       "names": [
@@ -730,6 +744,14 @@ export const BUS_DATA = {
       "purpose": "DISPLAY_ONLY"
     },
     {
+      "name": "Näpi",
+      "codes": [
+        "5900507-1",
+        "5900508-1"
+      ],
+      "purpose": "DISPLAY_ONLY"
+    },
+    {
       "name": "Palermo",
       "codes": [
         "5900381-1",
@@ -950,7 +972,7 @@ export const BUS_DATA = {
   ],
   "patterns": [
     {
-      "id": "line1_8f46893a7bab3eafa70a3d9941e44a9f00d44b3690147bc6951c5fa2b848b4f2",
+      "id": "line1_5597777ed9be6efdd922e96cb95b5b967ce339170ac76ebba8fd9e05da2a85b3",
       "line": "1",
       "direction": "Piira - Palermo - Mäe - Tartu - Karja - Side - Kungla - Polikliinik - Bussijaam - Laada - Võidu - Raudteejaam - Kauba - Õli - Vilepilli - Narva - Näpi - Näpi - Narva - Kauba - Raudteejaam - Võidu - Lai - Keskuse - Polikliinik - Kungla - Side - Karja - Tartu - Mäe - Palermo - Piira",
       "stop_ids": [
@@ -970,8 +992,8 @@ export const BUS_DATA = {
         "5901012-1",
         "5900867-1",
         "5900485-1",
-        null,
-        null,
+        "5900507-1",
+        "5900508-1",
         "5900484-1",
         "5900220-1",
         "5900635-1",
@@ -1119,18 +1141,18 @@ export const BUS_DATA = {
         {
           "seq": 17,
           "name": "Näpi",
-          "code": null,
+          "code": "5900507-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED"
+          "resolvedStopId": "5900507-1",
+          "identityStatus": "RESOLVED"
         },
         {
           "seq": 18,
           "name": "Näpi",
-          "code": null,
+          "code": "5900508-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED"
+          "resolvedStopId": "5900508-1",
+          "identityStatus": "AS_PRINTED"
         },
         {
           "seq": 19,
@@ -2267,7 +2289,7 @@ export const BUS_DATA = {
       "line": "1",
       "service": "E-R",
       "direction": "Piira - Palermo - Mäe - Tartu - Karja - Side - Kungla - Polikliinik - Bussijaam - Laada - Võidu - Raudteejaam - Kauba - Õli - Vilepilli - Narva - Näpi - Näpi - Narva - Kauba - Raudteejaam - Võidu - Lai - Keskuse - Polikliinik - Kungla - Side - Karja - Tartu - Mäe - Palermo - Piira",
-      "pattern_id": "line1_8f46893a7bab3eafa70a3d9941e44a9f00d44b3690147bc6951c5fa2b848b4f2",
+      "pattern_id": "line1_5597777ed9be6efdd922e96cb95b5b967ce339170ac76ebba8fd9e05da2a85b3",
       "operator": "AS Hansabuss",
       "printedEffectiveDate": "01.01.2023",
       "source": "normalized-csv",
@@ -2503,10 +2525,10 @@ export const BUS_DATA = {
         {
           "seq": 17,
           "name": "Näpi",
-          "code": null,
+          "code": "5900507-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED",
+          "resolvedStopId": "5900507-1",
+          "identityStatus": "RESOLVED",
           "sourceRef": {
             "table": "line1-er-loop",
             "pdf": "Linnaliin nr 1 esmaspäev kuni reede.pdf",
@@ -2515,22 +2537,33 @@ export const BUS_DATA = {
           "anomalies": [
             {
               "state": "SOURCE_CONFLICT",
-              "status": "UNRESOLVED",
+              "status": "RESOLVED",
               "table": "line1-er-loop",
               "row": 17,
               "printedValue": "5900508-1",
-              "resolvedValue": null,
-              "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+              "resolvedValue": "5900507-1",
+              "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+              "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+              "evidence": {
+                "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+                "observedAt": "2026-09-13T11:21:47Z",
+                "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+                "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+                "position": 17,
+                "gtfsId": "estonia:109242",
+                "stopCode": "5900507-1",
+                "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+              }
             }
           ]
         },
         {
           "seq": 18,
           "name": "Näpi",
-          "code": null,
+          "code": "5900508-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED",
+          "resolvedStopId": "5900508-1",
+          "identityStatus": "AS_PRINTED",
           "sourceRef": {
             "table": "line1-er-loop",
             "pdf": "Linnaliin nr 1 esmaspäev kuni reede.pdf",
@@ -2539,12 +2572,23 @@ export const BUS_DATA = {
           "anomalies": [
             {
               "state": "SOURCE_CONFLICT",
-              "status": "UNRESOLVED",
+              "status": "RESOLVED",
               "table": "line1-er-loop",
               "row": 18,
               "printedValue": "5900508-1",
-              "resolvedValue": null,
-              "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+              "resolvedValue": "5900508-1",
+              "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+              "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+              "evidence": {
+                "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+                "observedAt": "2026-09-13T11:21:47Z",
+                "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+                "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+                "position": 18,
+                "gtfsId": "estonia:32522",
+                "stopCode": "5900508-1",
+                "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+              }
             }
           ]
         },
@@ -3097,7 +3141,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -3110,7 +3154,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -3656,7 +3700,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -3669,7 +3713,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -4215,7 +4259,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -4228,7 +4272,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -4774,7 +4818,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -4787,7 +4831,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -5333,7 +5377,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -5346,7 +5390,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -5892,7 +5936,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -5905,7 +5949,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -6451,7 +6495,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -6464,7 +6508,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -7010,7 +7054,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -7023,7 +7067,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -7569,7 +7613,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -7582,7 +7626,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -7783,7 +7827,7 @@ export const BUS_DATA = {
       "line": "1",
       "service": "L",
       "direction": "Piira - Palermo - Mäe - Tartu - Karja - Side - Kungla - Polikliinik - Bussijaam - Laada - Võidu - Raudteejaam - Kauba - Õli - Vilepilli - Narva - Näpi - Näpi - Narva - Kauba - Raudteejaam - Võidu - Lai - Keskuse - Polikliinik - Kungla - Side - Karja - Tartu - Mäe - Palermo - Piira",
-      "pattern_id": "line1_8f46893a7bab3eafa70a3d9941e44a9f00d44b3690147bc6951c5fa2b848b4f2",
+      "pattern_id": "line1_5597777ed9be6efdd922e96cb95b5b967ce339170ac76ebba8fd9e05da2a85b3",
       "operator": "AS Hansabuss",
       "printedEffectiveDate": "01.01.2023",
       "source": "normalized-csv",
@@ -8019,10 +8063,10 @@ export const BUS_DATA = {
         {
           "seq": 17,
           "name": "Näpi",
-          "code": null,
+          "code": "5900507-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED",
+          "resolvedStopId": "5900507-1",
+          "identityStatus": "RESOLVED",
           "sourceRef": {
             "table": "line1-l-loop",
             "pdf": "Linnaliin nr 1 laupäev.pdf",
@@ -8031,22 +8075,33 @@ export const BUS_DATA = {
           "anomalies": [
             {
               "state": "SOURCE_CONFLICT",
-              "status": "UNRESOLVED",
+              "status": "RESOLVED",
               "table": "line1-l-loop",
               "row": 17,
               "printedValue": "5900508-1",
-              "resolvedValue": null,
-              "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+              "resolvedValue": "5900507-1",
+              "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+              "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+              "evidence": {
+                "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+                "observedAt": "2026-09-13T11:21:47Z",
+                "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+                "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+                "position": 17,
+                "gtfsId": "estonia:109242",
+                "stopCode": "5900507-1",
+                "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+              }
             }
           ]
         },
         {
           "seq": 18,
           "name": "Näpi",
-          "code": null,
+          "code": "5900508-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED",
+          "resolvedStopId": "5900508-1",
+          "identityStatus": "AS_PRINTED",
           "sourceRef": {
             "table": "line1-l-loop",
             "pdf": "Linnaliin nr 1 laupäev.pdf",
@@ -8055,12 +8110,23 @@ export const BUS_DATA = {
           "anomalies": [
             {
               "state": "SOURCE_CONFLICT",
-              "status": "UNRESOLVED",
+              "status": "RESOLVED",
               "table": "line1-l-loop",
               "row": 18,
               "printedValue": "5900508-1",
-              "resolvedValue": null,
-              "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+              "resolvedValue": "5900508-1",
+              "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+              "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+              "evidence": {
+                "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+                "observedAt": "2026-09-13T11:21:47Z",
+                "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+                "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+                "position": 18,
+                "gtfsId": "estonia:32522",
+                "stopCode": "5900508-1",
+                "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+              }
             }
           ]
         },
@@ -8613,7 +8679,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -8626,7 +8692,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -9172,7 +9238,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -9185,7 +9251,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -9731,7 +9797,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -9744,7 +9810,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -10290,7 +10356,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -10303,7 +10369,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -10849,7 +10915,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -10862,7 +10928,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -11408,7 +11474,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -11421,7 +11487,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -11622,7 +11688,7 @@ export const BUS_DATA = {
       "line": "1",
       "service": "P",
       "direction": "Piira - Palermo - Mäe - Tartu - Karja - Side - Kungla - Polikliinik - Bussijaam - Laada - Võidu - Raudteejaam - Kauba - Õli - Vilepilli - Narva - Näpi - Näpi - Narva - Kauba - Raudteejaam - Võidu - Lai - Keskuse - Polikliinik - Kungla - Side - Karja - Tartu - Mäe - Palermo - Piira",
-      "pattern_id": "line1_8f46893a7bab3eafa70a3d9941e44a9f00d44b3690147bc6951c5fa2b848b4f2",
+      "pattern_id": "line1_5597777ed9be6efdd922e96cb95b5b967ce339170ac76ebba8fd9e05da2a85b3",
       "operator": "AS Hansabuss",
       "printedEffectiveDate": "01.01.2023",
       "source": "normalized-csv",
@@ -11858,10 +11924,10 @@ export const BUS_DATA = {
         {
           "seq": 17,
           "name": "Näpi",
-          "code": null,
+          "code": "5900507-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED",
+          "resolvedStopId": "5900507-1",
+          "identityStatus": "RESOLVED",
           "sourceRef": {
             "table": "line1-p-loop",
             "pdf": "Linnaliin nr 1 pühapäev, riiklikud pühad.pdf",
@@ -11870,22 +11936,33 @@ export const BUS_DATA = {
           "anomalies": [
             {
               "state": "SOURCE_CONFLICT",
-              "status": "UNRESOLVED",
+              "status": "RESOLVED",
               "table": "line1-p-loop",
               "row": 17,
               "printedValue": "5900508-1",
-              "resolvedValue": null,
-              "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+              "resolvedValue": "5900507-1",
+              "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+              "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+              "evidence": {
+                "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+                "observedAt": "2026-09-13T11:21:47Z",
+                "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+                "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+                "position": 17,
+                "gtfsId": "estonia:109242",
+                "stopCode": "5900507-1",
+                "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+              }
             }
           ]
         },
         {
           "seq": 18,
           "name": "Näpi",
-          "code": null,
+          "code": "5900508-1",
           "printedStopId": "5900508-1",
-          "resolvedStopId": null,
-          "identityStatus": "UNRESOLVED",
+          "resolvedStopId": "5900508-1",
+          "identityStatus": "AS_PRINTED",
           "sourceRef": {
             "table": "line1-p-loop",
             "pdf": "Linnaliin nr 1 pühapäev, riiklikud pühad.pdf",
@@ -11894,12 +11971,23 @@ export const BUS_DATA = {
           "anomalies": [
             {
               "state": "SOURCE_CONFLICT",
-              "status": "UNRESOLVED",
+              "status": "RESOLVED",
               "table": "line1-p-loop",
               "row": 18,
               "printedValue": "5900508-1",
-              "resolvedValue": null,
-              "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+              "resolvedValue": "5900508-1",
+              "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+              "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+              "evidence": {
+                "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+                "observedAt": "2026-09-13T11:21:47Z",
+                "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+                "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+                "position": 18,
+                "gtfsId": "estonia:32522",
+                "stopCode": "5900508-1",
+                "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+              }
             }
           ]
         },
@@ -12452,7 +12540,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -12465,7 +12553,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -13011,7 +13099,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -13024,7 +13112,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -13570,7 +13658,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -13583,7 +13671,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -14129,7 +14217,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -14142,7 +14230,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -14688,7 +14776,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 16,
-              "stopId": null,
+              "stopId": "5900507-1",
               "sourceRows": [
                 17
               ],
@@ -14701,7 +14789,7 @@ export const BUS_DATA = {
             },
             {
               "visitIndex": 17,
-              "stopId": null,
+              "stopId": "5900508-1",
               "sourceRows": [
                 18
               ],
@@ -45147,57 +45235,123 @@ export const BUS_DATA = {
   "anomalies": [
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-er-loop",
       "row": 17,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900507-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 17,
+        "gtfsId": "estonia:109242",
+        "stopCode": "5900507-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-er-loop",
       "row": 18,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900508-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 18,
+        "gtfsId": "estonia:32522",
+        "stopCode": "5900508-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-l-loop",
       "row": 17,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900507-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 17,
+        "gtfsId": "estonia:109242",
+        "stopCode": "5900507-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-l-loop",
       "row": 18,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900508-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 18,
+        "gtfsId": "estonia:32522",
+        "stopCode": "5900508-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-p-loop",
       "row": 17,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900507-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 17,
+        "gtfsId": "estonia:109242",
+        "stopCode": "5900507-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-p-loop",
       "row": 18,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900508-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 18,
+        "gtfsId": "estonia:32522",
+        "stopCode": "5900508-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SUSPECTED_TYPO",

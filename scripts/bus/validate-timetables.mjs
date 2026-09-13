@@ -74,7 +74,20 @@ export function validateSnapshot(root = snapshotRoot) {
   assert.equal(cells, 2140, 'Exactly 2140 timetable cells required');
   const anomalies = manifest.anomalies;
   assert.equal(anomalies.filter(a => a.state === 'STOP_ID_MISMATCH' && a.status === 'RESOLVED' && a.printedValue === '5900597-1' && a.resolvedValue === '5900013-1').length, 3, 'Aiand split required in all three day types');
-  assert.equal(anomalies.filter(a => a.state === 'SOURCE_CONFLICT' && a.status === 'UNRESOLVED' && a.printedValue === '5900508-1' && a.resolvedValue === null).length, 6, 'Both Napi source rows must remain unresolved on all three day types');
+  const napiResolutions = anomalies.filter(a => a.state === 'SOURCE_CONFLICT');
+  assert.equal(napiResolutions.length, 6, 'Both Napi source rows require evidence on all three day types');
+  for (const table of ['line1-er-loop', 'line1-l-loop', 'line1-p-loop']) {
+    for (const row of [17, 18]) {
+      const a = napiResolutions.find(a => a.table === table && a.row === row);
+      assert.ok(a, `Missing Napi resolution: ${table} row ${row}`);
+      assert.equal(a.printedValue, '5900508-1', 'Napi printed evidence must not change');
+      assert.equal(a.resolvedValue, row === 17 ? '5900507-1' : '5900508-1', 'Napi resolved identity mismatch');
+      assert.equal(a.status, 'RESOLVED');
+      assert.ok(a.authority && a.evidence?.sourceUrl === 'https://api.peatus.ee/routing/v1/routers/estonia/index/graphql', 'Napi requires approved official evidence');
+      assert.equal(a.evidence.position, row);
+      assert.equal(a.evidence.stopCode, a.resolvedValue);
+    }
+  }
   assert.equal(anomalies.filter(a => a.state === 'SUSPECTED_TYPO' && a.printedValue === '06:04' && a.resolvedValue === null).length, 1, 'Printed Seminari 06:04 required');
   assert.equal(anomalies.filter(a => a.state === 'TRIP_KEY_ANOMALY' && a.status === 'UNRESOLVED').length, 1, 'Line 5 printed trip order anomaly required');
   assert.deepEqual(manifest.coverage.map(c => [c.line, c.dayType, c.status]), [['2', 'L', 'NO_SERVICE'], ['2', 'P', 'NO_SERVICE']], 'Line 2 L/P coverage mismatch');

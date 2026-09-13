@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { parseCSV } from './validate-timetables.mjs';
+import { GTFS_STOP_COORDS_BY_ID } from '../../src/data/gtfsStopCoords.js';
 
 const root = fileURLToPath(new URL('../../data/bus/rakvere/2026-09-13/', import.meta.url));
 const generator = fileURLToPath(new URL('./generate-bus-data.mjs', import.meta.url));
@@ -70,20 +71,23 @@ test('line 2 return and both full line 5 directions exist for each scheduled ser
   }
 });
 
-test('Aiand resolution and all unresolved Napi rows retain evidence without invented routing IDs', async () => {
+test('Aiand is unchanged and resolved Napi rows retain printed evidence and distinct visits', async () => {
   const data = await model();
   assert.deepEqual(data.anomalies, manifest.anomalies);
   for (const l of data.lines.filter(l => l.line === '1')) {
     for (const seq of [17, 18]) {
       const s = l.stops[seq - 1];
       assert.equal(s.printedStopId, '5900508-1');
-      assert.equal(s.resolvedStopId, null);
-      assert.equal(s.identityStatus, 'UNRESOLVED');
+      assert.equal(s.resolvedStopId, seq === 17 ? '5900507-1' : '5900508-1');
+      assert.equal(s.identityStatus, seq === 17 ? 'RESOLVED' : 'AS_PRINTED');
       assert.equal(s.anomalies[0].state, 'SOURCE_CONFLICT');
+      assert.equal(s.anomalies[0].status, 'RESOLVED');
+      assert.equal(s.anomalies[0].evidence.position, seq);
+      assert.ok(s.anomalies[0].authority);
       for (const t of l.trips) {
         const v = t.visits.find(v => v.sourceRows.includes(seq));
         assert.deepEqual(v.sourceRows, [seq]);
-        assert.equal(v.stopId, null);
+        assert.equal(v.stopId, s.resolvedStopId);
         assert.equal(v.arrival, t.stop_times[seq - 1].time);
         assert.equal(v.departure, v.arrival);
       }
@@ -96,8 +100,46 @@ test('Aiand resolution and all unresolved Napi rows retain evidence without inve
     assert.equal(s.identityStatus, 'RESOLVED');
     assert.ok(s.anomalies[0].authority);
   }
-  assert.equal(data.by_code['5900508-1'], undefined);
+  assert.equal(data.by_code['5900507-1'].name, 'N\u00e4pi');
+  assert.equal(data.by_code['5900508-1'].name, 'N\u00e4pi');
   assert.ok(Object.values(data.by_code).every(s => !('lat' in s) && !('lon' in s)));
+});
+
+test('all resolved timetable IDs have named coordinates and the four additions match Peatus evidence', async () => {
+  const expected = {
+    '5900036-1': { stopName: 'Arkna tee', lat: 59.361074, lon: 26.36783 },
+    '5900661-1': { stopName: 'Roodev\u00e4lja', lat: 59.368887, lon: 26.377781 },
+    '5900727-1': { stopName: 'Seminari', lat: 59.3410184, lon: 26.3721173 },
+    '5901201-1': { stopName: 'Papiaru', lat: 59.3639952, lon: 26.3688522 },
+  };
+  for (const [id, value] of Object.entries(expected)) assert.deepEqual(GTFS_STOP_COORDS_BY_ID[id], value);
+  const data = await model();
+  for (const line of data.lines) for (const stop of line.stops) {
+    assert.ok(stop.resolvedStopId, 'Current snapshot must contain no unresolved stop identity');
+    const point = GTFS_STOP_COORDS_BY_ID[stop.resolvedStopId];
+    assert.ok(point, `Missing coordinates: ${stop.resolvedStopId}`);
+    assert.equal(point.stopName, stop.name);
+    assert.ok(Number.isFinite(point.lat) && Math.abs(point.lat) <= 90);
+    assert.ok(Number.isFinite(point.lon) && Math.abs(point.lon) <= 180);
+  }
+});
+
+test('explicit unresolved evidence remains supported without silently assigning a routing identity', async () => {
+  const { generateModel } = await api();
+  const unresolved = structuredClone(manifest);
+  const csvs = { ...tables };
+  for (const a of unresolved.anomalies.filter(a => a.state === 'SOURCE_CONFLICT')) {
+    a.status = 'UNRESOLVED';
+    a.resolvedValue = null;
+    delete a.authority;
+    delete a.evidence;
+    csvs[a.table] = csvs[a.table].replace(/5900508-1,590050[78]-1,/g, '5900508-1,,');
+  }
+  const data = generateModel(unresolved, csvs);
+  for (const line of data.lines.filter(l => l.line === '1')) {
+    assert.ok(line.stops.slice(16, 18).every(s => s.code === null && s.identityStatus === 'UNRESOLVED'));
+    assert.ok(line.trips.every(t => t.visits.filter(v => v.stopId === null).length === 2));
+  }
 });
 
 test('visits merge only consecutive confirmed IDs, retain terminal flags and first/last times', async () => {
@@ -159,7 +201,7 @@ test('malformed input, missing tables, conflicting stop resolutions and duplicat
   delete absent['line1-er-loop'];
   assert.throws(() => generateModel(manifest, absent), /table/i);
   assert.throws(() => generateModel(manifest, { ...tables, 'line1-er-loop': tables['line1-er-loop'].replace('06:20', '25:00') }), /time/i);
-  assert.throws(() => generateModel(manifest, { ...tables, 'line1-er-loop': tables['line1-er-loop'].replace('5900508-1,,', '5900508-1,5900508-1,') }), /identity/i);
+  assert.throws(() => generateModel(manifest, { ...tables, 'line1-er-loop': tables['line1-er-loop'].replace('5900508-1,5900507-1,', '5900508-1,5900508-1,') }), /identity/i);
   const unapproved = structuredClone(manifest);
   unapproved.anomalies = unapproved.anomalies.filter(a => a.state !== 'STOP_ID_MISMATCH');
   assert.throws(() => generateModel(unapproved, tables), /identity/i);

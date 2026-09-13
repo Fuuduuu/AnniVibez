@@ -1,7 +1,12 @@
 // GTFS stop-point coordinates extracted from docs/audit/gtfs-rakvere-stop-coords.json
 // Source: GTFS stops.txt via PASS 27D audit outputs
+// COORD01 additions below: 5900036-1, 5900661-1, 5900727-1, 5901201-1.
+// Source: https://api.peatus.ee/routing/v1/routers/estonia/index/graphql
+// Observed 2026-09-13T11:21:47Z via stops(name: ...) { gtfsId code name lat lon }.
+// Matched exact codes, respectively GTFS IDs estonia:24589, :31918, :112863, :147043.
 export const GTFS_STOP_COORDS_BY_ID = {
   '5900013-1': { stopName: "Aiand", lat: 59.360262, lon: 26.334407 },
+  '5900036-1': { stopName: "Arkna tee", lat: 59.361074, lon: 26.36783 },
   '5900040-1': { stopName: "Arkna tee", lat: 59.360404, lon: 26.3679593 },
   '5900055-1': { stopName: "Bussijaam", lat: 59.3472746, lon: 26.3648904 },
   '5900056-1': { stopName: "Carl Robert Jakobsoni", lat: 59.3504651, lon: 26.3562956 },
@@ -46,10 +51,12 @@ export const GTFS_STOP_COORDS_BY_ID = {
   '5900655-1': { stopName: "Rohu", lat: 59.351432, lon: 26.339765 },
   '5900659-1': { stopName: "Lihakombinaat", lat: 59.3708971, lon: 26.3903794 },
   '5900660-1': { stopName: "Roodevälja", lat: 59.3690841, lon: 26.3785183 },
+  '5900661-1': { stopName: "Roodevälja", lat: 59.368887, lon: 26.377781 },
   '5900670-1': { stopName: "Rägavere tee", lat: 59.3373385, lon: 26.3887974 },
   '5900709-1': { stopName: "Saueaugu", lat: 59.3381654, lon: 26.3698835 },
   '5900710-1': { stopName: "Saueaugu", lat: 59.3380646, lon: 26.3703039 },
   '5900726-1': { stopName: "Seminari", lat: 59.3413224, lon: 26.3721933 },
+  '5900727-1': { stopName: "Seminari", lat: 59.3410184, lon: 26.3721173 },
   '5900728-1': { stopName: "Side", lat: 59.3418167, lon: 26.3763972 },
   '5900729-1': { stopName: "Side", lat: 59.3417828, lon: 26.3757893 },
   '5900777-1': { stopName: "Tammiku", lat: 59.3296368, lon: 26.3496333 },
@@ -78,6 +85,7 @@ export const GTFS_STOP_COORDS_BY_ID = {
   '5901107-1': { stopName: "Pauluse kalmistu", lat: 59.3265554, lon: 26.353767 },
   '5901156-1': { stopName: "Pauluse kalmistu", lat: 59.3265891, lon: 26.3541308 },
   '5901194-1': { stopName: "Näituse", lat: 59.3633728, lon: 26.3401906 },
+  '5901201-1': { stopName: "Papiaru", lat: 59.3639952, lon: 26.3688522 },
   '5901202-1': { stopName: "Papiaru", lat: 59.3642313, lon: 26.3692117 },
   '5901241-1': { stopName: "Raudteejaam", lat: 59.357355, lon: 26.3637539 },
   '5901245-1': { stopName: "Kauba", lat: 59.3567375, lon: 26.368118 },

@@ -121,6 +121,12 @@ export function reconcileExtractions(physical, raw, source) {
 
 export function normalizeTable(source, { line, id }) {
   const anomalies = [];
+  if (line === '1' && source.rows.some(row => row.name === 'Näpi')) {
+    assert.ok(['line1-er-loop', 'line1-l-loop', 'line1-p-loop'].includes(id), 'Napi resolution requires an approved table');
+    assert.equal(source.rows.length, 32, 'Napi resolution requires the verified 32-position pattern');
+    assert.deepEqual(source.rows.filter(row => row.name === 'Näpi').map(row => row.row), [17, 18], 'Napi position mismatch');
+    assert.deepEqual(source.rows.slice(15, 19).map(row => row.printedStopId), ['5900485-1', '5900508-1', '5900508-1', '5900484-1'], 'Napi position context mismatch');
+  }
   const rows = source.rows.map(row => {
     let resolvedStopId = row.printedStopId;
     if (line === '5' && row.name === 'Aiand') {
@@ -130,8 +136,16 @@ export function normalizeTable(source, { line, id }) {
     }
     if (line === '1' && row.name === 'Näpi') {
       assert.equal(row.printedStopId, '5900508-1', 'Napi printed identity changed; review required');
-      resolvedStopId = '';
-      anomalies.push({ state: 'SOURCE_CONFLICT', status: 'UNRESOLVED', table: id, row: row.row, printedValue: row.printedStopId, resolvedValue: null, reason: 'PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized.' });
+      resolvedStopId = row.row === 17 ? '5900507-1' : '5900508-1';
+      anomalies.push({ state: 'SOURCE_CONFLICT', status: 'RESOLVED', table: id, row: row.row,
+        printedValue: row.printedStopId, resolvedValue: resolvedStopId,
+        reason: 'PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.',
+        authority: 'COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.',
+        evidence: { sourceUrl: 'https://api.peatus.ee/routing/v1/routers/estonia/index/graphql',
+          observedAt: '2026-09-13T11:21:47Z', routeId: 'estonia:c6d03d4884b9ed8b357a2728e233944b',
+          patternId: 'estonia:c6d03d4884b9ed8b357a2728e233944b:1:01', position: row.row,
+          gtfsId: row.row === 17 ? 'estonia:109242' : 'estonia:32522', stopCode: resolvedStopId,
+          query: '{ route(id:"estonia:c6d03d4884b9ed8b357a2728e233944b") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }' } });
     }
     if (id === 'line2-er-piira-lihakombinaat' && row.name === 'Seminari') {
       assert.equal(row.times[source.trips.indexOf('01')], '06:04', 'Seminari printed 06:04 changed');
@@ -184,7 +198,7 @@ export function buildSnapshot(pdfDirectory) {
   }
   return { manifest: {
     schemaVersion: 1, snapshotDate: '2026-09-13', scope: 'SOURCE_ONLY_NOT_RUNTIME',
-    provenance: { retrievedAt: 'Date supplied by the human for these ten local official-source PDFs; not inferred from printed effective dates or PDF creation metadata.', sourceUrls: 'Original local PDF Zone.Identifier HostUrl evidence, captured in DATA01.', printedValues: 'Never overwritten. resolved_stop_id is blank for unresolved Napi identities; otherwise equal to printed_stop_id except the explicit Aiand resolution.' },
+    provenance: { retrievedAt: 'Date supplied by the human for these ten local official-source PDFs; not inferred from printed effective dates or PDF creation metadata.', sourceUrls: 'Original local PDF Zone.Identifier HostUrl evidence, captured in DATA01.', printedValues: 'Never overwritten. resolved_stop_id is separate routing identity: DATA01 approves Aiand and COORD01 approves the evidence-backed Napi positions recorded in anomalies. Blank remains reserved for unresolved identities.' },
     extraction: { tool: 'Xpdf pdftotext', modes: ['-table', '-raw'], verification: 'AGREE_EXCEPT_EXPLICIT_NAME_EXTRACTION_ARTIFACT', layout: 'Reis-header-derived character columns independently checked against content-stream token rows; no page-coordinate overrides.', rawContinuation: 'A numbered name-only row may join one immediate distance/stop_id continuation; any name disagreement requires an explicit extraction artifact.', ignoredAsGates: ['segment travel hints', 'footer total duration'] },
     pdfs, tables: tables.map(({ content, ...metadata }) => metadata),
     coverage: ['L', 'P'].map(dayType => ({ line: '2', dayType, status: 'NO_SERVICE', authority: 'DATA01 explicit human decision for this snapshot; not inferred from missing generated trips.' })),

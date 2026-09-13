@@ -5,7 +5,7 @@
   "provenance": {
     "retrievedAt": "Date supplied by the human for these ten local official-source PDFs; not inferred from printed effective dates or PDF creation metadata.",
     "sourceUrls": "Original local PDF Zone.Identifier HostUrl evidence, captured in DATA01.",
-    "printedValues": "Never overwritten. resolved_stop_id is blank for unresolved Napi identities; otherwise equal to printed_stop_id except the explicit Aiand resolution."
+    "printedValues": "Never overwritten. resolved_stop_id is separate routing identity: DATA01 approves Aiand and COORD01 approves the evidence-backed Napi positions recorded in anomalies. Blank remains reserved for unresolved identities."
   },
   "extraction": {
     "tool": "Xpdf pdftotext",
@@ -981,57 +981,123 @@
   "anomalies": [
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-er-loop",
       "row": 17,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900507-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 17,
+        "gtfsId": "estonia:109242",
+        "stopCode": "5900507-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-er-loop",
       "row": 18,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900508-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 18,
+        "gtfsId": "estonia:32522",
+        "stopCode": "5900508-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-l-loop",
       "row": 17,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900507-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 17,
+        "gtfsId": "estonia:109242",
+        "stopCode": "5900507-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-l-loop",
       "row": 18,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900508-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 18,
+        "gtfsId": "estonia:32522",
+        "stopCode": "5900508-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-p-loop",
       "row": 17,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900507-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 17,
+        "gtfsId": "estonia:109242",
+        "stopCode": "5900507-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SOURCE_CONFLICT",
-      "status": "UNRESOLVED",
+      "status": "RESOLVED",
       "table": "line1-p-loop",
       "row": 18,
       "printedValue": "5900508-1",
-      "resolvedValue": null,
-      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+      "resolvedValue": "5900508-1",
+      "reason": "PDF repeats 5900508-1. Live Peatus line-1 pattern distinguishes positions 17 and 18; printed IDs and all times retained, with no visit collapse.",
+      "authority": "COORD01 scope amendment explicitly approves this evidence-backed position-specific resolution.",
+      "evidence": {
+        "sourceUrl": "https://api.peatus.ee/routing/v1/routers/estonia/index/graphql",
+        "observedAt": "2026-09-13T11:21:47Z",
+        "routeId": "estonia:c6d03d4884b9ed8b357a2728e233944b",
+        "patternId": "estonia:c6d03d4884b9ed8b357a2728e233944b:1:01",
+        "position": 18,
+        "gtfsId": "estonia:32522",
+        "stopCode": "5900508-1",
+        "query": "{ route(id:\"estonia:c6d03d4884b9ed8b357a2728e233944b\") { gtfsId shortName longName patterns { code stops { gtfsId code name } } } }"
+      }
     },
     {
       "state": "SUSPECTED_TYPO",

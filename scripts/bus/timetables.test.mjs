@@ -56,18 +56,23 @@ test('only the observed line 3 name/distance overlap is an explicit extraction e
   assert.throws(() => reconcileExtractions(physical, raw, source), /mismatch/i);
 });
 
-test('normalization changes only approved Aiand identity and leaves Napi unresolved', () => {
+test('normalization preserves printed evidence and attaches only approved Aiand and Napi identities', () => {
   const aiand = normalizeTable(parseRawText(rawText)[0], { line: '5', id: 'line5-er-return' });
   assert.equal(aiand.rows[0].printedStopId, '5900597-1');
   assert.equal(aiand.rows[0].resolvedStopId, '5900013-1');
   assert.equal(aiand.anomalies[0].state, 'STOP_ID_MISMATCH');
-  const source = { trips: ['01'], blocks: ['1-01'], rows: [
-    { row: 1, name: 'Näpi', printedStopId: '5900508-1', times: ['06:48'] },
-    { row: 2, name: 'Näpi', printedStopId: '5900508-1', times: ['06:50'] },
-  ] };
+  const [, ...printed] = parseCSV(readFileSync(join(snapshotRoot, 'tables', 'line1-er-loop.csv'), 'utf8'));
+  const source = { trips: ['01'], blocks: ['1-01'], rows: printed.map(r => ({ row: Number(r[0]), name: r[1], printedStopId: r[2], times: [r[4]] })) };
+  const before = structuredClone(source);
   const napi = normalizeTable(source, { line: '1', id: 'line1-er-loop' });
-  assert.deepEqual(napi.rows.map(r => r.resolvedStopId), ['', '']);
-  assert.ok(napi.anomalies.every(a => a.state === 'SOURCE_CONFLICT' && a.status === 'UNRESOLVED'));
+  assert.deepEqual(napi.rows.slice(16, 18).map(r => r.resolvedStopId), ['5900507-1', '5900508-1']);
+  assert.deepEqual(napi.rows.map(({ resolvedStopId, ...r }) => r), before.rows);
+  assert.deepEqual(source, before);
+  assert.ok(napi.anomalies.every(a => a.state === 'SOURCE_CONFLICT' && a.status === 'RESOLVED' && a.authority && a.evidence.sourceUrl.startsWith('https://api.peatus.ee/')));
+  const shifted = structuredClone(source);
+  shifted.rows[16].row = 16;
+  assert.throws(() => normalizeTable(shifted, { line: '1', id: 'line1-er-loop' }), /Napi.*position/i);
+  assert.throws(() => normalizeTable(source, { line: '1', id: 'unapproved-loop' }), /Napi.*table/i);
 });
 
 test('time validation allows equal consecutive timestamps but rejects reversal or bad HH:MM', () => {
@@ -101,8 +106,8 @@ test('real PDF snapshot has independently specified totals and literal anomaly f
   assert.deepEqual(validateSnapshot(snapshotRoot), { pdfs: 10, tables: 17, trips: 121, cells: 2140 });
   const get = name => readFileSync(join(snapshotRoot, 'tables', name), 'utf8');
   assert.match(get('line2-er-piira-lihakombinaat.csv'), /6,Seminari,5900726-1,5900726-1,06:04,07:01/);
-  assert.match(get('line1-er-loop.csv'), /17,Näpi,5900508-1,,06:48/);
-  assert.match(get('line1-er-loop.csv'), /18,Näpi,5900508-1,,06:50/);
+  assert.match(get('line1-er-loop.csv'), /17,Näpi,5900508-1,5900507-1,06:48/);
+  assert.match(get('line1-er-loop.csv'), /18,Näpi,5900508-1,5900508-1,06:50/);
   assert.match(get('line5-er-pohjakeskus-ragavere.csv'), /reis_10,reis_14,reis_12,reis_16/);
 });
 
@@ -117,9 +122,16 @@ test('validator rejects edited cells, printed IDs/names, anomaly decisions, cove
       assert.throws(() => validateSnapshot(dir), /mismatch|decreas/i);
     }
     writeFileSync(file, original);
+    const napiFile = join(dir, 'tables', 'line1-er-loop.csv');
+    const napiOriginal = readFileSync(napiFile, 'utf8');
+    for (const replacement of ['17,Näpi,5900507-1,5900507-1,', '17,Näpi,5900508-1,5900508-1,', '17,Näpi,5900508-1,,']) {
+      writeFileSync(napiFile, napiOriginal.replace('17,Näpi,5900508-1,5900507-1,', replacement));
+      assert.throws(() => validateSnapshot(dir), /mismatch/i);
+    }
+    writeFileSync(napiFile, napiOriginal);
     const manifestFile = join(dir, 'manifest.json');
     const manifestText = readFileSync(manifestFile, 'utf8');
-    for (const mutate of [m => { m.anomalies = []; }, m => { m.coverage[0].status = 'SERVICE'; }]) {
+    for (const mutate of [m => { m.anomalies = []; }, m => { m.coverage[0].status = 'SERVICE'; }, m => { delete m.anomalies.find(a => a.state === 'SOURCE_CONFLICT').evidence; }]) {
       const m = JSON.parse(manifestText); mutate(m);
       writeFileSync(manifestFile, JSON.stringify(m));
       assert.throws(() => validateSnapshot(dir), /manifest|coverage/i);
