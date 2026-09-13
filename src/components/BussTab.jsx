@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AV, FONT, card, inp, labelStyle, shell } from '../design/tokens';
 import { BUS_DATA } from '../data/busData';
 import { POI_DATA } from '../data/poiData';
-import { BusMapPicker } from './BusMapPicker';
+import { BusMapPicker, reachableMapCandidates } from './BusMapPicker';
 import { depsWithMeta, nearest, wd } from '../utils/bus';
 import { createOriginContext, reachableDestinations, findDirectRoutes } from '../utils/busReach';
 
@@ -214,7 +214,7 @@ export function BussTab({ savedPlaces = [] }) {
   function handleMapPick(payload) {
     const lat = Number(payload?.lat);
     const lon = Number(payload?.lon);
-    const nearestHit = Number.isFinite(lat) && Number.isFinite(lon) ? nearest(lat, lon) : null;
+    const nearestHit = !originContext && Number.isFinite(lat) && Number.isFinite(lon) ? nearest(lat, lon) : null;
 
     if (nearestHit?.dist != null && nearestHit.dist > 3000) {
       setMapPickedPoint(Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null);
@@ -227,8 +227,8 @@ export function BussTab({ savedPlaces = [] }) {
 
     setDestinationResolutionError('');
     setMapPickError('');
-    const nearestStops = Array.isArray(payload?.nearestStops) ? payload.nearestStops : [];
-    const candidates = resolveMapDestinationCandidates(nearestStops, lat, lon);
+    const candidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+    if (originContext && !candidates.length) setMapPickError(DIRECT_CONNECTION_MISSING_REASON);
 
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       setMapPickedPoint({ lat, lon });
@@ -240,10 +240,9 @@ export function BussTab({ savedPlaces = [] }) {
   }
 
   function confirmMapDestinationCandidate() {
-    if (!selectedMapCandidate) return;
-    setActiveMapDestinationCandidates(
-      dedupeGroupNames(mapDestinationCandidates.map(candidate => candidate.groupName)).slice(0, DESTINATION_CANDIDATE_LIMIT)
-    );
+    const candidate = visibleMapCandidates.find(item => item.groupName === selectedMapCandidate);
+    if (!candidate?.stopIds?.length) return;
+    setActiveMapDestinationCandidates([candidate]);
     setSelectedDestinationSource('map');
     setSelectedPoiId('');
     setDestinationResolutionError('');
@@ -337,8 +336,30 @@ export function BussTab({ savedPlaces = [] }) {
     ? reachableDestinations(originContext, { service })
     : BUS_DATA.groups;
   const destinationInDropdown = destinationGroups.some(group => group.name === destination);
+  const reachableMapStopIds = originContext ? new Set(destinationGroups.flatMap(group => group.stopIds)) : null;
+  const visibleMapCandidates = mapPickedPoint && reachableMapStopIds
+    ? reachableMapCandidates(mapPickedPoint.lat, mapPickedPoint.lon, [...reachableMapStopIds])
+    : mapDestinationCandidates;
+  const visibleMapError = mapPickedPoint && reachableMapStopIds && !visibleMapCandidates.length
+    ? DIRECT_CONNECTION_MISSING_REASON : mapPickError;
+  const activeMapStopIds = activeMapDestinationCandidates.flatMap(candidate => candidate.stopIds)
+    .filter(id => !reachableMapStopIds || reachableMapStopIds.has(id));
 
-  // Revalidate before committing a render; map selections retain their existing flow.
+  // Reject stale draft/confirmed identities before a render can publish old routes.
+  if (mapPickerOpen && mapPickedPoint && !visibleMapCandidates.some(candidate => candidate.groupName === selectedMapCandidate)
+      && selectedMapCandidate !== (visibleMapCandidates[0]?.groupName || '')) {
+    setSelectedMapCandidate(visibleMapCandidates[0]?.groupName || '');
+  }
+  if (selectedDestinationSource === 'map' && destination && originContext && !activeMapStopIds.length) {
+    setDestination('');
+    setSelectedPlaceLabel('');
+    setPlaceQuery('');
+    setSelectedDestinationSource('none');
+    setActiveMapDestinationCandidates([]);
+    setDestinationResolutionError('');
+  }
+
+  // Revalidate before committing a render.
   if (selectedDestinationSource === 'dropdown' && destination && originStopId && !destinationInDropdown) {
     setDestination('');
     setSelectedPlaceLabel('');
@@ -413,11 +434,13 @@ export function BussTab({ savedPlaces = [] }) {
   if (destination && originContext) {
     if (selectedDestinationSource === 'dropdown') {
       routeTarget = destinationGroups.find(group => group.name === destination) || null;
+    } else if (selectedDestinationSource === 'map') {
+      routeTarget = { stopIds: activeMapStopIds };
     } else {
       const { candidates, unresolvedReason } = buildDestinationCandidates(
         destination, selectedDestinationSource, selectedPoiId, activeMapDestinationCandidates, destinationResolutionError
       );
-      // Map candidates are existing registered groups; retain their concrete IDs, never their display label.
+      // Legacy POI resolution remains group-based; map targets never take this path.
       routeTarget = { stopIds: [...new Set(candidates.flatMap(name =>
         BUS_DATA.groups.find(group => group.name === name)?.codes || []
       ))] };
@@ -680,7 +703,8 @@ export function BussTab({ savedPlaces = [] }) {
                 <BusMapPicker
                   initialCenter={mapInitialCenter}
                   onPick={handleMapPick}
-                  highlightStopNames={mapDestinationCandidates.map(candidate => candidate.groupName)}
+                  reachableStopIds={reachableMapStopIds ? [...reachableMapStopIds] : null}
+                  highlightStopNames={visibleMapCandidates.map(candidate => candidate.groupName)}
                   selectedStopName={selectedMapCandidate}
                   currentPosition={currentPosition}
                   nearestOriginStop={nearestOriginStopForMap}
@@ -700,20 +724,23 @@ export function BussTab({ savedPlaces = [] }) {
                   <div style={{ fontSize: 12, color: AV.muted }}>
                     Puuduta kaardil kohta, kuhu soovid jõuda.
                   </div>
-                ) : mapDestinationCandidates.length > 0 ? (
+                ) : visibleMapCandidates.length > 0 ? (
                   <>
                     <div style={{ fontSize: 12, fontWeight: 600, color: AV.text, marginBottom: 8 }}>
-                      {mapDestinationCandidates.length === 1
+                      {visibleMapCandidates[0].walkingFallback
+                        ? 'Jalutuskäigu kaugusel'
+                        : visibleMapCandidates.length === 1
                         ? 'Lähim peatus sihtkohale'
                         : 'Mitu peatust on lähedal'}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-                      {mapDestinationCandidates.map(candidate => {
+                      {visibleMapCandidates.map(candidate => {
                         const active = selectedMapCandidate === candidate.groupName;
                         return (
                           <button
                             key={candidate.id}
                             onClick={() => setSelectedMapCandidate(candidate.groupName)}
+                            aria-pressed={active}
                             style={{
                               padding: '7px 11px',
                               borderRadius: 100,
@@ -725,6 +752,7 @@ export function BussTab({ savedPlaces = [] }) {
                             }}
                           >
                             {candidate.groupName}
+                            {candidate.distanceMeters != null ? ` · ~${Math.round(candidate.distanceMeters)} m linnulennult` : ''}
                           </button>
                         );
                       })}
@@ -748,7 +776,7 @@ export function BussTab({ savedPlaces = [] }) {
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: AV.muted }}>
-                    {mapPickError || 'Valitud kohale ei leitud sobivat peatust. Proovi kaardil teist kohta.'}
+                    {visibleMapError || 'Valitud kohale ei leitud sobivat peatust. Proovi kaardil teist kohta.'}
                   </div>
                 )}
               </div>
@@ -787,6 +815,9 @@ export function BussTab({ savedPlaces = [] }) {
         </select>
         <div style={{ fontSize: 12, color: AV.muted, marginTop: 8 }}>
           {destination ? `Valitud sihtkoht: ${visibleDestinationLabel}` : 'Vali sihtkoht, et näha marsruute'}
+          {selectedDestinationSource === 'map' && activeMapDestinationCandidates[0]?.walkingFallback && (
+            <div>Jaluta peatusest valitud punkti · ~{Math.round(activeMapDestinationCandidates[0].distanceMeters)} m linnulennult</div>
+          )}
         </div>
 
         <div style={{ marginTop: 22, paddingTop: 18, borderTop: `1px solid ${AV.border}`, marginBottom: 14 }}>

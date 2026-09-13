@@ -66,6 +66,29 @@ function distanceScore(latA, lonA, latB, lonB) {
   return dLat * dLat + dLon * dLon;
 }
 
+// Geography only: the parent supplies the read-model's exact reachable IDs.
+export function reachableMapCandidates(lat, lon, stopIds) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return [];
+  const point = L.latLng(lat, lon);
+  const nearby = [...new Set(stopIds)].flatMap(stopId => {
+    const stop = GTFS_STOP_COORDS_BY_ID[stopId];
+    if (!Number.isFinite(stop?.lat) || !Number.isFinite(stop?.lon)) return [];
+    return [{ stopId, name: stop.stopName, distanceMeters: point.distanceTo([stop.lat, stop.lon]) }];
+  }).filter(stop => stop.distanceMeters <= 800)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters || a.stopId.localeCompare(b.stopId));
+  const walkingFallback = !nearby.some(stop => stop.distanceMeters <= 400);
+  const groups = new Map();
+  for (const stop of nearby) {
+    if (!walkingFallback && stop.distanceMeters > 400) continue;
+    if (!groups.has(stop.name)) groups.set(stop.name, {
+      id: `map-${stop.name}`, groupName: stop.name, stopIds: [],
+      distanceMeters: stop.distanceMeters, walkingFallback,
+    });
+    groups.get(stop.name).stopIds.push(stop.stopId);
+  }
+  return [...groups.values()].slice(0, 3);
+}
+
 function dedupeNames(names) {
   const out = [];
   const seen = new Set();
@@ -189,6 +212,7 @@ export function BusMapPicker({
   selectedStopName = '',
   currentPosition = null,
   nearestOriginStop = null,
+  reachableStopIds = null,
 }) {
   const mapHostRef = useRef(null);
   const mapRef = useRef(null);
@@ -205,6 +229,10 @@ export function BusMapPicker({
   const markerVisualFrameRef = useRef(null);
   const [activeLineFilter, setActiveLineFilter] = useState('all');
   const [selectedRouteShapeId, setSelectedRouteShapeId] = useState('');
+  const pickContextRef = useRef({ reachableStopIds, onPick });
+  useEffect(() => {
+    pickContextRef.current = { reachableStopIds, onPick };
+  }, [reachableStopIds, onPick]);
 
   const stopPoints = useMemo(() => {
     const rows = Object.entries(BUS_DATA?.by_code || {});
@@ -477,6 +505,12 @@ export function BusMapPicker({
       }).addTo(pinLayer);
       pickedPinLayerRef.current = pinLayer;
 
+      const pickContext = pickContextRef.current;
+      if (pickContext.reachableStopIds !== null) {
+        pickContext.onPick?.({ lat, lon, candidates: reachableMapCandidates(lat, lon, pickContext.reachableStopIds) });
+        return;
+      }
+
       let helperName = null;
       try {
         helperName = nearestNameFromHelper(nearest(lat, lon));
@@ -486,15 +520,24 @@ export function BusMapPicker({
 
       const rawNearest = stopPoints
         .map(stop => ({
+          stopId: stop.code,
           name: stop.name,
           score: distanceScore(lat, lon, stop.lat, stop.lon),
         }))
         .sort((a, b) => a.score - b.score)
-        .slice(0, 3)
-        .map(hit => hit.name);
+        .slice(0, 3);
 
-      const nearestStopNames = dedupeNames([helperName, ...rawNearest]).slice(0, 3);
-      onPick?.({ lat, lon, nearestStops: nearestStopNames });
+      const nearestStopNames = dedupeNames([helperName, ...rawNearest.map(hit => hit.name)]).slice(0, 3);
+      const candidates = nearestStopNames.map(groupName => {
+        const stopIds = rawNearest.filter(hit => hit.name === groupName).map(hit => hit.stopId);
+        if (!stopIds.length) {
+          const closest = stopPoints.filter(stop => stop.name === groupName).sort((a, b) =>
+            distanceScore(lat, lon, a.lat, a.lon) - distanceScore(lat, lon, b.lat, b.lon))[0];
+          if (closest) stopIds.push(closest.code);
+        }
+        return { id: `map-${groupName}`, groupName, stopIds };
+      });
+      pickContext.onPick?.({ lat, lon, nearestStops: nearestStopNames, candidates });
     });
 
     map.on('zoomend', () => {

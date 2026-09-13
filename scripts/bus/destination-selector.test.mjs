@@ -86,10 +86,14 @@ test('BussTab reachable destination integration in Chromium', {
     stdin: { resolveDir: root, contents: `
       import React from 'react';
       import {createRoot} from 'react-dom/client';
+      import L from 'leaflet';
       import {BussTab} from ${JSON.stringify(join(sourceRoot, 'src/components/BussTab.jsx'))};
+      import {reachableMapCandidates} from ${JSON.stringify(join(sourceRoot, 'src/components/BusMapPicker.jsx'))};
       import {GTFS_STOP_COORDS_BY_ID} from ${JSON.stringify(join(sourceRoot, 'src/data/gtfsStopCoords.js'))};
-      ${traceLifecycle ? `import L from 'leaflet'; import {installLeafletTrace} from './scripts/bus/browser-lifecycle.mjs'; installLeafletTrace(L);` : ''}
+      ${traceLifecycle ? `import {installLeafletTrace} from './scripts/bus/browser-lifecycle.mjs'; installLeafletTrace(L);` : ''}
+      L.Map.addInitHook(function () { window.mapInstance = this; });
       window.stopCoords = GTFS_STOP_COORDS_BY_ID;
+      window.reachableMapCandidates = reachableMapCandidates;
       const root = createRoot(document.getElementById('root'));
       window.unmountBussTab = () => root.unmount();
       root.render(React.createElement(BussTab));
@@ -176,6 +180,163 @@ test('BussTab reachable destination integration in Chromium', {
         return {model:fiber?.memoizedProps.d, text:fiber?.child.stateNode.textContent};
       })`);
 
+    const mapCandidateNames = () => evaluate(`[...document.querySelectorAll('[role=dialog] button')]
+      .map(b => b.textContent.split(' · ')[0].trim()).filter(name => Object.values(window.stopCoords).some(s => s.stopName === name))`);
+    const tapAt = async (lat, lon) => {
+      if (!await evaluate(`!!document.querySelector('.leaflet-container')`)) await click('Vali sihtkoht kaardilt');
+      await waitFor(`!!document.querySelector('.leaflet-container canvas')`);
+      await evaluate(`void window.mapInstance.fire('click', {latlng:{lat:${lat},lng:${lon}}})`);
+      await waitFor(`document.body.textContent.includes('Lähim peatus sihtkohale') ||
+        document.body.textContent.includes('Mitu peatust on lähedal') ||
+        document.body.textContent.includes('Jalutuskäigu kaugusel') ||
+        document.body.textContent.includes('Valitud suunal ei leitud praegu sobivat otseliini.')`);
+    };
+    const tapStop = async stopId => {
+      const point = await evaluate(`window.stopCoords[${JSON.stringify(stopId)}]`);
+      await tapAt(point.lat, point.lon);
+    };
+
+    for (const [tapId, name, alightId, metres] of [
+      ['5900232-1', 'Keskuse', '5900255-1', 158],
+      ['5900055-1', 'Keskuse', '5900255-1', 171],
+      ['5900078-1', 'Haigla', '5900078-1', 0],
+    ]) {
+      await t.test(`MAP01 Oie tap ${tapId}: nearest reachable ${name}, exact alight ${alightId}`, async () => {
+        await open('14', '7');
+        await origin('Õie');
+        await tapStop(tapId);
+        const names = await mapCandidateNames();
+        assert.equal(names[0], name);
+        assert.ok(names.length <= 3 && new Set(names).size === names.length);
+        assert.ok(names.every(n => OIE.includes(n)));
+        const distance = await evaluate(`[...document.querySelectorAll('[role=dialog] button')]
+          .find(b => b.textContent.startsWith(${JSON.stringify(name + ' ·')}))?.textContent.match(/~(\\d+) m linnulennult/)?.[1]`);
+        assert.ok(distance !== undefined && Math.abs(Number(distance) - metres) <= 1, 'Distance respects GTFS metres and existing tap-coordinate rounding');
+        assert.equal(await evaluate(`document.querySelector('[role=dialog]').textContent.includes('Jalutuskäigu kaugusel')`), false);
+        await click('Kasuta seda sihtkohta');
+        const result = await cards();
+        assert.ok(result.length > 0);
+        assert.ok(result.every(r => r.model.alightStopId === alightId && r.model.destinationName === name));
+        assert.ok(result.every(r => r.text.includes('Välju peatuses: ' + name)));
+        if (name === 'Haigla') assert.deepEqual(
+          [result[0].model.boardStopId, result[0].model.departure, result[0].model.arrival],
+          ['5901010-1', '07:22', '07:35']);
+        assert.deepEqual(await options(), OIE);
+      });
+    }
+    await t.test('MAP01 walking fallback is explicit, bounded and only routes to the chosen candidate', async () => {
+      await open('14', '7');
+      await origin('Õie');
+      await tapStop('5901010-1');
+      assert.deepEqual(await mapCandidateNames(), ['Tammiku', 'Tulika']);
+      assert.ok(await evaluate(`document.querySelector('[role=dialog]').textContent.includes('Jalutuskäigu kaugusel')`));
+      await click('Tulika ·');
+      await click('Kasuta seda sihtkohta');
+      const result = await cards();
+      assert.ok(result.length > 0 && result.every(r => r.model.alightStopId === '5900816-1'));
+      assert.ok(await evaluate(`document.body.textContent.includes('Jaluta peatusest valitud punkti')`));
+    });
+    await t.test('MAP01 no reachable point within 800m cannot confirm or fabricate a target', async () => {
+      await open('14', '7');
+      await origin('Õie');
+      await tapAt(59.375, 26.34);
+      assert.deepEqual(await mapCandidateNames(), []);
+      assert.equal(await evaluate(`[...document.querySelectorAll('[role=dialog] button')].some(b => b.textContent.includes('Kasuta seda sihtkohta') && !b.disabled)`), false);
+      assert.ok(await evaluate(`document.querySelector('[role=dialog]').textContent.includes('Valitud suunal ei leitud praegu sobivat otseliini.')`));
+      assert.deepEqual(await rows(), []);
+    });
+    await t.test('MAP01 origin changes invalidate confirmed targets and refresh an already open picker', async () => {
+      await open('14', '7');
+      await origin('Õie');
+      await tapStop('5900232-1');
+      await click('Kasuta seda sihtkohta');
+      const before = await cards();
+      assert.ok(before.length > 0 && before.every(r => r.model.alightStopId === '5900255-1'));
+      await evaluate(`window.staleMapRows = []; window.mapRowsObserver = new MutationObserver(() => {
+        window.staleMapRows.push([...document.querySelectorAll('div')].filter(e => !e.children.length && e.textContent.startsWith('Välju peatuses:')).map(e => e.textContent));
+      }); window.mapRowsObserver.observe(document.getElementById('root'), {subtree:true,childList:true,characterData:true});`);
+      await origin('Kivi');
+      assert.deepEqual(await rows(), []);
+      assert.equal(await evaluate(`document.body.textContent.includes('Valitud sihtkoht: Keskuse')`), false);
+      assert.ok(await evaluate('window.staleMapRows.length > 0 && window.staleMapRows.every(rows => rows.length === 0)'));
+      await evaluate('window.mapRowsObserver.disconnect()');
+      await tapStop('5900232-1');
+      assert.ok(!(await mapCandidateNames()).includes('Keskuse'));
+      await origin('Õie');
+      await waitFor(`document.querySelector('[role=dialog]').textContent.includes('Keskuse')`);
+      assert.equal((await mapCandidateNames())[0], 'Keskuse');
+      await tapStop('5900078-1');
+      assert.equal((await mapCandidateNames())[0], 'Haigla');
+      await click('Kasuta seda sihtkohta');
+      const after = await cards();
+      assert.ok(after.length > 0 && after.every(r => r.model.alightStopId === '5900078-1'));
+    });
+    await t.test('MAP01 no-origin browsing still offers the tapped stop', async () => {
+      await open('14', '7');
+      await tapStop('5900232-1');
+      assert.equal((await mapCandidateNames())[0], 'Keskväljak');
+      await click('Kasuta seda sihtkohta');
+      assert.ok(await evaluate(`document.body.textContent.includes('Valitud sihtkoht: Keskväljak')`));
+      assert.deepEqual(await rows(), []);
+      assert.equal((await options()).length, 49);
+      await origin('Õie');
+      assert.equal(await evaluate(`document.body.textContent.includes('Valitud sihtkoht: Keskväljak')`), false);
+      assert.deepEqual(await rows(), []);
+      await tapStop('5900232-1');
+      assert.equal((await mapCandidateNames())[0], 'Keskuse');
+    });
+
+    await t.test('MAP01 confirming a group cannot reintroduce its same-name stop outside the primary radius', async () => {
+      await open('14', '7');
+      await origin('Tõrma kalmistu');
+      // Both Haigla IDs are reachable here, but only the western point is within 400m.
+      const point = await evaluate(`(() => {const p = window.stopCoords['5900078-1'];
+        return {lat:p.lat,lon:p.lon-399/6371000*180/Math.PI/Math.cos(p.lat*Math.PI/180)};})()`);
+      const represented = await evaluate(`window.reachableMapCandidates(${point.lat},${point.lon},['5900078-1','5900079-1'])`);
+      assert.deepEqual(represented[0].stopIds, ['5900078-1']);
+      await tapAt(point.lat, point.lon);
+      assert.ok((await mapCandidateNames()).includes('Haigla'));
+      await click('Haigla ·');
+      await click('Kasuta seda sihtkohta');
+      const result = await cards();
+      assert.equal(result.length, 3);
+      assert.ok(result.every(r => r.model.alightStopId === '5900078-1'));
+      assert.deepEqual(result.map(r => r.model.arrival), ['07:35', '08:31', '09:46']);
+    });
+
+    await t.test('MAP01 geographical radius boundaries are 400m primary and 800m walking, with no extra stop IDs', async () => {
+      await open();
+      for (const [metres, count, fallback] of [[399.99, 1, false], [400.01, 1, true], [799.99, 1, true], [800.01, 0, null]]) {
+        const candidates = await evaluate(`(() => { const p = window.stopCoords['5900078-1'];
+          return window.reachableMapCandidates(p.lat + ${metres} / 6371000 * 180 / Math.PI, p.lon, ['5900078-1']); })()`);
+        assert.equal(candidates.length, count);
+        if (count) {
+          assert.equal(candidates[0].walkingFallback, fallback);
+          assert.deepEqual(candidates[0].stopIds, ['5900078-1']);
+          assert.ok(Math.abs(candidates[0].distanceMeters - metres) < 0.001);
+        }
+      }
+      assert.deepEqual(await evaluate(`window.reachableMapCandidates(59.35, 26.36, [])`), []);
+    });
+    await t.test('MAP01 geographical dedupe preserves only supplied in-radius IDs, with deterministic order and a three-group cap', async () => {
+      await open();
+      const result = await evaluate(`(() => {const p = window.stopCoords['5900078-1'];
+        const ids = ['5900079-1', '5900078-1', '5900078-1'];
+        return {both: window.reachableMapCandidates(p.lat,p.lon,ids),
+          reverse: window.reachableMapCandidates(p.lat,p.lon,ids.reverse()),
+          one: window.reachableMapCandidates(p.lat,p.lon,['5900078-1'])};})()`);
+      assert.equal(result.both.length, 1);
+      assert.deepEqual(result.both[0].stopIds, ['5900078-1', '5900079-1']);
+      assert.deepEqual(result.both, result.reverse);
+      assert.deepEqual(result.one[0].stopIds, ['5900078-1']);
+      const bounded = await evaluate(`(() => {const p = window.stopCoords['5900232-1'];
+        return window.reachableMapCandidates(p.lat,p.lon,Object.keys(window.stopCoords));})()`);
+      assert.equal(bounded.length, 3);
+      assert.equal(new Set(bounded.map(c => c.groupName)).size, 3);
+      assert.ok(bounded.every(c => c.distanceMeters <= 400 && !c.walkingFallback));
+      assert.deepEqual(bounded.map(c => c.distanceMeters), bounded.map(c => c.distanceMeters).sort((a,b) => a-b));
+    });
+
     await t.test('DEBUG01 pending canvas redraw is cancelled on map confirmation/unmount', async () => {
       await open('14', '7');
       await click('Näita busse minu lähedal');
@@ -243,7 +404,7 @@ test('BussTab reachable destination integration in Chromium', {
       assert.deepEqual(await rows(), []);
       assert.ok(await evaluate(`document.body.textContent.includes('Täna enam busse pole')`));
     });
-    await t.test('UI02 G1: map-selected Oie label cannot override the reachable alight stop', async () => {
+    await t.test('UI02 G1: map tap at Oie labels the actual reachable alight stop (MAP01)', async () => {
       await open('14', '7');
       await click('Näita busse minu lähedal');
       await evaluate(`(() => {const s = window.stopCoords['5901010-1']; window.gpsSuccess({coords:{latitude:s.lat,longitude:s.lon}});})()`);
@@ -258,7 +419,7 @@ test('BussTab reachable destination integration in Chromium', {
       await cdp.send('Input.dispatchMouseEvent', {type:'mouseReleased', ...point, button:'left', clickCount:1});
       await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.includes('Kasuta seda sihtkohta') && !b.disabled)`);
       await click('Kasuta seda sihtkohta');
-      assert.ok(await evaluate(`document.body.textContent.includes('Valitud sihtkoht: Õie')`));
+      assert.ok(await evaluate(`document.body.textContent.includes('Valitud sihtkoht: Tammiku')`));
       const result = await cards();
       assert.ok(result.length > 0);
       assert.ok(result.every(r => r.model.destinationName !== 'Õie'));
@@ -280,8 +441,8 @@ test('BussTab reachable destination integration in Chromium', {
         return {x:r.x+r.width/2, y:r.y+r.height/2};})()`);
       await cdp.send('Input.dispatchMouseEvent', {type:'mousePressed', ...point, button:'left', clickCount:1});
       await cdp.send('Input.dispatchMouseEvent', {type:'mouseReleased', ...point, button:'left', clickCount:1});
-      await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.includes('Kasuta seda sihtkohta') && !b.disabled)`);
-      await click('Kasuta seda sihtkohta');
+      await waitFor(`document.querySelector('[role=dialog]').textContent.includes('Valitud suunal ei leitud praegu sobivat otseliini.')`);
+      assert.equal(await evaluate(`[...document.querySelectorAll('[role=dialog] button')].some(b => b.textContent.includes('Kasuta seda sihtkohta') && !b.disabled)`), false);
       assert.deepEqual(await rows(), []);
       assert.ok(await evaluate(`document.body.textContent.includes('Valitud suunal ei leitud praegu sobivat otseliini.')`));
     });
