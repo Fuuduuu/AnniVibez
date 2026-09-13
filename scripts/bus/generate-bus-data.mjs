@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseCSV, validateTimes } from './validate-timetables.mjs';
 
@@ -140,23 +140,24 @@ export function serializeModel(model) {
   return `// Generated from manifest.json and tables/*.csv. Do not edit.\nexport const BUS_DATA = ${JSON.stringify(model, null, 2)};\n`;
 }
 
-export function generateCandidate(root = snapshotRoot) {
+export function generateCandidate(root = snapshotRoot, outputPath) {
   const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'));
   assert.ok(manifest.tables.every(t => /^[a-z0-9-]+\.csv$/.test(t.filename)), 'Invalid table filename');
   assert.deepEqual(readdirSync(join(root, 'tables')).sort(), manifest.tables.map(t => t.filename).sort(), 'Table file set mismatch');
   const tables = Object.fromEntries(manifest.tables.map(t => [t.id, readFileSync(join(root, 'tables', t.filename), 'utf8')]));
   const model = generateModel(manifest, tables);
   const output = serializeModel(model);
-  const directory = join(root, 'generated');
-  mkdirSync(directory, { recursive: true });
-  const path = join(directory, 'busData.generated.js');
+  const path = outputPath ? resolve(outputPath) : join(root, 'generated', 'busData.generated.js');
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, output, 'utf8');
   return { path, sha256: digest(output), ...model.meta.sourceCounts, patterns: Object.keys(model.patterns).length };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    assert.ok(process.argv.length <= 3, 'Usage: node scripts/bus/generate-bus-data.mjs [snapshot-folder]');
-    console.log(JSON.stringify(generateCandidate(process.argv[2] ? resolve(process.argv[2]) : snapshotRoot), null, 2));
+    const args = process.argv.slice(2);
+    assert.ok((args.length <= 1 || (args.length === 3 && args[1] === '--output' && args[2])) && !args[0]?.startsWith('--'),
+      'Usage: node scripts/bus/generate-bus-data.mjs [snapshot-folder [--output output-file]]');
+    console.log(JSON.stringify(generateCandidate(args[0] ? resolve(args[0]) : snapshotRoot, args[2]), null, 2));
   } catch (error) { console.error(`GENERATION FAIL: ${error.message}`); process.exitCode = 1; }
 }
