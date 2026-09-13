@@ -231,24 +231,18 @@ export function depsWithMeta(originInput, lim = 3, options = {}) {
       const tripStopTimes = trip.stop_times || [];
       if (!tripStopTimes.length) continue;
 
-      if (hasDestination) {
-        const seqsInTrip = new Set(tripStopTimes.map(st => st.seq));
-        let hasValidPair = false;
-        for (const originSeq of validOriginSeqs) {
-          if (!seqsInTrip.has(originSeq)) continue;
-          for (const destinationStop of destinationStops) {
-            if (destinationStop.seq > originSeq && seqsInTrip.has(destinationStop.seq)) {
-              hasValidPair = true;
-              break;
-            }
-          }
-          if (hasValidPair) break;
-        }
-        if (!hasValidPair) continue;
-      }
+      const seqsInTrip = new Set(tripStopTimes.filter(st => stopBySeq.has(st.seq)).map(st => st.seq));
+      const visitEndBySeq = new Map((trip.visits || []).flatMap(visit =>
+        visit.sourceRows.map(seq => [seq, visit.sourceRows.at(-1)])
+      ));
 
       for (const st of tripStopTimes) {
         if (!validOriginSeqs.has(st.seq) || st.time < now) continue;
+        // A grouped visit boards once, at departure; legacy rows are individual occurrences.
+        if ((visitEndBySeq.get(st.seq) ?? st.seq) !== st.seq) continue;
+        if (![...seqsInTrip].some(seq => seq > st.seq)) continue;
+        // A valid earlier origin must not authorize a later occurrence after the destination.
+        if (hasDestination && !destinationStops.some(stop => stop.seq > st.seq && seqsInTrip.has(stop.seq))) continue;
         const stop = stopBySeq.get(st.seq);
         results.push({
           line: line.line,
