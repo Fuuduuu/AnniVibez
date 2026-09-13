@@ -12,6 +12,12 @@ const ORIGIN_CANDIDATE_LIMIT = 5;
 const DESTINATION_CANDIDATE_LIMIT = 3;
 const ROUTE_OPTION_LIMIT = 3;
 
+function nearbyDepartureLabel(time, now) {
+  const [hours, minutes] = time.split(':').map(Number);
+  const minutesAway = Math.max(0, hours * 60 + minutes - (now.getHours() * 60 + now.getMinutes()));
+  return minutesAway === 0 ? 'kohe' : `${minutesAway} min pärast`;
+}
+
 function DepRow({ d }) {
   return (
     <div style={{ padding: '10px 0', borderBottom: `1px solid ${AV.border}` }}>
@@ -71,6 +77,7 @@ export function BussTab({ savedPlaces = [] }) {
   const [selectedPoiId, setSelectedPoiId] = useState('');
   const [destinationResolutionError, setDestinationResolutionError] = useState('');
   const [mapPickError, setMapPickError] = useState('');
+  const [nearbyClock, setNearbyClock] = useState(() => ({ now: new Date(), service: wd() }));
 
   function originCodesFrom(stopLike) {
     const raw =
@@ -434,6 +441,7 @@ export function BussTab({ savedPlaces = [] }) {
     }
     navigator.geolocation.getCurrentPosition(
       p => {
+        setNearbyClock({ now: new Date(), service: wd() });
         const nextLat = Number(p?.coords?.latitude);
         const nextLon = Number(p?.coords?.longitude);
         if (Number.isFinite(nextLat) && Number.isFinite(nextLon)) {
@@ -535,6 +543,22 @@ export function BussTab({ savedPlaces = [] }) {
     error: 'Asukohta ei saanud kasutada',
   }[gpsState];
 
+  useEffect(() => {
+    if (gpsState !== 'ok' || !currentOrigin) return;
+    const refresh = () => setNearbyClock({ now: new Date(), service: wd() });
+    refresh();
+    const interval = setInterval(refresh, 60000);
+    return () => clearInterval(interval);
+  }, [gpsState, currentOrigin]);
+
+  const showNearbyDepartures = gpsState === 'ok' && currentOrigin != null;
+  // Filtering and relative labels share this snapshot, separate from route planning.
+  const nearbyNow = nearbyClock.now;
+  const nearbyTime = `${String(nearbyNow.getHours()).padStart(2, '0')}:${String(nearbyNow.getMinutes()).padStart(2, '0')}`;
+  const nearbyDepartures = showNearbyDepartures
+    ? depsWithMeta(originCodesFrom(currentOrigin), 3, { service: nearbyClock.service, now: nearbyTime }).departures
+    : [];
+
   const validSaved = savedPlaces.filter(p => p?.lat != null && p?.lon != null);
   const mapInitialCenter =
     Number.isFinite(effectiveOrigin?.lat) && Number.isFinite(effectiveOrigin?.lon)
@@ -570,32 +594,91 @@ export function BussTab({ savedPlaces = [] }) {
 
       <section aria-labelledby="buss-next-heading" style={{ ...card, padding: '22px 18px', marginBottom: 20 }}>
         <h2 id="buss-next-heading" style={{ ...labelStyle, fontSize: 13, color: AV.textSoft, margin: '0 0 16px' }}>JÄRGMISED BUSSID</h2>
-        <button
-          type="button"
-          onClick={gpsClick}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            padding: '14px 16px',
-            width: '100%',
-            minHeight: 56,
-            background: AV.textSoft,
-            border: `1px solid ${AV.purple}`,
-            borderRadius: AV.rSm,
-            cursor: 'pointer',
-            fontSize: 16,
-            fontWeight: 600,
-            lineHeight: 1.4,
-            fontFamily: 'inherit',
-            color: AV.card,
-            boxShadow: AV.shadowSm,
-          }}
-        >
-          <span aria-hidden="true">📍</span>
-          <span aria-live="polite">{gpsLabel}</span>
-        </button>
+        <div aria-live="polite">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            {showNearbyDepartures && (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, color: AV.textSoft, marginBottom: 6 }}>Sinu lähim peatus</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: AV.text, lineHeight: 1.4 }}>
+                  {currentOrigin.name}
+                  {currentOrigin.dist != null && (
+                    <>
+                      {' '}
+                      <span style={{ whiteSpace: 'nowrap' }}>· {currentOrigin.dist} m</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={gpsClick}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                padding: showNearbyDepartures ? '10px 12px' : '14px 16px',
+                width: showNearbyDepartures ? 'auto' : '100%',
+                minHeight: showNearbyDepartures ? 44 : 56,
+                flexShrink: 0,
+                background: showNearbyDepartures ? AV.bg : AV.textSoft,
+                border: `1px solid ${showNearbyDepartures ? AV.border : AV.purple}`,
+                borderRadius: AV.rSm,
+                cursor: 'pointer',
+                fontSize: showNearbyDepartures ? 14 : 16,
+                fontWeight: 600,
+                lineHeight: 1.4,
+                fontFamily: 'inherit',
+                color: showNearbyDepartures ? AV.textSoft : AV.card,
+                boxShadow: showNearbyDepartures ? 'none' : AV.shadowSm,
+              }}
+            >
+              {!showNearbyDepartures && <span aria-hidden="true">📍</span>}
+              <span>{showNearbyDepartures ? 'Muuda' : gpsLabel}</span>
+            </button>
+          </div>
+          {showNearbyDepartures && (
+            <>
+              {nearbyDepartures.length > 0 ? (
+                <ul aria-label="Järgmised väljumised" style={{ listStyle: 'none', padding: 0, margin: '18px 0 8px' }}>
+                  {nearbyDepartures.map(d => (
+                    <li
+                      key={`${d.line}|${d.v}|${d.time}|${d.originStopId}`}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, minHeight: 76, padding: '14px 0' }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 22, fontWeight: 600, color: AV.text, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
+                          {nearbyDepartureLabel(d.time, nearbyNow)}
+                        </div>
+                        <div style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, marginTop: 5 }}>
+                          <time dateTime={d.time}>{d.time}</time> · {d.dir}
+                        </div>
+                      </div>
+                      <span
+                        role="img"
+                        aria-label={`Liin ${d.line}${d.v ? `, variant ${d.v}` : ''}`}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 42, height: 42, padding: '0 10px', flexShrink: 0, borderRadius: AV.rSm, background: AV.sageL, color: AV.text, fontSize: 20, fontWeight: 600 }}
+                      >
+                        {d.line}{d.v ? `·${d.v}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, margin: '20px 0 12px' }}>
+                  Täna sellest peatusest rohkem busse ei tule.
+                </p>
+              )}
+              <div style={{ fontSize: 12, color: AV.textSoft, lineHeight: 1.5 }}>Ajad on sõiduplaani järgi</div>
+            </>
+          )}
+          {gpsState === 'error' && (
+            <p style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, margin: '12px 0 0' }}>
+              Saad peatuse ise valida — kõik töötab edasi.
+            </p>
+          )}
+        </div>
       </section>
 
       <section aria-labelledby="buss-destination-heading" style={{ ...card, padding: '22px 18px', marginBottom: 20 }}>
