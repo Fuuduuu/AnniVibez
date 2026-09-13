@@ -144,64 +144,64 @@ function formatPatternLabel(patternName) {
 const STOP_STYLE_IDLE = {
   radius: 3.1,
   weight: 1,
-  color: '#9aa6bf',
-  fillColor: '#ccd5e8',
+  color: '#6D757A',
+  fillColor: '#EDEAE4',
   fillOpacity: 0.56,
 };
 
 const STOP_STYLE_FADED = {
   radius: 2.7,
   weight: 0.9,
-  color: '#c7cedb',
-  fillColor: '#e8ecf4',
+  color: '#CFCAC0',
+  fillColor: '#EDEAE4',
   fillOpacity: 0.34,
 };
 
 const STOP_STYLE_NEAREST = {
   radius: 4.2,
   weight: 1.6,
-  color: '#7c4dff',
-  fillColor: '#c3adff',
+  color: '#2F5D4B',
+  fillColor: '#E5EEE9',
   fillOpacity: 0.92,
 };
 
 const STOP_STYLE_SELECTED = {
   radius: 5.5,
   weight: 2.2,
-  color: '#5f35bf',
-  fillColor: '#8f6bff',
+  color: '#123F49',
+  fillColor: '#1A5B69',
   fillOpacity: 1,
 };
 
 const ORIGIN_STOP_STYLE = {
   radius: 7.2,
   weight: 2,
-  color: '#1a7e7e',
-  fillColor: '#85d6d6',
+  color: '#2F5D4B',
+  fillColor: '#E5EEE9',
   fillOpacity: 0.82,
 };
 
 const ORIGIN_STOP_INNER_STYLE = {
   radius: 3.4,
   weight: 1.4,
-  color: '#0f5f5f',
-  fillColor: '#0f5f5f',
+  color: '#2F5D4B',
+  fillColor: '#2F5D4B',
   fillOpacity: 0.95,
 };
 
 const CURRENT_POSITION_STYLE = {
   radius: 7.8,
-  weight: 2.1,
-  color: '#d64848',
-  fillColor: '#ff9a9a',
-  fillOpacity: 0.9,
+  weight: 2,
+  color: '#1A5B69',
+  fillColor: '#FFFFFF',
+  fillOpacity: 1,
 };
 
 const CURRENT_POSITION_INNER_STYLE = {
   radius: 3.6,
   weight: 1.5,
-  color: '#b32424',
-  fillColor: '#b32424',
+  color: '#1A5B69',
+  fillColor: '#1A5B69',
   fillOpacity: 0.96,
 };
 
@@ -415,6 +415,7 @@ export function BusMapPicker({
         : RAKVERE_CENTER;
 
     const map = L.map(mapHostRef.current, { zoomControl: true, preferCanvas: true }).setView(center, 13);
+    map.zoomControl.setPosition('topright');
     mapRef.current = map;
     circleRendererRef.current = new MapCanvas({ padding: 0.45 });
     routeRendererRef.current = new MapCanvas({ pane: ROUTE_SHAPE_PANE });
@@ -490,16 +491,16 @@ export function BusMapPicker({
       L.circleMarker([lat, lon], {
         radius: 12,
         weight: 2,
-        color: '#6f4acb',
-        fillColor: '#d8c8ff',
+        color: '#1A5B69',
+        fillColor: '#E4EEF0',
         fillOpacity: 0.34,
         renderer,
       }).addTo(pinLayer);
       L.circleMarker([lat, lon], {
         radius: 6.8,
         weight: 2.2,
-        color: '#5f35bf',
-        fillColor: '#8f6bff',
+        color: '#1A5B69',
+        fillColor: '#1A5B69',
         fillOpacity: 0.96,
         renderer,
       }).addTo(pinLayer);

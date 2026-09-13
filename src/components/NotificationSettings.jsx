@@ -27,8 +27,6 @@ export function NotificationSettings({reminders}) {
       <h3>Meeldetuletused sinu kodu jaoks</h3>
       <p>Meeldetuletused äpis töötavad ka seadme teavitusteta.</p>
       <p role="status">{status[capability.permission]}</p>
-      <p className="mm-footnote">Seadme teavitus, kui brauser/seade seda toetab. Proovime saata ainult siis, kui äpp on avatud ja nähtav ning teenusetöötaja on valmis. Suletud äpis ega taustal saatmist ei lubata.</p>
-      <p className="mm-footnote">Kuupäevaga sündmuse meeldetuletus algab kell 09:00; kellaajaga sündmusel sama kellaaja võrra valitud päevad varem. Sündmuse möödumisel uut seadme teavitust ei saadeta.</p>
       {capability.supported && !capability.activeDelivery && <p>Turvaline korduste vältimine pole siin saadaval. Kasuta meeldetuletusi äpis.</p>}
       <CalendarError error={preferences.error || error} />
       {!deliveryReady && <p className="mm-notice">Saatmisajalugu ei saanud lugeda. Seadme teavitused on peatatud, et vältida kordusi; sündmused jäävad alles.</p>}
@@ -40,7 +38,12 @@ export function NotificationSettings({reminders}) {
           {[[0,'Puudub'],[1,'1 päev enne'],[3,'3 päeva enne'],[7,'1 nädal enne']].map(([value,label])=><option key={value} value={value}>{label}</option>)}
         </select>
       </label>
-      <p className="mm-footnote">Kehtib ainult uue käsitsi lisatava sündmuse loomisel. Olemasolev valik, ka „Puudub”, jääb alati alles.</p>
+      <details>
+        <summary>Kuidas meeldetuletused töötavad</summary>
+        <p className="mm-footnote">Seadme teavitus, kui brauser/seade seda toetab. Proovime saata ainult siis, kui äpp on avatud ja nähtav ning teenusetöötaja on valmis. Suletud äpis ega taustal saatmist ei lubata.</p>
+        <p className="mm-footnote">Kuupäevaga sündmuse meeldetuletus algab kell 09:00; kellaajaga sündmusel sama kellaaja võrra valitud päevad varem. Sündmuse möödumisel uut seadme teavitust ei saadeta.</p>
+        <p className="mm-footnote">Kehtib ainult uue käsitsi lisatava sündmuse loomisel. Olemasolev valik, ka „Puudub”, jääb alati alles.</p>
+      </details>
     </div>
   </section>;
 }

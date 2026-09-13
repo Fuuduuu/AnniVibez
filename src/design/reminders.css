@@ -6,4 +6,6 @@
 .mm-reminder-status, .mm-event-copy > .mm-reminder-status { display: inline-block; margin-top: 7px; padding: 3px 7px;
   background: var(--mm-tint); color: var(--mm-strong); border-radius: 6px; font-size: 12px; font-weight: 600; }
 .mm-reminder-status[data-reminder-state=overdue] { background: var(--mm-secondary); color: var(--mm-soft); }
+.mm-events-home .mm-reminder-status { padding: 0; margin-top: 3px; background: none; color: var(--mm-soft); font-weight: 400; }
+.mm-events-agenda .mm-reminder-status { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
 .mm-notification-settings button:disabled { opacity: .6; cursor: not-allowed; }

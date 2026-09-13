@@ -43,8 +43,8 @@ export const GRAD = {
 };
 
 export const FONT = {
-  display: "'Archivo', 'Segoe UI', Helvetica, sans-serif",
-  body:    "'Instrument Sans', 'Segoe UI', Helvetica, sans-serif",
+  display: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  body:    "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
 };
 
 export const card = {

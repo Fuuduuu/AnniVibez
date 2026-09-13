@@ -28,7 +28,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
         <button className="mm-text-button" onClick={() => onNavigate('kalender')}>Kogu kalender</button>
       </div>
       <CalendarError error={calendar.error} />
-      <EventRows items={upcoming} today={today} now={now} onOpen={onOpen} />
+      <EventRows items={upcoming} today={today} now={now} onOpen={onOpen} variant="home" />
       {!upcoming.length && <div className="mm-card mm-welcome">
         <span className="mm-icon-tile"><ShellIcon name="kodu" /></span>
         <h3>Paneme sinu kodu asjad ritta</h3>

@@ -9,6 +9,9 @@ body { margin: 0; }
 [data-app-shell] h1, [data-app-shell] h2, [data-app-shell] h3, [data-app-shell] p { margin: 0; }
 [data-app-shell] button, [data-app-shell] input, [data-app-shell] select, [data-app-shell] textarea { font-family: inherit; }
 [data-app-shell] button { touch-action: manipulation; }
+[data-app-shell] [tabindex="-1"]:focus:not(:focus-visible),
+[data-app-shell] .leaflet-container:focus:not(:focus-visible) { outline: none; }
+[data-app-shell] [tabindex]:focus-visible, [data-app-shell] a:focus-visible,
 [data-app-shell] button:focus-visible, [data-app-shell] summary:focus-visible,
 [data-app-shell] input:focus-visible, [data-app-shell] textarea:focus-visible, [data-app-shell] select:focus-visible {
   outline: 2px solid var(--mm-primary); outline-offset: 3px;
@@ -16,13 +19,13 @@ body { margin: 0; }
 .mm-page, .mm-back { max-width: 520px; margin: 0 auto; padding: 24px 16px 0; }
 .mm-main { animation: mm-enter .2s ease-out; }
 .mm-home-header { display: flex; align-items: center; gap: 11px; margin-bottom: 22px; }
-.mm-home-header h1 { font: 600 22px/1.15 var(--mm-display); letter-spacing: -.025em; }
+.mm-home-header h1 { font: 600 22px/28px var(--mm-display); letter-spacing: -.025em; }
 .mm-home-header p, .mm-page-header p { color: var(--mm-soft); font-size: 13px; margin-top: 3px; }
 .mm-date::first-letter { text-transform: uppercase; }
 .mm-mark { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 38px; height: 38px;
   border-radius: 10px; background: var(--mm-primary); color: white; font: 700 15px var(--mm-display); letter-spacing: -.05em; }
 .mm-page-header { margin-bottom: 20px; }
-.mm-page-header h1 { font: 600 24px/1.2 var(--mm-display); letter-spacing: -.025em; }
+.mm-page-header h1 { font: 600 22px/28px var(--mm-display); letter-spacing: -.025em; }
 .mm-section { margin-bottom: 26px; }
 .mm-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .mm-section-heading h2, .mm-section-label { font-size: 11.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--mm-soft); }
@@ -49,22 +52,31 @@ body { margin: 0; }
   background: var(--mm-surface); color: var(--mm-soft); border: 0; cursor: pointer; }
 .mm-utility-row + .mm-utility-row { border-top: 1px solid var(--mm-border); }
 .mm-utility-row > svg { flex-shrink: 0; }
-.mm-utility-row .mm-icon-tile { background: var(--mm-secondary); color: var(--mm-soft); }
+.mm-utility-row .mm-icon-tile { background: #EDEAE4; color: var(--mm-soft); }
 .mm-utility-copy { flex: 1; min-width: 0; }
 .mm-utility-copy strong { display: block; color: var(--mm-ink); font-size: 15.5px; line-height: 1.4; }
 .mm-utility-copy > span { display: block; font-size: 13.5px; line-height: 1.45; margin-top: 2px; }
 [data-app-shell] .mm-footnote { font-size: 13px; color: var(--mm-soft); margin-top: 14px; }
 .mm-settings-group { margin-bottom: 20px; scroll-margin-top: 16px; }
 .mm-settings-group > .mm-card { padding: 14px 15px; }
+.mm-settings-group[aria-labelledby=household-heading] > .mm-card:has(+ .mm-card) { border-bottom: 0; border-radius: 12px 12px 0 0; }
+.mm-settings-group[aria-labelledby=household-heading] > .mm-card + .mm-card { border-radius: 0 0 12px 12px; }
 .mm-settings-group p { font-size: 13.5px; color: var(--mm-soft); }
-.mm-settings-group summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-size: 15px; font-weight: 500; }
+.mm-settings-group summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; list-style: none;
+  cursor: pointer; min-height: 44px; padding: 10px 0; font-size: 15px; font-weight: 500; }
+.mm-settings-group summary::-webkit-details-marker { display: none; }
+.mm-settings-group summary::after { content: ''; width: 7px; height: 7px; flex-shrink: 0; margin-right: 3px;
+  border-right: 1.7px solid currentColor; border-bottom: 1.7px solid currentColor; transform: rotate(-45deg); }
+.mm-settings-group details[open] > summary::after { transform: rotate(45deg); }
+.mm-settings-group details details, .mm-notification-settings details { border-top: 1px solid var(--mm-border); }
 .mm-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: var(--mm-surface); border-top: 1px solid var(--mm-border); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.mm-nav-inner { max-width: 520px; margin: 0 auto; display: flex; padding: 6px 8px; }
+.mm-nav-inner { max-width: 520px; margin: 0 auto; display: flex; gap: 4px; padding: 6px 8px; }
 .mm-nav button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   min-height: 56px; border: 0; border-radius: 10px; background: transparent; color: var(--mm-soft); font-size: 11px; cursor: pointer; }
 .mm-nav-icon { width: 44px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
-.mm-nav [aria-current=page] { color: var(--mm-primary); font-weight: 600; }
-.mm-nav [aria-current=page] .mm-nav-icon { background: var(--mm-tint); }
+.mm-nav [aria-current=page] { color: var(--mm-primary); background: var(--mm-tint); font-weight: 600; }
+.mm-bus-headsign { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mm-nearby-departures li + li { border-top: 1px solid var(--mm-border); }
 @keyframes mm-enter { from { opacity: 0; } to { opacity: 1; } }
 @keyframes av-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes av-pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }

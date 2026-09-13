@@ -3,6 +3,7 @@ import { AV, FONT, card, inp, labelStyle, shell } from '../design/tokens';
 import { BUS_DATA } from '../data/busData';
 import { POI_DATA } from '../data/poiData';
 import { BusMapPicker, reachableMapCandidates } from './BusMapPicker';
+import { ShellIcon } from './ShellIcon';
 import { depsWithMeta, nearest, wd } from '../utils/bus';
 import { createOriginContext, reachableDestinations, findDirectRoutes } from '../utils/busReach';
 
@@ -37,7 +38,7 @@ function DepRow({ d }) {
         >
           Liin {d.line}
         </span>
-        <span style={{ fontSize: 13, color: AV.textSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.destinationName}</span>
+        <span className="mm-bus-headsign" title={d.destinationName} style={{ fontSize: 13, color: AV.textSoft }}>{d.destinationName}</span>
       </div>
       <div style={{ fontSize: 12, color: AV.muted, display: 'grid', gap: 2 }}>
         <div>
@@ -511,7 +512,7 @@ export function BussTab({ savedPlaces = [] }) {
   return (
     <div style={shell}>
       <div style={{ marginBottom: 22 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: AV.text, fontFamily: FONT.display, margin: '0 0 8px' }}>Bussid</h1>
+        <h1 style={{ fontSize: 22, lineHeight: '28px', fontWeight: 600, color: AV.text, fontFamily: FONT.display, margin: '0 0 8px' }}>Bussid</h1>
         <div style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5 }}>Vaata järgmisi busse või leia sõit sihtkohta.</div>
       </div>
 
@@ -545,26 +546,26 @@ export function BussTab({ savedPlaces = [] }) {
                 width: showNearbyDepartures ? 'auto' : '100%',
                 minHeight: showNearbyDepartures ? 44 : 56,
                 flexShrink: 0,
-                background: showNearbyDepartures ? AV.bg : AV.textSoft,
-                border: `1px solid ${showNearbyDepartures ? AV.border : AV.purple}`,
+                background: showNearbyDepartures ? AV.bg : AV.sageL,
+                border: `1px solid ${showNearbyDepartures ? AV.border : AV.sage}`,
                 borderRadius: AV.rSm,
                 cursor: 'pointer',
                 fontSize: showNearbyDepartures ? 14 : 16,
                 fontWeight: 600,
                 lineHeight: 1.4,
                 fontFamily: 'inherit',
-                color: showNearbyDepartures ? AV.textSoft : AV.card,
+                color: showNearbyDepartures ? AV.textSoft : AV.sage,
                 boxShadow: showNearbyDepartures ? 'none' : AV.shadowSm,
               }}
             >
-              {!showNearbyDepartures && <span aria-hidden="true">📍</span>}
+              {!showNearbyDepartures && <ShellIcon name="pin" />}
               <span>{showNearbyDepartures ? 'Muuda' : gpsLabel}</span>
             </button>
           </div>
           {showNearbyDepartures && (
             <>
               {nearbyDepartures.length > 0 ? (
-                <ul aria-label="Järgmised väljumised" style={{ listStyle: 'none', padding: 0, margin: '18px 0 8px' }}>
+                <ul className="mm-nearby-departures" aria-label="Järgmised väljumised" style={{ listStyle: 'none', padding: 0, margin: '18px 0 8px' }}>
                   {nearbyDepartures.map(d => (
                     <li
                       key={`${d.line}|${d.v}|${d.time}|${d.originStopId}`}
@@ -574,14 +575,14 @@ export function BussTab({ savedPlaces = [] }) {
                         <div style={{ fontSize: 22, fontWeight: 600, color: AV.text, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
                           {nearbyDepartureLabel(d.time, nearbyNow)}
                         </div>
-                        <div style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, marginTop: 5 }}>
+                        <div className="mm-bus-headsign" title={d.dir} style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, marginTop: 5 }}>
                           <time dateTime={d.time}>{d.time}</time> · {d.dir}
                         </div>
                       </div>
                       <span
                         role="img"
                         aria-label={`Liin ${d.line}${d.v ? `, variant ${d.v}` : ''}`}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 42, height: 42, padding: '0 10px', flexShrink: 0, borderRadius: AV.rSm, background: AV.sageL, color: AV.text, fontSize: 20, fontWeight: 600 }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 42, height: 42, padding: '0 10px', flexShrink: 0, borderRadius: AV.rSm, background: AV.sageL, color: AV.sage, fontSize: 20, fontWeight: 600 }}
                       >
                         {d.line}{d.v ? `·${d.v}` : ''}
                       </span>
@@ -628,13 +629,13 @@ export function BussTab({ savedPlaces = [] }) {
             fontWeight: 600,
             lineHeight: 1.4,
             fontFamily: 'inherit',
-            border: `1px solid ${AV.sage}`,
-            background: AV.sageL,
-            color: AV.text,
+            border: `1px solid ${AV.primary}`,
+            background: AV.primaryTint,
+            color: AV.primary,
             cursor: 'pointer',
           }}
         >
-          <span aria-hidden="true">🗺️</span>
+          <ShellIcon name="map" />
           <span>Vali sihtkoht kaardilt</span>
         </button>
         {mapPickerOpen && (
@@ -715,8 +716,8 @@ export function BussTab({ savedPlaces = [] }) {
                   borderTop: `1px solid ${AV.border}`,
                   padding: '12px 12px 14px',
                   background: '#fff',
-                  borderTopLeftRadius: 16,
-                  borderTopRightRadius: 16,
+                  borderTopLeftRadius: 20,
+                  borderTopRightRadius: 20,
                   boxShadow: '0 -8px 24px rgba(15, 23, 42, 0.06)',
                 }}
               >
@@ -743,6 +744,7 @@ export function BussTab({ savedPlaces = [] }) {
                             aria-pressed={active}
                             style={{
                               padding: '7px 11px',
+                              minHeight: 44,
                               borderRadius: 100,
                               fontSize: 12,
                               cursor: 'pointer',
@@ -762,13 +764,14 @@ export function BussTab({ savedPlaces = [] }) {
                       disabled={!selectedMapCandidate}
                       style={{
                         width: '100%',
+                        minHeight: 52,
                         padding: '10px 12px',
                         borderRadius: 12,
                         fontSize: 13,
                         cursor: selectedMapCandidate ? 'pointer' : 'not-allowed',
                         border: `1px solid ${AV.border}`,
-                        background: selectedMapCandidate ? AV.sageL : '#f1f3f5',
-                        color: selectedMapCandidate ? AV.sage : '#98a0aa',
+                        background: selectedMapCandidate ? AV.primary : AV.bgSoft,
+                        color: selectedMapCandidate ? AV.card : AV.textSoft,
                       }}
                     >
                       Kasuta seda sihtkohta
@@ -849,6 +852,7 @@ export function BussTab({ savedPlaces = [] }) {
                       onClick={() => setManualOriginOverride(choice)}
                       style={{
                         padding: '6px 12px',
+                        minHeight: 44,
                         borderRadius: 100,
                         fontSize: 12,
                         cursor: 'pointer',

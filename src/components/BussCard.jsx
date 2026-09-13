@@ -52,10 +52,10 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
 
   const dotColor = {
     ok: AV.sage,
-    searching: '#EF9F27',
-    error: '#E24B4A',
+    searching: AV.warning,
+    error: AV.muted,
     fallback: AV.sage,
-    idle: '#EF9F27',
+    idle: AV.warning,
   }[gpsState];
 
   const alternateStops = Array.isArray(stop?.candidates)
@@ -105,39 +105,37 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
               Liin {d.line}
               {d.v ? `·${d.v}` : ''}
             </span>
-            <span style={{ fontSize: 13, color: AV.textSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.dir}</span>
+            <span className="mm-bus-headsign" title={d.dir} style={{ fontSize: 13, color: AV.textSoft }}>{d.dir}</span>
           </div>
         ))
       ) : (
         <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '8px 0' }}>{stop ? 'Täna enam busse pole' : 'Laen väljumisi…'}</div>
       )}
 
-      {stopDeps.length > 0 && (
-        <div style={{ fontSize: 11, color: AV.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${AV.border}` }}>
-          Ajad on sõiduplaani järgi
-        </div>
-      )}
-
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, borderTop: `1px solid ${AV.border}` }}>
+      {stopDeps.length > 0 && <span style={{ fontSize: 11, color: AV.textSoft }}>Ajad on sõiduplaani järgi</span>}
       <button
         onClick={onOpenBuss}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          width: '100%',
+          minHeight: 44,
+          gap: 6,
+          marginLeft: 'auto',
           padding: '9px 0',
-          marginTop: 8,
           border: 'none',
-          borderTop: `1px solid ${AV.border}`,
           background: 'none',
           cursor: 'pointer',
           fontSize: 13,
-          color: AV.muted,
+          color: AV.primary,
+          flexShrink: 0,
         }}
       >
         <span>Ava buss</span>
         <span>→</span>
       </button>
+      </div>
     </div>
   );
 }

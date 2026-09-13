@@ -11,6 +11,7 @@ import { waitForBrowserEndpoint } from '../bus/browser-lifecycle.mjs';
 import { runCalendarChecks } from '../calendar/browser-cases.mjs';
 import { runWasteChecks } from '../waste/browser-cases.mjs';
 import { runReminderChecks } from '../reminders/browser-cases.mjs';
+import { runVisualChecks } from './visual-cases.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const browser = [process.env.BUS_TEST_BROWSER,
@@ -272,6 +273,9 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       const values = colors.map(luminance).sort((a,b)=>b-a);
       assert.ok((values[0]+.05)/(values[1]+.05) >= 4.5, 'GPS label contrast must remain compliant');
     });
+    if (process.env.VISUAL_TESTS === '1') {
+      await runVisualChecks({t,nav,click,input,evaluate,waitFor,body,send});
+    }
     if (process.env.CALENDAR_TESTS === '1') {
       await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send});
     }

@@ -97,7 +97,10 @@ export function EventDialog({selection,calendar,onClose}) {
         <label className="mm-field" htmlFor="event-reminder">Meeldetuletuse eelistus<select id="event-reminder" value={form.reminder.daysBefore} onChange={e=>set('reminder',{daysBefore:Number(e.target.value)})}>{[[0,'Puudub'],[1,'1 päev enne'],[3,'3 päeva enne'],[7,'1 nädal enne']].map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></label>
         <p className="mm-footnote">Meeldetuletus kuvatakse äpis. Ilma kellaajata algab see valitud päeval kell 09:00. Seadme teavitusi saad lubada seadetes; taustal saatmist ei lubata.</p>
         <label className="mm-field" htmlFor="event-notes">Märkmed (valikuline)<textarea id="event-notes" value={form.notes} onChange={e=>set('notes',e.target.value)} maxLength={5000} rows={3} /></label>
-        <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable}>Salvesta sündmus</button>
+        <footer className="mm-event-footer">
+          <button className="mm-button mm-button-secondary" type="button" onClick={onClose}>Tühista</button>
+          <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable}>Salvesta sündmus</button>
+        </footer>
       </form>}
     </div>
   </dialog>;
