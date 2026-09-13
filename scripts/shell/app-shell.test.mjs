@@ -9,6 +9,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { waitForBrowserEndpoint } from '../bus/browser-lifecycle.mjs';
 import { runCalendarChecks } from '../calendar/browser-cases.mjs';
+import { runWasteChecks } from '../waste/browser-cases.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const browser = [process.env.BUS_TEST_BROWSER,
@@ -28,7 +29,13 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       import React from 'react';
       import {createRoot} from 'react-dom/client';
       import App from './src/App.jsx';
-      createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
+      ${process.env.WASTE_TESTS === '1' ? `import {createWasteLookup} from './src/waste/providers.js';
+      const wasteLookup=createWasteLookup([{id:'fixture',name:'Controlled test source',supports:address=>address.startsWith('Fixture'),lookup:async()=>{
+        if(window.wasteFail) throw Error('controlled failure');
+        if(window.wasteDelay) return new Promise(resolve=>{window.resolveWaste=resolve;});
+        return window.wasteReply || {entries:[{externalId:'one',title:'Allika bio',subtype:'bio',date:'2026-09-15'}]};
+      }}]);` : 'const wasteLookup=undefined;'}
+      createRoot(document.getElementById('root')).render(<React.StrictMode><App wasteLookup={wasteLookup} /></React.StrictMode>);
     `, loader: 'jsx' },
   });
   assert.ok(Object.keys(bundle.metafile.inputs).every(path => !path.startsWith('docs/')),
@@ -179,7 +186,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       await click('Prügivedu');
       const text = await body();
       for (const label of ['Majapidamine','Prügivedu','Teavitused','Buss','Rakendus']) assert.ok(text.toLocaleLowerCase('et').includes(label.toLocaleLowerCase('et')), label);
-      assert.match(text, /Prügiveo graafiku ühendamine ei ole veel saadaval/);
+      assert.match(text, /Lisa aadress/);
       assert.doesNotMatch(text, /Perega jagamine|Tume režiim|Graafik leitud/);
       assert.equal(await evaluate("document.querySelector('#prugivedu').getBoundingClientRect().top >= 0"), true);
       assert.equal(await storage(), initialStorage);
@@ -252,6 +259,9 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
     });
     if (process.env.CALENDAR_TESTS === '1') {
       await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send});
+    }
+    if (process.env.WASTE_TESTS === '1') {
+      await runWasteChecks({t,nav,click,input,evaluate,waitFor,body,send});
     }
     if (process.env.MJM_SCREENSHOTS) {
       await send('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:false});

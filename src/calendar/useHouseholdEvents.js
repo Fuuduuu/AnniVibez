@@ -21,5 +21,6 @@ export function useHouseholdEvents() {
     return next;
   };
   return {...snapshot,create:input=>mutate('create',input),
+    importWaste:(...args)=>mutate('importWaste',...args),
     update:(...args)=>mutate('update',...args),remove:(...args)=>mutate('remove',...args)};
 }

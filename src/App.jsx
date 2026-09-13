@@ -13,6 +13,8 @@ import { useSettings } from './hooks/useSettings';
 import { useSavedPlaces } from './hooks/useSavedPlaces';
 import './design/shell.css';
 import './design/calendar.css';
+import './design/waste.css';
+import { useHousehold } from './waste/useHousehold';
 
 const TABS = [
   { id: 'kodu', label: 'Kodu' },
@@ -22,11 +24,12 @@ const TABS = [
   { id: 'seaded', label: 'Seaded' },
 ];
 
-export default function MajamajandusApp() {
+export default function MajamajandusApp({wasteLookup} = {}) {
   const [tab, setTab] = useState('kodu');
   const [settingsSection, setSettingsSection] = useState(null);
   const [eventSelection, setEventSelection] = useState(null);
   const calendar = useHouseholdEvents();
+  const household = useHousehold();
   const { profile, saveName } = useSettings();
   const { places, update: updatePlace } = useSavedPlaces();
   const active = ['loo', 'paevik'].includes(tab) ? 'veel' : tab;
@@ -39,6 +42,8 @@ export default function MajamajandusApp() {
   }
   const openAdd = (date,onSaved) => setEventSelection({date,onSaved});
   const openEvent = (item,onSaved) => setEventSelection({item,onSaved});
+  const openWaste = date => setEventSelection({date,defaults:{category:'waste',subtype:'mixed',recurrence:{frequency:'weekly',interval:1}}});
+  const openSchedule = event => setEventSelection({item:{...event,eventId:event.id,occurrenceDate:event.date},seriesOnly:true});
 
   return (
     <div data-app-shell style={{
@@ -64,7 +69,8 @@ export default function MajamajandusApp() {
         {tab === 'loo' && <LooTab />}
         {tab === 'paevik' && <PaeviikTab />}
         {tab === 'seaded' && <SeadedTab profile={profile} saveName={saveName} places={places}
-          updatePlace={updatePlace} initialSection={settingsSection} />}
+          updatePlace={updatePlace} initialSection={settingsSection} household={household} calendar={calendar}
+          onAddWaste={openWaste} onOpenEvent={openEvent} onSchedule={openSchedule} wasteLookup={wasteLookup} />}
       </main>
       {eventSelection && <EventDialog selection={eventSelection} calendar={calendar} onClose={() => setEventSelection(null)} />}
       <nav className="mm-nav" aria-label="Põhinavigatsioon">

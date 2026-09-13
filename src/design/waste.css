@@ -1,0 +1,15 @@
+.mm-household-form { padding: 4px 16px 18px; }
+.mm-household-form .mm-footnote { margin-bottom: 14px; }
+.mm-waste .mm-card { margin-bottom: 12px; }
+.mm-waste h3 { font-size: 17px; margin-bottom: 8px; }
+.mm-waste-source, .mm-waste-manual { padding: 18px; }
+.mm-waste p { overflow-wrap: anywhere; }
+.mm-waste .mm-button { margin-top: 10px; min-height: 48px; }
+.mm-waste .mm-footnote { margin-top: 10px; }
+.mm-waste-source > .mm-event-list { margin-top: 16px; }
+.mm-waste-preview { padding-top: 10px; }
+.mm-waste-schedule { border-top: 1px solid var(--mm-border); margin-top: 18px; padding-top: 16px; }
+.mm-waste-schedule strong { overflow-wrap: anywhere; }
+.mm-waste button:disabled, .mm-household-form button:disabled { opacity: .6; cursor: not-allowed; }
+.mm-source-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.mm-source-fields:disabled input, .mm-source-fields:disabled select { opacity: 1; color: var(--mm-soft); cursor: default; }

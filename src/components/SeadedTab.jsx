@@ -3,6 +3,8 @@ import { useSettings } from '../hooks/useSettings';
 import { readPin } from '../hooks/useDiary';
 import { AV, FONT, card, labelStyle, inp } from '../design/tokens';
 import { PageHeader } from './ShellViews';
+import { HouseholdSettings } from './HouseholdSettings';
+import { WasteSettings } from './WasteSettings';
 
 const PIN_KEY     = 'sade_diary_pin';
 const ENTRIES_KEY = 'sade_diary_entries';
@@ -314,15 +316,14 @@ export function SeadedTab(props = {}) {
       <PageHeader title="Seaded" subtitle="Lihtsad valikud, mida saad igal ajal muuta" />
       <section className="mm-settings-group" aria-labelledby="household-heading">
         <h2 className="mm-section-label" id="household-heading">Majapidamine</h2>
+        <HouseholdSettings household={props.household} />
         <details className="mm-card">
           <summary>Sinu nimi</summary>
           <ProfileSection profile={profile} saveName={saveName} />
         </details>
       </section>
-      <section className="mm-settings-group" id="prugivedu" tabIndex={-1} aria-labelledby="waste-heading">
-        <h2 className="mm-section-label" id="waste-heading">Prügivedu</h2>
-        <div className="mm-card"><p>Prügiveo graafiku ühendamine ei ole veel saadaval. Praegu graafikuid ei impordita.</p></div>
-      </section>
+      <WasteSettings household={props.household} calendar={props.calendar} onAdd={props.onAddWaste}
+        onOpen={props.onOpenEvent} onSchedule={props.onSchedule} lookup={props.wasteLookup} />
       <section className="mm-settings-group" aria-labelledby="notifications-heading">
         <h2 className="mm-section-label" id="notifications-heading">Teavitused</h2>
         <div className="mm-card"><p>Meeldetuletused on ettevalmistamisel. Rakendus ei saada praegu sündmuste teavitusi.</p></div>

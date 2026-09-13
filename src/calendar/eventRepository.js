@@ -1,6 +1,7 @@
 import { createEvent, validateEvent, EDIT_FIELDS } from './eventModel.js';
 import { matchesDate } from './recurrence.js';
 import { dayNumber } from './dates.js';
+import { reconcileWaste, validateImportHistory } from '../waste/reconcile.js';
 
 export const EVENT_STORAGE_KEY = 'majamajandus_household_events_v1';
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
@@ -14,6 +15,7 @@ export function createEventRepository(storage, newId = () => crypto.randomUUID()
       if(raw === null) return {version:1,events:[],writable:true,error:null};
       const data=JSON.parse(raw);
       if(!data || data.version !== 1 || !Array.isArray(data.events)) throw new Error('Tundmatu või vigane kalendri salvestus.');
+      validateImportHistory(data.wasteImports);
       const events=data.events.map(validateEvent);
       if (new Set(events.map(e=>e.id)).size !== events.length) throw new Error('Korduvad sündmuse ID-d.');
       return {...data,events,writable:true,error:null};
@@ -24,10 +26,12 @@ export function createEventRepository(storage, newId = () => crypto.randomUUID()
   function commit(change) {
     const current=read();
     if(!current.writable) throw new Error(current.error);
-    const events=change(current.events).map(validateEvent);
+    const changed=change(current.events,current);
+    const {events:input,...metadata}=Array.isArray(changed) ? {events:changed} : changed;
+    const events=input.map(validateEvent);
     if (new Set(events.map(e=>e.id)).size !== events.length) throw new Error('Sündmuse ID on juba kasutusel.');
     const {writable,error,...envelope}=current;
-    const next={...envelope,events};
+    const next={...envelope,...metadata,events};
     try { storage.setItem(EVENT_STORAGE_KEY,JSON.stringify(stable(next))); }
     catch { throw new Error('Salvestamine ebaõnnestus. Kontrolli seadme salvestusruumi ja proovi uuesti.'); }
     return {...next,writable:true,error:null};
@@ -47,9 +51,18 @@ export function createEventRepository(storage, newId = () => crypto.randomUUID()
   return {
     load:read,
     create:input=>commit(events=>[...events,createEvent(input,newId())]),
+    importWaste(result,now=new Date()) {
+      return commit((events,current)=>{
+        const next=reconcileWaste(events,result,now,newId);
+        return {events:next.events,wasteImports:[...(current.wasteImports ?? []).filter(b=>b.key !== next.batch.key),next.batch]};
+      });
+    },
     update(id,patch,options={}) {
       return commit(events=>{
         const event=target(events,id,options);
+        if(event.source === 'imported' && Object.keys(patch).some(key=>!['reminder','notes'].includes(key))) {
+          throw new Error('Imporditud sündmuse põhiväljad on allika hallata. Muuda ainult märkmeid või meeldetuletust.');
+        }
         let next;
         if(event.recurrence.frequency !== 'none' && options.scope === 'occurrence') {
           const base={...event,date:options.occurrenceDate,excludedDates:[],overrides:{}};
