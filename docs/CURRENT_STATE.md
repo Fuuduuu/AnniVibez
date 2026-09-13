@@ -12,7 +12,12 @@ Status: compact low-token state snapshot for future Codex passes.
 
 ## Accepted runtime features
 
-- Accepted bus baseline: `5a27600` (includes `2bf9830` simplified bus UX and `9e6e142` route-row key fix).
+- Accepted committed bus baseline: `c1e8469`; LIVE / FIELD SMOKE is pending. Older deployed/smoked notes below describe earlier checkpoints, not field validation of this baseline.
+- Normalized current Rakvere timetable runtime, evidence-backed stop identity resolutions and deterministic timetable generator are accepted.
+- Terminal arrivals are excluded from boarding departures.
+- Shared `busReach` core supplies reachable-only destination selection, truthful direct routes with exact board/alight IDs and reachable exact-ID map targets.
+- Leaflet lifecycle stabilization is accepted.
+- Earlier bus UX baseline `5a27600` (includes `2bf9830` simplified bus UX and `9e6e142` route-row key fix) remains included.
 - `BussTab` has two primary tasks: nearby GPS departures and destination selection.
 - route cards include:
   - `Mine peatusesse`
@@ -22,7 +27,7 @@ Status: compact low-token state snapshot for future Codex passes.
 - map destination picker is integrated in `BussTab` via `BusMapPicker`
 - GTFS stop-point coordinate layer exists in `src/data/gtfsStopCoords.js`
 - `nearest(...)` and `BusMapPicker` prefer GTFS stop-point coords by stopId
-- `src/data/busData.js` was not overwritten during GTFS coordinate wiring
+- Historical: GTFS coordinate wiring did not overwrite `src/data/busData.js`; DATA03 subsequently replaced its timetable runtime.
 - PASS `27F2` is accepted/live
 - PASS `28A` direct-route candidate-search planning is completed (docs-only)
 - PASS `28B` direct-route candidate-search MVP is deployed/smoked
@@ -52,7 +57,7 @@ Status: compact low-token state snapshot for future Codex passes.
   - selected line highlights relevant stops
   - unrelated stops fade, not disappear
   - multi-line stops remain visible if they serve selected line
-- direct-route candidate matrix search is active in `BussTab` (origin x destination)
+- direct routes in `BussTab` now use the shared read-model, replacing the legacy candidate matrix search
 - transfer routing is not implemented yet
 - map line color data layer is implemented (`STOP_TO_LINES`, `LINE_COLORS`, `LINE_PATTERNS`)
 - line badges are implemented in `BusMapPicker`
@@ -87,7 +92,10 @@ Status: compact low-token state snapshot for future Codex passes.
 - primary sections: `JÄRGMISED BUSSID` and `KUHU TAHAD MINNA?`
 - effective origin model:
   - `effectiveOrigin = manualOriginOverride ?? currentOrigin`
-- legacy / transitional route engine (not the future general routing API):
+- shared routing read-model in `src/utils/busReach.js`:
+  - `createOriginContext(...)`, `reachableDestinations(...)`, `findDirectRoutes(...)`
+- dropdown, direct routes and map use reachability truth with concrete stop_id identity; route cards use actual board/alight IDs
+- legacy / transitional nearby departure API (not the general routing API):
   - `depsWithMeta(...)`
 - coordinate-to-stop resolver remains:
   - `nearest(...)`
@@ -96,7 +104,7 @@ Status: compact low-token state snapshot for future Codex passes.
 - legacy / transitional origin code resolution (retain until migration; do not copy into the new read-model):
   - `displayCodes || codes || [code]`
 - nearby candidate logic remains active
-- map pin destination flow remains active and feeds destination candidates
+- map pin destination flow selects reachable exact-ID candidates when origin is known; no-origin browsing remains available
 - route-card intent is:
   - walk to origin stop
   - take line
@@ -116,13 +124,13 @@ Status: compact low-token state snapshot for future Codex passes.
 
 - future product direction may include extracting the bus module into a standalone dedicated app
 - this is not current implementation scope
-- current scope is LOCK00, followed by DATA01 normalized timetable source work; runtime routing/UI changes await later passes
+- runtime feature development is paused until LIVE / FIELD SMOKE result
 - future planning reference:
   - `docs/audit/bus-module-extraction-future-plan.md`
 
 ## Protected boundaries
 
-- retain transitional `depsWithMeta(...)` during source work; do not expand it into the new general routing API
+- retain transitional `depsWithMeta(...)` where still used; do not expand it into the general routing API
 - do not rewrite `nearest(...)` casually
 - retain transitional `displayCodes || codes || [code]` until migration; it is not a rule for new routing/read-model code
 - do not remove Õie/Tulika nearby behavior
@@ -156,10 +164,10 @@ Sniper Matrix visual asset:
 - `docs/assets/annivibe-sniper-matrix.png`
 - source of truth remains `docs/CODEBASE_IMPACT_MAP.md`
 
-## Next authorized pass
+## Next action
 
-- After LOCK00: `DATA01 — NORMALIZED_TIMETABLE_SOURCE`.
-- Earlier next-pass suggestions are superseded; no runtime routing/UI work is authorized here.
+- **LIVE / FIELD SMOKE**.
+- Runtime feature development is **PAUSED until live smoke result**; earlier next-pass suggestions are superseded.
 
 ## Known deploy notes
 
