@@ -155,7 +155,8 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       assert.deepEqual(await evaluate("[...document.querySelectorAll('nav button')].map(b=>b.textContent.trim())"),
         ['Kodu','Kalender','Buss','Veel','Seaded']);
       const text = await body();
-      for (const label of ['Majamajandus','Tulemas','Buss praegu','Kiirtoimingud']) assert.ok(text.toLocaleLowerCase('et').includes(label.toLocaleLowerCase('et')), label);
+      for (const label of ['Majandus','Tulemas','Buss praegu','Kiirtoimingud']) assert.ok(text.toLocaleLowerCase('et').includes(label.toLocaleLowerCase('et')), label);
+      assert.equal(await evaluate("document.querySelector('.mm-mark').textContent"), 'M');
       assert.doesNotMatch(text, /AnniVibe|Tugi|Loo täna|Täna sulle/);
       assert.ok(await evaluate("document.querySelector('nav [aria-current=page]').textContent.includes('Kodu')"));
     });
@@ -244,6 +245,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
         for (const label of ['Kodu','Kalender','Veel','Seaded','Buss']) {
           await nav(label);
           assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `${label} overflows ${width}px`);
+          assert.doesNotMatch(await body(), /Majamajandus|\bMM\b/i, `${label} has stale visible branding`);
         }
       }
       await nav('Kodu');
@@ -326,13 +328,16 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
 test('PWA and HTML identity use Majamajandus without downloaded fonts', () => {
   const read = path => readFileSync(join(root,path),'utf8');
   const manifest = JSON.parse(read('public/manifest.webmanifest'));
-  assert.equal(manifest.name,'Majamajandus');
+  assert.equal(manifest.name,'Majandus');
+  assert.equal(manifest.short_name,'Majandus');
   assert.equal(manifest.theme_color,'#1A5B69');
   assert.equal(manifest.background_color,'#F4F2EE');
-  assert.match(read('index.html'), /<title>Majamajandus<\/title>/);
+  assert.match(read('index.html'), /<title>Majandus<\/title>/);
+  assert.match(read('index.html'), /name="apple-mobile-web-app-title" content="Majandus"/);
   assert.doesNotMatch(read('index.html'), /fonts.googleapis|Fraunces|AnniVibe/);
-  assert.match(read('vite.config.js'), /name: 'Majamajandus'/);
-  assert.match(read('public/favicon.svg'), /aria-label="Majamajandus"/);
+  assert.match(read('vite.config.js'), /\bname: 'Majandus'/);
+  assert.match(read('vite.config.js'), /\bshort_name: 'Majandus'/);
+  assert.match(read('public/favicon.svg'), /aria-label="Majandus"/);
   for (const [path,size] of [['public/icons/icon-192.png',192],['public/icons/icon-512.png',512],['public/apple-touch-icon.png',180]]) {
     const png = readFileSync(join(root,path));
     assert.equal(png.readUInt32BE(16),size);

@@ -19,8 +19,8 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
   const date = now.toLocaleDateString('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
   return <div className="mm-page">
     <header className="mm-home-header">
-      <span className="mm-mark" aria-hidden="true">MM</span>
-      <div><h1>Majamajandus</h1><p className="mm-date">{date}</p></div>
+      <span className="mm-mark" aria-hidden="true">M</span>
+      <div><h1>Majandus</h1><p className="mm-date">{date}</p></div>
     </header>
     <section className="mm-section" aria-labelledby="upcoming-heading">
       <div className="mm-section-heading">

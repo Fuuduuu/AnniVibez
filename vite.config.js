@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Majamajandus',
-        short_name: 'Majamajandus',
+        name: 'Majandus',
+        short_name: 'Majandus',
         description: 'Kodu asjad ühes kohas',
         theme_color: '#1A5B69',
         background_color: '#F4F2EE',
