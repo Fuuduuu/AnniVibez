@@ -5,6 +5,7 @@ import { AV, FONT, card, labelStyle, inp } from '../design/tokens';
 import { PageHeader } from './ShellViews';
 import { HouseholdSettings } from './HouseholdSettings';
 import { WasteSettings } from './WasteSettings';
+import { NotificationSettings } from './NotificationSettings';
 
 const PIN_KEY     = 'sade_diary_pin';
 const ENTRIES_KEY = 'sade_diary_entries';
@@ -324,10 +325,7 @@ export function SeadedTab(props = {}) {
       </section>
       <WasteSettings household={props.household} calendar={props.calendar} onAdd={props.onAddWaste}
         onOpen={props.onOpenEvent} onSchedule={props.onSchedule} lookup={props.wasteLookup} />
-      <section className="mm-settings-group" aria-labelledby="notifications-heading">
-        <h2 className="mm-section-label" id="notifications-heading">Teavitused</h2>
-        <div className="mm-card"><p>Meeldetuletused on ettevalmistamisel. Rakendus ei saada praegu sündmuste teavitusi.</p></div>
-      </section>
+      <NotificationSettings reminders={props.reminders} />
       <section className="mm-settings-group" aria-labelledby="bus-settings-heading">
         <h2 className="mm-section-label" id="bus-settings-heading">Buss</h2>
         <details className="mm-card">

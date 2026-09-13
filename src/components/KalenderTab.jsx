@@ -50,7 +50,7 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
     <div className="mm-calendar-legend">{Object.entries(CATEGORIES).map(([key,c])=><span key={key} style={{color:c.color,background:c.tint}}>{c.label}</span>)}</div>
     <section id="selected-events" aria-labelledby="selected-heading" className="mm-section">
       <h2 id="selected-heading" className="mm-section-label">{formatDate(selected,{weekday:'long',day:'numeric',month:'long'})}</h2>
-      <EventRows items={selectedItems} today={today} onOpen={item=>onOpen(item,setSelected)} />
+      <EventRows items={selectedItems} today={today} now={now} onOpen={item=>onOpen(item,setSelected)} />
       {!selectedItems.length && <div className="mm-card mm-calendar-empty">
         <h3>{calendar.events.length ? 'Sel päeval pole midagi plaanis' : 'Ühtegi sündmust pole veel'}</h3>
         <p>{calendar.events.length ? 'Lisa siia kodu jaoks oluline tegevus.' : 'Lisa esimene hooldus, makse või prügipäev.'}</p>
@@ -63,7 +63,7 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
       if(!items.length) return null;
       return <section className="mm-section" key={group} aria-label={group}>
         <h2 className="mm-section-label">{group}</h2>
-        <EventRows items={items.slice(0,20)} today={today} onOpen={item=>onOpen(item,setSelected)} />
+        <EventRows items={items.slice(0,20)} today={today} now={now} onOpen={item=>onOpen(item,setSelected)} />
         {items.length > 20 && <p className="mm-footnote">Veel {items.length-20} sündmust. Vali kuupäev kuukalendrist.</p>}
       </section>;
     })}

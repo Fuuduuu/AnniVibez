@@ -15,6 +15,10 @@ import './design/shell.css';
 import './design/calendar.css';
 import './design/waste.css';
 import { useHousehold } from './waste/useHousehold';
+import { useReminders } from './reminders/useReminders';
+import { withReminderDefault } from './reminders/preferences';
+import { ReminderRuntime } from './components/ReminderRuntime';
+import './design/reminders.css';
 
 const TABS = [
   { id: 'kodu', label: 'Kodu' },
@@ -24,12 +28,13 @@ const TABS = [
   { id: 'seaded', label: 'Seaded' },
 ];
 
-export default function MajamajandusApp({wasteLookup} = {}) {
+export default function MajamajandusApp({wasteLookup,notificationService} = {}) {
   const [tab, setTab] = useState('kodu');
   const [settingsSection, setSettingsSection] = useState(null);
   const [eventSelection, setEventSelection] = useState(null);
   const calendar = useHouseholdEvents();
   const household = useHousehold();
+  const reminders = useReminders(notificationService);
   const { profile, saveName } = useSettings();
   const { places, update: updatePlace } = useSavedPlaces();
   const active = ['loo', 'paevik'].includes(tab) ? 'veel' : tab;
@@ -40,9 +45,9 @@ export default function MajamajandusApp({wasteLookup} = {}) {
     setTab(next);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
-  const openAdd = (date,onSaved) => setEventSelection({date,onSaved});
+  const openAdd = (date,onSaved) => setEventSelection({date,onSaved,defaults:withReminderDefault({},reminders.preferences)});
   const openEvent = (item,onSaved) => setEventSelection({item,onSaved});
-  const openWaste = date => setEventSelection({date,defaults:{category:'waste',subtype:'mixed',recurrence:{frequency:'weekly',interval:1}}});
+  const openWaste = date => setEventSelection({date,defaults:withReminderDefault({category:'waste',subtype:'mixed',recurrence:{frequency:'weekly',interval:1}},reminders.preferences)});
   const openSchedule = event => setEventSelection({item:{...event,eventId:event.id,occurrenceDate:event.date},seriesOnly:true});
 
   return (
@@ -70,9 +75,10 @@ export default function MajamajandusApp({wasteLookup} = {}) {
         {tab === 'paevik' && <PaeviikTab />}
         {tab === 'seaded' && <SeadedTab profile={profile} saveName={saveName} places={places}
           updatePlace={updatePlace} initialSection={settingsSection} household={household} calendar={calendar}
-          onAddWaste={openWaste} onOpenEvent={openEvent} onSchedule={openSchedule} wasteLookup={wasteLookup} />}
+          onAddWaste={openWaste} onOpenEvent={openEvent} onSchedule={openSchedule} wasteLookup={wasteLookup} reminders={reminders} />}
       </main>
       {eventSelection && <EventDialog selection={eventSelection} calendar={calendar} onClose={() => setEventSelection(null)} />}
+      <ReminderRuntime events={calendar.events} reminders={reminders} />
       <nav className="mm-nav" aria-label="Põhinavigatsioon">
         <div className="mm-nav-inner">
           {TABS.map(t => <button key={t.id} type="button" aria-current={active === t.id ? 'page' : undefined}

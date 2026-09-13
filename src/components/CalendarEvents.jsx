@@ -1,7 +1,8 @@
 import { CATEGORIES, WASTE_SUBTYPES } from '../calendar/eventModel';
 import { formatDate, relativeDate } from '../calendar/dates';
+import { ReminderStatus } from './ReminderStatus';
 
-export function EventRows({items,today,onOpen}) {
+export function EventRows({items,today,now,onOpen}) {
   return <div className="mm-event-list">
     {items.map(item=>{
       const category=CATEGORIES[item.category];
@@ -12,6 +13,7 @@ export function EventRows({items,today,onOpen}) {
         <span className="mm-event-copy"><strong>{item.title}</strong>
           <span>{category.label}{item.category === 'waste' ? ` · ${WASTE_SUBTYPES[item.subtype]}` : ''}</span>
           <span>{formatDate(item.date)}{item.time ? ` · ${item.time}` : ' · Kogu päev'}</span>
+          {now && <ReminderStatus item={item} now={now} />}
         </span>
         <span className="mm-event-when">{relativeDate(item.date,today)}</span>
       </button>;

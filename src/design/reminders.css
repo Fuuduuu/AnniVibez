@@ -1,0 +1,9 @@
+.mm-notification-settings { padding: 18px; }
+.mm-notification-settings h3 { font-size: 17px; margin-bottom: 10px; }
+.mm-notification-settings > p { margin-bottom: 12px; }
+.mm-notification-settings .mm-field { margin-top: 20px; }
+.mm-notification-settings button { min-height: 48px; }
+.mm-reminder-status, .mm-event-copy > .mm-reminder-status { display: inline-block; margin-top: 7px; padding: 3px 7px;
+  background: var(--mm-tint); color: var(--mm-strong); border-radius: 6px; font-size: 12px; font-weight: 600; }
+.mm-reminder-status[data-reminder-state=overdue] { background: var(--mm-secondary); color: var(--mm-soft); }
+.mm-notification-settings button:disabled { opacity: .6; cursor: not-allowed; }

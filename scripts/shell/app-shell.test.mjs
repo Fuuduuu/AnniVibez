@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { waitForBrowserEndpoint } from '../bus/browser-lifecycle.mjs';
 import { runCalendarChecks } from '../calendar/browser-cases.mjs';
 import { runWasteChecks } from '../waste/browser-cases.mjs';
+import { runReminderChecks } from '../reminders/browser-cases.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const browser = [process.env.BUS_TEST_BROWSER,
@@ -35,7 +36,17 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
         if(window.wasteDelay) return new Promise(resolve=>{window.resolveWaste=resolve;});
         return window.wasteReply || {entries:[{externalId:'one',title:'Allika bio',subtype:'bio',date:'2026-09-15'}]};
       }}]);` : 'const wasteLookup=undefined;'}
-      createRoot(document.getElementById('root')).render(<React.StrictMode><App wasteLookup={wasteLookup} /></React.StrictMode>);
+      ${process.env.REMINDER_TESTS === '1' ? `import {createNotificationService} from './src/reminders/capability.js';
+      const notificationService=createNotificationService({isSecureContext:true,document,
+        get Notification(){return !sessionStorage.getItem('notificationMode') ? undefined : {
+          get permission(){return sessionStorage.getItem('notificationMode');},
+          async requestPermission(){sessionStorage.setItem('permissionCalls',String(Number(sessionStorage.getItem('permissionCalls')||0)+1));
+            const answer=sessionStorage.getItem('permissionAnswer')||'granted';sessionStorage.setItem('notificationMode',answer);return answer;}
+        };},navigator:{locks:navigator.locks,serviceWorker:{getRegistration:async()=>({active:{},showNotification:async()=>{
+          sessionStorage.setItem('notificationCalls',String(Number(sessionStorage.getItem('notificationCalls')||0)+1));
+        }})}}
+      });` : 'const notificationService=undefined;'}
+      createRoot(document.getElementById('root')).render(<React.StrictMode><App wasteLookup={wasteLookup} notificationService={notificationService} /></React.StrictMode>);
     `, loader: 'jsx' },
   });
   assert.ok(Object.keys(bundle.metafile.inputs).every(path => !path.startsWith('docs/')),
@@ -43,6 +54,10 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
   const js = bundle.outputFiles.find(f => f.path.endsWith('.js')).text;
   const css = bundle.outputFiles.find(f => f.path.endsWith('.css'))?.text || '';
   const server = createServer((req, res) => {
+    if (process.env.NATIVE_NOTIFICATION_TEST === '1' && req.url === '/notification-test-sw.js') {
+      res.setHeader('Content-Type','text/javascript');
+      res.end("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));");return;
+    }
     if (req.url === '/app.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(js); return; }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.end(`<meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style><div id="root"></div><script>
@@ -262,6 +277,25 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
     }
     if (process.env.WASTE_TESTS === '1') {
       await runWasteChecks({t,nav,click,input,evaluate,waitFor,body,send});
+    }
+    if (process.env.REMINDER_TESTS === '1') {
+      await runReminderChecks({t,nav,click,input,evaluate,waitFor,body,send});
+    }
+    if (process.env.NATIVE_NOTIFICATION_TEST === '1') {
+      await t.test('MJM04 native Chromium service-worker notification acceptance and reload dedupe',async()=>{
+        await evaluate("navigator.serviceWorker.register('/notification-test-sw.js').then(()=>navigator.serviceWorker.ready).then(()=>true)");
+        await send('Browser.setPermission',{permission:{name:'notifications'},setting:'granted',origin:`http://127.0.0.1:${server.address().port}`});
+        await nav('Kodu');await click('Lisa sündmus');await input('#event-title','Native API check');await input('#event-date','2026-09-15');await input('#event-time','06:00');
+        await evaluate("(()=>{const el=document.querySelector('#event-reminder');el.value='1';el.dispatchEvent(new Event('change',{bubbles:true}));})()");
+        await click('Salvesta sündmus');await waitFor("!document.querySelector('dialog[open]')");
+        await nav('Seaded');await click('Luba seadme teavitused');
+        await waitFor("navigator.serviceWorker.getRegistration().then(r=>r.getNotifications()).then(items=>items.length===1)");
+        assert.equal(await evaluate("navigator.serviceWorker.getRegistration().then(r=>r.getNotifications()).then(items=>items[0].title)"),'Native API check');
+        const before=await evaluate("localStorage.getItem('majamajandus_reminder_delivery_v1')");
+        await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Seaded');
+        assert.equal(await evaluate("localStorage.getItem('majamajandus_reminder_delivery_v1')"),before);
+        await evaluate("navigator.serviceWorker.getRegistration().then(r=>r.getNotifications()).then(items=>items.forEach(n=>n.close()))");
+      });
     }
     if (process.env.MJM_SCREENSHOTS) {
       await send('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:false});

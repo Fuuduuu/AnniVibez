@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { CATEGORIES, WASTE_SUBTYPES, FREQUENCIES } from '../calendar/eventModel';
 import { formatDate } from '../calendar/dates';
+import { useCalendarNow } from '../calendar/useCalendarNow';
+import { ReminderStatus } from './ReminderStatus';
 
 const fields = event => ({title:event.title || '',category:event.category || 'general',subtype:event.subtype || 'mixed',
   date:event.date,time:event.time || '',recurrence:{...(event.recurrence ?? {frequency:'none',interval:1})},
   reminder:{...(event.reminder ?? {daysBefore:0})},notes:event.notes || ''});
 
 export function EventDialog({selection,calendar,onClose}) {
+  const now=useCalendarNow();
   const source=selection.item ? calendar.events.find(e=>e.id === selection.item.eventId) : null;
   const [mode,setMode]=useState(selection.item ? 'view' : 'edit');
   const [scope,setScope]=useState(null);
@@ -55,7 +58,8 @@ export function EventDialog({selection,calendar,onClose}) {
         {selection.seriesOnly && recurring && <p className="mm-notice">Graafiku vaade: muudad või kustutad kogu sarja. Üksikkorra muutmiseks ava kuupäev kalendrist.</p>}
         {imported && <p className="mm-notice">{source.importMeta?.providerName || 'Allikas'}: kuupäev, liik ja pealkiri on allika hallata. Muuta saad märkmeid ja meeldetuletust.</p>}
         {selection.item.notes && <p className="mm-event-notes">{selection.item.notes}</p>}
-        <p className="mm-notice">Meeldetuletus: {selection.item.reminder.daysBefore ? `${selection.item.reminder.daysBefore} päeva enne` : 'puudub'}. See on ainult salvestatud eelistus; teavitusi ei saadeta.</p>
+        <ReminderStatus item={selection.item} now={now} detail />
+        <p className="mm-footnote">Seadme teavitus sõltub sinu loast ja brauseri toest. Suletud äpis saatmist ei lubata.</p>
         <div className="mm-dialog-actions">
           <button className="mm-button mm-button-primary" onClick={()=>recurring ? selection.seriesOnly ? edit('series') : setMode('choose-edit') : edit(null)}>Muuda</button>
           <button className="mm-button mm-button-secondary mm-delete" onClick={()=>{
@@ -91,7 +95,7 @@ export function EventDialog({selection,calendar,onClose}) {
         {['monthly','yearly'].includes(form.recurrence.frequency) && <p className="mm-footnote">Kui kuupäev kuus puudub, kasutatakse selle kuu viimast päeva.</p>}
         </fieldset>
         <label className="mm-field" htmlFor="event-reminder">Meeldetuletuse eelistus<select id="event-reminder" value={form.reminder.daysBefore} onChange={e=>set('reminder',{daysBefore:Number(e.target.value)})}>{[[0,'Puudub'],[1,'1 päev enne'],[3,'3 päeva enne'],[7,'1 nädal enne']].map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></label>
-        <p className="mm-footnote">Eelistus salvestatakse, kuid teavitusi praegu ei saadeta.</p>
+        <p className="mm-footnote">Meeldetuletus kuvatakse äpis. Ilma kellaajata algab see valitud päeval kell 09:00. Seadme teavitusi saad lubada seadetes; taustal saatmist ei lubata.</p>
         <label className="mm-field" htmlFor="event-notes">Märkmed (valikuline)<textarea id="event-notes" value={form.notes} onChange={e=>set('notes',e.target.value)} maxLength={5000} rows={3} /></label>
         <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable}>Salvesta sündmus</button>
       </form>}

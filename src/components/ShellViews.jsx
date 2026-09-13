@@ -1,7 +1,7 @@
 import { BussCard } from './BussCard';
 import { ShellIcon } from './ShellIcon';
 import { EventRows, CalendarError } from './CalendarEvents';
-import { upcomingOccurrences } from '../calendar/recurrence';
+import { homeOccurrences } from '../reminders/due';
 import { localDate } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
 
@@ -15,7 +15,7 @@ export function PageHeader({ title, subtitle }) {
 export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
   const now = useCalendarNow();
   const today = localDate(now);
-  const upcoming = upcomingOccurrences(calendar.events, now, 5);
+  const upcoming = homeOccurrences(calendar.events, now);
   const date = now.toLocaleDateString('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
   return <div className="mm-page">
     <header className="mm-home-header">
@@ -28,7 +28,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
         <button className="mm-text-button" onClick={() => onNavigate('kalender')}>Kogu kalender</button>
       </div>
       <CalendarError error={calendar.error} />
-      <EventRows items={upcoming} today={today} onOpen={onOpen} />
+      <EventRows items={upcoming} today={today} now={now} onOpen={onOpen} />
       {!upcoming.length && <div className="mm-card mm-welcome">
         <span className="mm-icon-tile"><ShellIcon name="kodu" /></span>
         <h3>Paneme sinu kodu asjad ritta</h3>
