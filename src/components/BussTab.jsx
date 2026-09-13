@@ -4,6 +4,7 @@ import { BUS_DATA } from '../data/busData';
 import { POI_DATA } from '../data/poiData';
 import { BusMapPicker } from './BusMapPicker';
 import { depsWithMeta, nearest, wd } from '../utils/bus';
+import { createOriginContext, reachableDestinations } from '../utils/busReach';
 
 const DESTINATION_UNRESOLVED_REASON = 'Sihtkohta ei leitud. Proovi teist nime või vali peatus nimekirjast.';
 const DIRECT_CONNECTION_MISSING_REASON = 'Valitud suunal ei leitud praegu sobivat otseliini.';
@@ -61,6 +62,7 @@ export function BussTab({ savedPlaces = [] }) {
   const [originOverrideOpen, setOriginOverrideOpen] = useState(false);
   const [nearbyOriginCandidates, setNearbyOriginCandidates] = useState([]);
   const [routeOptions, setRouteOptions] = useState([]);
+  const [routeSelection, setRouteSelection] = useState(null);
   const [destination, setDestination] = useState('');
   const [placeQuery, setPlaceQuery] = useState('');
   const [selectedPlaceLabel, setSelectedPlaceLabel] = useState('');
@@ -457,6 +459,22 @@ export function BussTab({ savedPlaces = [] }) {
   }
 
   const effectiveOrigin = manualOriginOverride ?? currentOrigin;
+  const service = wd();
+  const originStopId = effectiveOrigin?.stopId || effectiveOrigin?.code;
+  const destinationGroups = originStopId
+    ? reachableDestinations(createOriginContext(originStopId), { service })
+    : BUS_DATA.groups;
+  const destinationInDropdown = destinationGroups.some(group => group.name === destination);
+
+  // Revalidate before committing a render; map selections retain their existing flow.
+  if (selectedDestinationSource === 'dropdown' && destination && originStopId && !destinationInDropdown) {
+    setDestination('');
+    setSelectedPlaceLabel('');
+    setPlaceQuery('');
+    setSelectedDestinationSource('none');
+  }
+  const routeSelectionMatches = routeSelection?.origin === effectiveOrigin &&
+    routeSelection?.destination === destination && routeSelection?.service === service;
 
   const enabledPoiTargets = POI_DATA.filter(poi => poi.enabled && poi.preferredStopGroups?.length > 0);
   const popularPlaceIds = ['poi_kesklinn', 'poi_bussijaam', 'poi_haigla', 'poi_pohjakeskus', 'poi_teater'];
@@ -524,7 +542,7 @@ export function BussTab({ savedPlaces = [] }) {
     const { options, reason } = findRouteOptions(
       effectiveOrigin,
       destination,
-      wd(),
+      service,
       nearbyOriginCandidates,
       selectedPlaceLabel,
       selectedDestinationSource,
@@ -534,7 +552,8 @@ export function BussTab({ savedPlaces = [] }) {
     );
     setRouteOptions(options);
     setEmptyReason(reason);
-  }, [effectiveOrigin, destination, nearbyOriginCandidates, selectedPlaceLabel, selectedDestinationSource, selectedPoiId, activeMapDestinationCandidates, destinationResolutionError]);
+    setRouteSelection({ origin: effectiveOrigin, destination, service });
+  }, [effectiveOrigin, destination, service, nearbyOriginCandidates, selectedPlaceLabel, selectedDestinationSource, selectedPoiId, activeMapDestinationCandidates, destinationResolutionError]);
 
   const gpsLabel = {
     idle: 'Näita busse minu lähedal',
@@ -876,10 +895,10 @@ export function BussTab({ savedPlaces = [] }) {
             clearMapPickState();
           }}
           style={{ ...inp, minHeight: 52, fontSize: 16, marginTop: 0 }}
-          value={destination}
+          value={destinationInDropdown ? destination : ''}
         >
           <option value="">— vali sihtkoht —</option>
-          {BUS_DATA.groups.map(g => (
+          {destinationGroups.map(g => (
             <option key={`dest-${g.name}`} value={g.name}>
               {g.name}
             </option>
@@ -1004,7 +1023,7 @@ export function BussTab({ savedPlaces = [] }) {
             </div>
           ) : !effectiveOrigin ? (
             <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>Vali lähtekoht, et näha marsruute</div>
-          ) : routeOptions.length === 0 ? (
+          ) : !routeSelectionMatches ? null : routeOptions.length === 0 ? (
             <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>{emptyReason || `Täna enam busse pole · ${wd()}`}</div>
           ) : (
             <>
