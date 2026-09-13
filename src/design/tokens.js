@@ -1,43 +1,50 @@
 export const AV = {
-  bg:          'hsl(32, 22%, 97%)',
-  bgWarm:      'hsl(28, 28%, 96%)',
-  bgSoft:      'hsl(290, 18%, 96%)',
-  card:        '#ffffff',
+  bg:          '#F4F2EE',
+  bgWarm:      '#FAF8F4',
+  bgSoft:      '#EDEAE4',
+  card:        '#FFFFFF',
+  primary:     '#1A5B69',
+  primaryStrong: '#123F49',
+  primaryTint: '#E4EEF0',
+  borderStrong: '#CFCAC0',
+  bus:         '#2F5D4B',
+  warning:     '#A9701C',
 
-  purple:      'hsl(267, 46%, 60%)',
-  purpleL:     'hsl(267, 55%, 95%)',
-  purpleM:     'hsl(267, 46%, 88%)',
-  rose:        'hsl(338, 55%, 68%)',
-  roseL:       'hsl(338, 60%, 95%)',
-  peach:       'hsl(22, 70%, 72%)',
-  peachL:      'hsl(22, 80%, 95%)',
-  sage:        'hsl(147, 32%, 50%)',
-  sageL:       'hsl(147, 40%, 93%)',
+  // Compatibility names let existing feature views adopt the palette without logic edits.
+  purple:      '#1A5B69',
+  purpleL:     '#E4EEF0',
+  purpleM:     '#CFCAC0',
+  rose:        '#4B5358',
+  roseL:       '#FAF8F4',
+  peach:       '#A9701C',
+  peachL:      '#F8EEDD',
+  sage:        '#2F5D4B',
+  sageL:       '#E5EEE9',
 
-  text:        'hsl(260, 20%, 17%)',
-  textSoft:    'hsl(260, 12%, 38%)',
-  muted:       'hsl(260, 8%, 60%)',
-  border:      'hsl(270, 16%, 90%)',
-  danger:      'hsl(0, 70%, 55%)',
+  text:        '#1B1F21',
+  textSoft:    '#4B5358',
+  muted:       '#6D757A',
+  border:      '#E2DFD8',
+  danger:      '#9E3B2F',
 
-  shadow:      '0 4px 28px rgba(100,50,180,0.09)',
-  shadowSm:    '0 2px 12px rgba(100,50,180,0.07)',
-  shadowLg:    '0 12px 40px rgba(92,56,157,0.18)',
+  shadow:      '0 1px 2px rgba(27,31,33,.05), 0 8px 20px -12px rgba(27,31,33,.18)',
+  shadowSm:    '0 1px 2px rgba(27,31,33,.05)',
+  shadowLg:    '0 12px 40px rgba(27,31,33,.18)',
 
-  r:    20,
-  rSm:  12,
+  r:    12,
+  rSm:  10,
   navH: 68,
 };
 
 export const GRAD = {
-  wordmark: `linear-gradient(130deg, ${AV.purple}, ${AV.rose})`,
-  header:   `linear-gradient(135deg, ${AV.purpleL}, ${AV.roseL})`,
-  hero:     `linear-gradient(150deg, ${AV.purpleL} 0%, ${AV.peachL} 100%)`,
+  wordmark: `linear-gradient(130deg, ${AV.primary}, ${AV.primaryStrong})`,
+  header:   `linear-gradient(135deg, ${AV.primaryTint}, ${AV.bgWarm})`,
+  hero:     `linear-gradient(150deg, ${AV.primaryTint} 0%, ${AV.bgWarm} 100%)`,
 };
 
 export const FONT = {
-  display: "'Fraunces', Georgia, serif",
-  body:    "-apple-system, 'Segoe UI', sans-serif",
+  display: "'Archivo', 'Segoe UI', Helvetica, sans-serif",
+  body:    "'Instrument Sans', 'Segoe UI', Helvetica, sans-serif",
 };
 
 export const card = {
@@ -50,8 +57,8 @@ export const card = {
 };
 
 export const labelStyle = {
-  fontSize: 11, letterSpacing: '.09em', fontWeight: 600,
-  textTransform: 'uppercase', color: AV.muted,
+  fontSize: 11.5, letterSpacing: '.09em', fontWeight: 600,
+  textTransform: 'uppercase', color: AV.textSoft,
   marginBottom: 7, display: 'block',
 };
 
@@ -65,7 +72,7 @@ export const inp = {
 export const shell = {
   maxWidth: 520,
   margin: '0 auto',
-  padding: '24px 18px 0',
+  padding: '24px 16px 0',
 };
 
 export const shellNarrow = {

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { readPin } from '../hooks/useDiary';
-import { AV, FONT, card, labelStyle, inp, shell } from '../design/tokens';
+import { AV, FONT, card, labelStyle, inp } from '../design/tokens';
+import { PageHeader } from './ShellViews';
 
 const PIN_KEY     = 'sade_diary_pin';
 const ENTRIES_KEY = 'sade_diary_entries';
@@ -39,8 +40,9 @@ function ProfileSection({ profile, saveName }) {
     <>
       <SectionTitle>Profiil</SectionTitle>
       <div style={{ ...card, background: AV.bgWarm }}>
-        <label style={labelStyle}>Nimi</label>
+        <label htmlFor="profile-name" style={labelStyle}>Nimi</label>
         <input
+          id="profile-name"
           value={val}
           onChange={e => { setVal(e.target.value); setSaved(false); }}
           placeholder="Kuidas sind kutsuda?"
@@ -164,7 +166,7 @@ function PlacesSection({ places, updatePlace, resolvePlaceAddress }) {
     <>
       <SectionTitle>Salvestatud kohad</SectionTitle>
       <p style={{ fontSize: 13, color: AV.muted, marginBottom: 12, lineHeight: 1.5 }}>
-        Kirjuta koha nimi ja aadress. Vajuta "Leia asukoht", et bussivaade saaks selle koha leida.
+        Salvestatud nimed ja aadressid jäävad alles. Aadressiotsing pole veel ühendatud.
       </p>
       {places.map((p, i) => (
         <PlaceRow key={i} place={p} idx={i} onUpdate={updatePlace} onResolve={resolvePlaceAddress} />
@@ -300,17 +302,48 @@ export function SeadedTab(props = {}) {
   const updatePlace = props.updatePlace ?? fallback.updatePlace;
   const resolvePlaceAddress = props.resolvePlaceAddress ?? fallback.resolvePlaceAddress;
 
+  useEffect(() => {
+    if (!props.initialSection) return;
+    const section = document.getElementById(props.initialSection);
+    section?.scrollIntoView({ block: 'start' });
+    section?.focus({ preventScroll: true });
+  }, [props.initialSection]);
+
   return (
-    <div style={{ ...shell, fontFamily: FONT.body }}>
-      <div style={{ fontSize: 10, ...labelStyle }}>Seaded</div>
-      <div style={{ fontFamily: FONT.display, fontSize: 24, fontWeight: 600, color: AV.text, marginBottom: 6 }}>
-        Sinu eelistused
-      </div>
-      <div style={{ fontSize: 13, color: AV.muted, lineHeight: 1.5, marginBottom: 22 }}>Lihtsad valikud, mida saad igal ajal muuta.</div>
-      <ProfileSection profile={profile} saveName={saveName} />
-      <PlacesSection places={places} updatePlace={updatePlace} resolvePlaceAddress={resolvePlaceAddress} />
-      <PinSection />
-      <div style={{ height: 20 }} />
+    <div className="mm-page" style={{ fontFamily: FONT.body }}>
+      <PageHeader title="Seaded" subtitle="Lihtsad valikud, mida saad igal ajal muuta" />
+      <section className="mm-settings-group" aria-labelledby="household-heading">
+        <h2 className="mm-section-label" id="household-heading">Majapidamine</h2>
+        <details className="mm-card">
+          <summary>Sinu nimi</summary>
+          <ProfileSection profile={profile} saveName={saveName} />
+        </details>
+      </section>
+      <section className="mm-settings-group" id="prugivedu" tabIndex={-1} aria-labelledby="waste-heading">
+        <h2 className="mm-section-label" id="waste-heading">Prügivedu</h2>
+        <div className="mm-card"><p>Prügiveo graafiku ühendamine ei ole veel saadaval. Praegu graafikuid ei impordita.</p></div>
+      </section>
+      <section className="mm-settings-group" aria-labelledby="notifications-heading">
+        <h2 className="mm-section-label" id="notifications-heading">Teavitused</h2>
+        <div className="mm-card"><p>Meeldetuletused on ettevalmistamisel. Rakendus ei saada praegu sündmuste teavitusi.</p></div>
+      </section>
+      <section className="mm-settings-group" aria-labelledby="bus-settings-heading">
+        <h2 className="mm-section-label" id="bus-settings-heading">Buss</h2>
+        <details className="mm-card">
+          <summary>Salvestatud kohad</summary>
+          <PlacesSection places={places} updatePlace={updatePlace} resolvePlaceAddress={resolvePlaceAddress} />
+        </details>
+      </section>
+      <section className="mm-settings-group" aria-labelledby="application-heading">
+        <h2 className="mm-section-label" id="application-heading">Rakendus</h2>
+        <div className="mm-card">
+          <p>Majamajandus</p>
+          <details>
+            <summary>Päeviku PIN ja andmed</summary>
+            <PinSection />
+          </details>
+        </div>
+      </section>
     </div>
   );
 }
