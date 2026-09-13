@@ -81,3 +81,62 @@ export function reachableDestinations(originContext, { service } = {}) {
     connections: [...result.connections].sort(([a], [b]) => compare(a, b)).map(([, connection]) => connection),
   })).sort((a, b) => a.name.localeCompare(b.name, 'et') || compare(a.stopIds.join(','), b.stopIds.join(',')));
 }
+
+const isTime = value => typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+const directTripKey = route => JSON.stringify([route.line, route.patternId, route.tripId]);
+
+function timedTripVisits(line, pattern, trip) {
+  const times = new Map(trip.stop_times.map(row => [row.seq, row.time]));
+  // Published arrival/departure metadata must agree with the literal source cells.
+  return orderedTripVisits(line, pattern, trip).filter(visit =>
+    Number.isInteger(visit.visitIndex) && visit.visitIndex >= 0 &&
+    isTime(visit.arrival) && isTime(visit.departure) && visit.arrival <= visit.departure &&
+    visit.arrival === times.get(visit.sourceRows[0]) &&
+    visit.departure === times.get(visit.sourceRows.at(-1))
+  );
+}
+
+// Same-day direct routes only: the caller supplies both service and clock snapshot.
+export function findDirectRoutes(originContext, target, { service, now } = {}) {
+  if (!['E-R', 'L', 'P'].includes(service)) throw new RangeError('An explicit E-R, L or P service is required');
+  if (!isTime(now)) throw new RangeError('An explicit now in HH:MM (00:00-23:59) is required');
+  const originIds = new Set(concreteStopIds(originContext?.stopIds));
+  const targetIds = new Set(concreteStopIds(target?.stopIds));
+  const originGroups = new Set([...originIds].map(id => groupByStopId.get(id)));
+  const candidatesByTrip = new Map();
+
+  for (const line of BUS_DATA.lines) {
+    if (line.service !== service || BUS_DATA.coverage?.[line.line]?.[service] === 'NO_SERVICE') continue;
+    const pattern = patternById.get(line.pattern_id);
+    if (!pattern || pattern.line !== line.line || pattern.coverage?.service_status?.[service] === 'NO_SERVICE') continue;
+    for (const trip of line.trips) {
+      if (trip.dayType && trip.dayType !== service) continue;
+      const visits = timedTripVisits(line, pattern, trip);
+      for (let boardIndex = 0; boardIndex < visits.length - 1; boardIndex++) {
+        const board = visits[boardIndex];
+        if (!originIds.has(board.stopId) || board.isLast || board.hasLaterVisit === false || board.departure < now) continue;
+        for (const alight of visits.slice(boardIndex + 1)) {
+          if (!targetIds.has(alight.stopId) || originGroups.has(groupByStopId.get(alight.stopId)) ||
+              alight.visitIndex <= board.visitIndex || alight.arrival < board.departure) continue;
+          const route = {
+            line: line.line, patternId: pattern.id, tripId: trip.id, tripNo: trip.no,
+            boardStopId: board.stopId, boardVisitIndex: board.visitIndex, departure: board.departure,
+            alightStopId: alight.stopId, alightVisitIndex: alight.visitIndex, arrival: alight.arrival,
+            destinationName: BUS_DATA.by_code[alight.stopId].name,
+          };
+          const key = directTripKey(route);
+          if (!candidatesByTrip.has(key)) candidatesByTrip.set(key, []);
+          candidatesByTrip.get(key).push(route);
+        }
+      }
+    }
+  }
+
+  // Keep all candidate pairs until selection so future boarding ranking has exact visit evidence.
+  const routes = [...candidatesByTrip.values()].map(candidates => candidates.sort((a, b) =>
+    a.boardVisitIndex - b.boardVisitIndex || compare(a.arrival, b.arrival) ||
+    a.alightVisitIndex - b.alightVisitIndex
+  )[0]);
+  return routes.sort((a, b) => compare(a.arrival, b.arrival) || compare(a.departure, b.departure) ||
+    compare(directTripKey(a), directTripKey(b)));
+}
