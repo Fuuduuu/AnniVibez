@@ -15,6 +15,15 @@ const LINE_BADGE_PANE = 'lineBadgePane';
 const ROUTE_SHAPE_PANE = 'routeShapePane';
 const LINE_FILTER_OPTIONS = ['all', '1', '2', '3', '5'];
 
+const MapCanvas = L.Canvas.extend({
+  _redraw() {
+    // Leaflet 1.9 can redraw synchronously during setView and lose a queued
+    // frame's handle. Cancel it before that handle is cleared, including on pan.
+    L.Util.cancelAnimFrame(this._redrawRequest);
+    return L.Canvas.prototype._redraw.call(this);
+  },
+});
+
 function scheduleFrame(callback) {
   if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
     return window.requestAnimationFrame(callback);
@@ -192,6 +201,7 @@ export function BusMapPicker({
   const markerEntriesRef = useRef([]);
   const lineBadgeEntriesRef = useRef([]);
   const circleRendererRef = useRef(null);
+  const routeRendererRef = useRef(null);
   const markerVisualFrameRef = useRef(null);
   const [activeLineFilter, setActiveLineFilter] = useState('all');
   const [selectedRouteShapeId, setSelectedRouteShapeId] = useState('');
@@ -354,6 +364,7 @@ export function BusMapPicker({
 
     routeShapeLayerRef.current = L.polyline(latLngs, {
       pane: ROUTE_SHAPE_PANE,
+      renderer: routeRendererRef.current,
       color: colorHexForLine(activeLine),
       weight: 3.2,
       opacity: 0.54,
@@ -377,7 +388,8 @@ export function BusMapPicker({
 
     const map = L.map(mapHostRef.current, { zoomControl: true, preferCanvas: true }).setView(center, 13);
     mapRef.current = map;
-    circleRendererRef.current = L.canvas({ padding: 0.45 });
+    circleRendererRef.current = new MapCanvas({ padding: 0.45 });
+    routeRendererRef.current = new MapCanvas({ pane: ROUTE_SHAPE_PANE });
 
     if (!map.getPane(ROUTE_SHAPE_PANE)) {
       const pane = map.createPane(ROUTE_SHAPE_PANE);
@@ -503,6 +515,7 @@ export function BusMapPicker({
       lineBadgeLayerRef.current = null;
       routeShapeLayerRef.current = null;
       circleRendererRef.current = null;
+      routeRendererRef.current = null;
       markerGroupsByNameRef.current = new Map();
       markerEntriesRef.current = [];
       lineBadgeEntriesRef.current = [];

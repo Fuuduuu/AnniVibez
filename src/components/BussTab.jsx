@@ -4,12 +4,11 @@ import { BUS_DATA } from '../data/busData';
 import { POI_DATA } from '../data/poiData';
 import { BusMapPicker } from './BusMapPicker';
 import { depsWithMeta, nearest, wd } from '../utils/bus';
-import { createOriginContext, reachableDestinations } from '../utils/busReach';
+import { createOriginContext, reachableDestinations, findDirectRoutes } from '../utils/busReach';
 
 const DESTINATION_UNRESOLVED_REASON = 'Sihtkohta ei leitud. Proovi teist nime või vali peatus nimekirjast.';
 const DIRECT_CONNECTION_MISSING_REASON = 'Valitud suunal ei leitud praegu sobivat otseliini.';
 const MAP_OUT_OF_AREA_REASON = 'Valitud punkt on teeninduspiirkonnast väljas. Vali lähem sihtkoht.';
-const ORIGIN_CANDIDATE_LIMIT = 5;
 const DESTINATION_CANDIDATE_LIMIT = 3;
 const ROUTE_OPTION_LIMIT = 3;
 
@@ -23,7 +22,7 @@ function DepRow({ d }) {
   return (
     <div style={{ padding: '10px 0', borderBottom: `1px solid ${AV.border}` }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 22, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 62, color: AV.text }}>{d.time}</span>
+        <span style={{ fontSize: 22, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 62, color: AV.text }}>{d.departure}</span>
         <span
           style={{
             background: AV.sageL,
@@ -37,20 +36,18 @@ function DepRow({ d }) {
           }}
         >
           Liin {d.line}
-          {d.v ? `·${d.v}` : ''}
         </span>
-        <span style={{ fontSize: 13, color: AV.textSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.dir}</span>
+        <span style={{ fontSize: 13, color: AV.textSoft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.destinationName}</span>
       </div>
       <div style={{ fontSize: 12, color: AV.muted, display: 'grid', gap: 2 }}>
         <div>
-          Mine peatusesse: {d.originName}
-          {d.originDist != null ? ` · ${d.originDist} m` : ''}
+          Mine peatusesse: {BUS_DATA.by_code[d.boardStopId].name}
         </div>
         <div>
-          Sõida liiniga: {d.line}
-          {d.v ? ` (${d.v})` : ''}
+          Väljub: {d.departure}
         </div>
-        <div>Välju peatuses: {d.destinationName || 'Valitud sihtkoht'}</div>
+        <div>Välju peatuses: {d.destinationName}</div>
+        <div>Kohal: {d.arrival}</div>
       </div>
     </div>
   );
@@ -61,12 +58,9 @@ export function BussTab({ savedPlaces = [] }) {
   const [manualOriginOverride, setManualOriginOverride] = useState(null);
   const [originOverrideOpen, setOriginOverrideOpen] = useState(false);
   const [nearbyOriginCandidates, setNearbyOriginCandidates] = useState([]);
-  const [routeOptions, setRouteOptions] = useState([]);
-  const [routeSelection, setRouteSelection] = useState(null);
   const [destination, setDestination] = useState('');
   const [placeQuery, setPlaceQuery] = useState('');
   const [selectedPlaceLabel, setSelectedPlaceLabel] = useState('');
-  const [emptyReason, setEmptyReason] = useState('');
   const [gpsState, setGpsState] = useState('idle');
   const [currentPosition, setCurrentPosition] = useState(null);
   const [activePill, setActivePill] = useState(null);
@@ -157,10 +151,6 @@ export function BussTab({ savedPlaces = [] }) {
       out.push(name);
     }
     return out;
-  }
-
-  function isNoBusesReason(reason) {
-    return typeof reason === 'string' && reason.toLowerCase().includes('täna enam busse pole');
   }
 
   function isFiniteCoord(value) {
@@ -265,23 +255,6 @@ export function BussTab({ savedPlaces = [] }) {
     clearMapPickState();
   }
 
-  function buildOriginCandidates(origin, nearbyCandidates) {
-    const merged = [origin, ...(Array.isArray(nearbyCandidates) ? nearbyCandidates : [])];
-    const out = [];
-    const seen = new Set();
-
-    for (const candidate of merged) {
-      if (!candidate) continue;
-      const key = String(candidate?.code || candidate?.stopId || candidate?.name || '').trim();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      out.push(candidate);
-      if (out.length >= ORIGIN_CANDIDATE_LIMIT) break;
-    }
-
-    return out;
-  }
-
   function buildDestinationCandidates(selectedDestination, destinationSource, poiId, mapCandidates, fallbackError) {
     if (!selectedDestination) {
       return { candidates: [], unresolvedReason: fallbackError || '' };
@@ -333,108 +306,6 @@ export function BussTab({ savedPlaces = [] }) {
     };
   }
 
-  function findRouteOptions(origin, selectedDestination, service, nearbyCandidates, destinationDisplayName = '', destinationSource = 'none', poiId = '', mapCandidates = [], fallbackError = '') {
-    if (!selectedDestination) {
-      return { options: [], reason: fallbackError || '' };
-    }
-    if (!origin) {
-      return { options: [], reason: 'Vali lähtekoht, et näha marsruute' };
-    }
-
-    const originCandidates = buildOriginCandidates(origin, nearbyCandidates);
-    if (!originCandidates.length) {
-      return { options: [], reason: 'Vali lähtekoht, et näha marsruute' };
-    }
-
-    const { candidates: destinationCandidates, unresolvedReason } = buildDestinationCandidates(
-      selectedDestination,
-      destinationSource,
-      poiId,
-      mapCandidates,
-      fallbackError
-    );
-    if (!destinationCandidates.length) {
-      return { options: [], reason: unresolvedReason || DESTINATION_UNRESOLVED_REASON };
-    }
-
-    const displayDestinationName = typeof destinationDisplayName === 'string' ? destinationDisplayName.trim() : '';
-    const merged = [];
-    let sawNoBuses = false;
-    let sawOtherNoRoute = false;
-    let testedPairCount = 0;
-    let sameOriginDestinationSkips = 0;
-
-    for (let destinationPriority = 0; destinationPriority < destinationCandidates.length; destinationPriority += 1) {
-      const destinationCandidate = destinationCandidates[destinationPriority];
-      for (let originPriority = 0; originPriority < originCandidates.length; originPriority += 1) {
-        const originCandidate = originCandidates[originPriority];
-        const originName = originCandidate?.groupName || originCandidate?.name || '';
-        if (originName && originName === destinationCandidate) {
-          sameOriginDestinationSkips += 1;
-          continue;
-        }
-
-        const originCodes = originCodesFrom(originCandidate);
-        if (!originCodes.length) continue;
-
-        testedPairCount += 1;
-        const result = depsWithMeta(originCodes, 5, { destination: destinationCandidate, service });
-        if (result.departures.length) {
-          for (const dep of result.departures) {
-            merged.push({
-              ...dep,
-              originName: originCandidate?.groupName || originCandidate?.name || 'Valitud peatus',
-              originDist: originCandidate?.dist ?? null,
-              originStopId: dep.originStopId || originCandidate?.stopId || originCandidate?.code || null,
-              destinationName: displayDestinationName || destinationCandidate || 'Valitud sihtkoht',
-              destinationPriority,
-              originPriority,
-              testedDestination: destinationCandidate,
-            });
-          }
-        } else if (isNoBusesReason(result.reason)) {
-          sawNoBuses = true;
-        } else {
-          sawOtherNoRoute = true;
-        }
-      }
-    }
-
-    if (!merged.length) {
-      if (testedPairCount === 0 && sameOriginDestinationSkips > 0) {
-        return { options: [], reason: 'Vali erinev sihtkoht' };
-      }
-      if (sawNoBuses && !sawOtherNoRoute) {
-        return { options: [], reason: `Täna enam busse pole · ${service}` };
-      }
-      return { options: [], reason: DIRECT_CONNECTION_MISSING_REASON };
-    }
-
-    merged.sort((a, b) => {
-      const timeCmp = a.time.localeCompare(b.time);
-      if (timeCmp !== 0) return timeCmp;
-      const originDistA = Number.isFinite(a.originDist) ? a.originDist : Number.POSITIVE_INFINITY;
-      const originDistB = Number.isFinite(b.originDist) ? b.originDist : Number.POSITIVE_INFINITY;
-      if (originDistA !== originDistB) return originDistA - originDistB;
-      if ((a.destinationPriority || 0) !== (b.destinationPriority || 0)) {
-        return (a.destinationPriority || 0) - (b.destinationPriority || 0);
-      }
-      return (a.originPriority || 0) - (b.originPriority || 0);
-    });
-
-    const deduped = [];
-    const seen = new Set();
-    for (const item of merged) {
-      const key = `${item.line}|${item.v || ''}|${item.time}|${item.originStopId || item.originName}|${item.testedDestination}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      deduped.push(item);
-      if (deduped.length >= ROUTE_OPTION_LIMIT) break;
-    }
-
-    return { options: deduped, reason: '' };
-  }
-
   function gpsClick() {
     setGpsState('searching');
     if (!navigator.geolocation) {
@@ -461,8 +332,9 @@ export function BussTab({ savedPlaces = [] }) {
   const effectiveOrigin = manualOriginOverride ?? currentOrigin;
   const service = wd();
   const originStopId = effectiveOrigin?.stopId || effectiveOrigin?.code;
+  const originContext = originStopId ? createOriginContext(originStopId) : null;
   const destinationGroups = originStopId
-    ? reachableDestinations(createOriginContext(originStopId), { service })
+    ? reachableDestinations(originContext, { service })
     : BUS_DATA.groups;
   const destinationInDropdown = destinationGroups.some(group => group.name === destination);
 
@@ -473,8 +345,6 @@ export function BussTab({ savedPlaces = [] }) {
     setPlaceQuery('');
     setSelectedDestinationSource('none');
   }
-  const routeSelectionMatches = routeSelection?.origin === effectiveOrigin &&
-    routeSelection?.destination === destination && routeSelection?.service === service;
 
   const enabledPoiTargets = POI_DATA.filter(poi => poi.enabled && poi.preferredStopGroups?.length > 0);
   const popularPlaceIds = ['poi_kesklinn', 'poi_bussijaam', 'poi_haigla', 'poi_pohjakeskus', 'poi_teater'];
@@ -538,22 +408,33 @@ export function BussTab({ savedPlaces = [] }) {
 
   const visibleDestinationLabel = selectedPlaceLabel || destination;
 
-  useEffect(() => {
-    const { options, reason } = findRouteOptions(
-      effectiveOrigin,
-      destination,
-      service,
-      nearbyOriginCandidates,
-      selectedPlaceLabel,
-      selectedDestinationSource,
-      selectedPoiId,
-      activeMapDestinationCandidates,
-      destinationResolutionError
-    );
-    setRouteOptions(options);
-    setEmptyReason(reason);
-    setRouteSelection({ origin: effectiveOrigin, destination, service });
-  }, [effectiveOrigin, destination, service, nearbyOriginCandidates, selectedPlaceLabel, selectedDestinationSource, selectedPoiId, activeMapDestinationCandidates, destinationResolutionError]);
+  let routeTarget = null;
+  let emptyReason = destinationResolutionError;
+  if (destination && originContext) {
+    if (selectedDestinationSource === 'dropdown') {
+      routeTarget = destinationGroups.find(group => group.name === destination) || null;
+    } else {
+      const { candidates, unresolvedReason } = buildDestinationCandidates(
+        destination, selectedDestinationSource, selectedPoiId, activeMapDestinationCandidates, destinationResolutionError
+      );
+      // Map candidates are existing registered groups; retain their concrete IDs, never their display label.
+      routeTarget = { stopIds: [...new Set(candidates.flatMap(name =>
+        BUS_DATA.groups.find(group => group.name === name)?.codes || []
+      ))] };
+      emptyReason = unresolvedReason;
+    }
+  }
+  // Capture the current query time, as legacy routing did, without another stored clock or timer.
+  const routeNow = new Date();
+  const routeTime = `${String(routeNow.getHours()).padStart(2, '0')}:${String(routeNow.getMinutes()).padStart(2, '0')}`;
+  const routeOptions = originContext && routeTarget
+    ? findDirectRoutes(originContext, routeTarget, { service, now: routeTime }).slice(0, ROUTE_OPTION_LIMIT)
+    : [];
+  if (destination && originContext && !routeOptions.length && !emptyReason) {
+    const targetIds = new Set(routeTarget?.stopIds || []);
+    const structurallyReachable = destinationGroups.some(group => group.stopIds.some(id => targetIds.has(id)));
+    emptyReason = structurallyReachable ? `Täna enam busse pole · ${service}` : DIRECT_CONNECTION_MISSING_REASON;
+  }
 
   const gpsLabel = {
     idle: 'Näita busse minu lähedal',
@@ -1023,12 +904,12 @@ export function BussTab({ savedPlaces = [] }) {
             </div>
           ) : !effectiveOrigin ? (
             <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>Vali lähtekoht, et näha marsruute</div>
-          ) : !routeSelectionMatches ? null : routeOptions.length === 0 ? (
+          ) : routeOptions.length === 0 ? (
             <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>{emptyReason || `Täna enam busse pole · ${wd()}`}</div>
           ) : (
             <>
               {routeOptions.map(d => (
-                <DepRow key={`${d.line}|${d.v || ''}|${d.time}|${d.originStopId || d.originName}|${d.testedDestination}`} d={d} />
+                <DepRow key={JSON.stringify([d.line, d.patternId, d.tripId])} d={d} />
               ))}
               <div style={{ fontSize: 11, color: AV.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${AV.border}` }}>
                 Ajad on sõiduplaani järgi
