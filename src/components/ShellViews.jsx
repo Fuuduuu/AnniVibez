@@ -1,5 +1,9 @@
 import { BussCard } from './BussCard';
 import { ShellIcon } from './ShellIcon';
+import { EventRows, CalendarError } from './CalendarEvents';
+import { upcomingOccurrences } from '../calendar/recurrence';
+import { localDate } from '../calendar/dates';
+import { useCalendarNow } from '../calendar/useCalendarNow';
 
 export function PageHeader({ title, subtitle }) {
   return <header className="mm-page-header">
@@ -8,8 +12,11 @@ export function PageHeader({ title, subtitle }) {
   </header>;
 }
 
-export function KoduTab({ savedPlaces, onNavigate }) {
-  const date = new Date().toLocaleDateString('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
+export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
+  const now = useCalendarNow();
+  const today = localDate(now);
+  const upcoming = upcomingOccurrences(calendar.events, now, 5);
+  const date = now.toLocaleDateString('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
   return <div className="mm-page">
     <header className="mm-home-header">
       <span className="mm-mark" aria-hidden="true">MM</span>
@@ -20,11 +27,13 @@ export function KoduTab({ savedPlaces, onNavigate }) {
         <h2 id="upcoming-heading">Tulemas</h2>
         <button className="mm-text-button" onClick={() => onNavigate('kalender')}>Kogu kalender</button>
       </div>
-      <div className="mm-card mm-welcome">
+      <CalendarError error={calendar.error} />
+      <EventRows items={upcoming} today={today} onOpen={onOpen} />
+      {!upcoming.length && <div className="mm-card mm-welcome">
         <span className="mm-icon-tile"><ShellIcon name="kodu" /></span>
         <h3>Paneme sinu kodu asjad ritta</h3>
-        <p>Siia tulevad majapidamise sündmused. Kalender on ettevalmistamisel; praegu saad kasutada bussi, loomist ja päevikut.</p>
-      </div>
+        <p>Lähenevaid sündmusi pole. Lisa kalendrisse hooldus, makse või prügipäev.</p>
+      </div>}
     </section>
     <section className="mm-section" aria-labelledby="home-bus-heading">
       <h2 className="mm-section-label" id="home-bus-heading">Buss praegu</h2>
@@ -33,7 +42,7 @@ export function KoduTab({ savedPlaces, onNavigate }) {
     <section className="mm-section" aria-labelledby="quick-heading">
       <h2 className="mm-section-label" id="quick-heading">Kiirtoimingud</h2>
       <div className="mm-quick-grid">
-        <button className="mm-button mm-button-primary mm-wide" onClick={() => onNavigate('kalender')}>
+        <button className="mm-button mm-button-primary mm-wide" disabled={!calendar.writable} onClick={() => onAdd(today)}>
           <ShellIcon name="add" />Lisa sündmus
         </button>
         <button className="mm-button mm-button-secondary" onClick={() => onNavigate('kalender')}>
@@ -46,18 +55,6 @@ export function KoduTab({ savedPlaces, onNavigate }) {
           <ShellIcon name="buss" />Buss
         </button>
       </div>
-    </section>
-  </div>;
-}
-
-export function KalenderTab() {
-  return <div className="mm-page">
-    <PageHeader title="Kalender" subtitle="Kodu sündmused ühes vaates" />
-    <section className="mm-card mm-welcome" aria-labelledby="calendar-empty-heading">
-      <span className="mm-icon-tile"><ShellIcon name="kalender" /></span>
-      <h2 id="calendar-empty-heading">Sinu kodu kalender</h2>
-      <p>Siia tulevad sinu majapidamise sündmused: hooldused, maksed ja muud olulised päevad.</p>
-      <div className="mm-notice">Sündmuste lisamine tuleb järgmises etapis (MJM02). Praegu sündmusi ei salvestata.</div>
     </section>
   </div>;
 }

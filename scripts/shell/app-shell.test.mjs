@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { waitForBrowserEndpoint } from '../bus/browser-lifecycle.mjs';
+import { runCalendarChecks } from '../calendar/browser-cases.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const browser = [process.env.BUS_TEST_BROWSER,
@@ -37,7 +38,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
   const server = createServer((req, res) => {
     if (req.url === '/app.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(js); return; }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(`<style>${css}</style><div id="root"></div><script>
+    res.end(`<meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style><div id="root"></div><script>
       const NativeDate = Date;
       window.Date = class extends NativeDate {
         constructor(...args) { super(...(args.length ? args : [2026,8,14,6,0,0])); }
@@ -135,13 +136,15 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       assert.doesNotMatch(text, /AnniVibe|Tugi|Loo täna|Täna sulle/);
       assert.ok(await evaluate("document.querySelector('nav [aria-current=page]').textContent.includes('Kodu')"));
     });
-    await t.test('Calendar and add action are honest non-persistent placeholders', async () => {
+    await t.test('Calendar and Home add flow remain empty until explicitly saved', async () => {
       await nav('Kalender');
       assert.match(await body(), /Kodu sündmused ühes vaates/);
-      assert.match(await body(), /Sündmuste lisamine.*MJM02/);
+      assert.match(await body(), /Ühtegi sündmust pole veel/);
       await nav('Kodu');
       await click('Lisa sündmus');
-      assert.match(await body(), /Sündmuste lisamine.*MJM02/);
+      await waitFor("!!document.querySelector('#event-title')");
+      assert.equal(await evaluate("document.querySelector('#event-title').value"), '');
+      await click('Tühista');
       assert.equal(await storage(), initialStorage);
     });
     await t.test('Veel opens existing Loo and returns without storage migration', async () => {
@@ -247,6 +250,9 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       const values = colors.map(luminance).sort((a,b)=>b-a);
       assert.ok((values[0]+.05)/(values[1]+.05) >= 4.5, 'GPS label contrast must remain compliant');
     });
+    if (process.env.CALENDAR_TESTS === '1') {
+      await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send});
+    }
     if (process.env.MJM_SCREENSHOTS) {
       await send('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:false});
       for (const label of ['Kodu','Kalender','Veel','Seaded','Buss']) {

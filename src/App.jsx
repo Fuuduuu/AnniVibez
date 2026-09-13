@@ -4,11 +4,15 @@ import { BussTab } from './components/BussTab';
 import LooTab from './components/LooTab';
 import { PaeviikTab } from './components/PaeviikTab';
 import { SeadedTab } from './components/SeadedTab';
-import { KoduTab, KalenderTab, VeelTab } from './components/ShellViews';
+import { KoduTab, VeelTab } from './components/ShellViews';
+import { KalenderTab } from './components/KalenderTab';
+import { EventDialog } from './components/EventDialog';
+import { useHouseholdEvents } from './calendar/useHouseholdEvents';
 import { ShellIcon } from './components/ShellIcon';
 import { useSettings } from './hooks/useSettings';
 import { useSavedPlaces } from './hooks/useSavedPlaces';
 import './design/shell.css';
+import './design/calendar.css';
 
 const TABS = [
   { id: 'kodu', label: 'Kodu' },
@@ -21,15 +25,20 @@ const TABS = [
 export default function MajamajandusApp() {
   const [tab, setTab] = useState('kodu');
   const [settingsSection, setSettingsSection] = useState(null);
+  const [eventSelection, setEventSelection] = useState(null);
+  const calendar = useHouseholdEvents();
   const { profile, saveName } = useSettings();
   const { places, update: updatePlace } = useSavedPlaces();
   const active = ['loo', 'paevik'].includes(tab) ? 'veel' : tab;
 
   function navigate(next, section = null) {
+    setEventSelection(null);
     setSettingsSection(section);
     setTab(next);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  const openAdd = (date,onSaved) => setEventSelection({date,onSaved});
+  const openEvent = (item,onSaved) => setEventSelection({item,onSaved});
 
   return (
     <div data-app-shell style={{
@@ -48,8 +57,8 @@ export default function MajamajandusApp() {
             </button>
           </div>
         )}
-        {tab === 'kodu' && <KoduTab savedPlaces={places} onNavigate={navigate} />}
-        {tab === 'kalender' && <KalenderTab />}
+        {tab === 'kodu' && <KoduTab savedPlaces={places} onNavigate={navigate} calendar={calendar} onAdd={openAdd} onOpen={openEvent} />}
+        {tab === 'kalender' && <KalenderTab calendar={calendar} onAdd={openAdd} onOpen={openEvent} />}
         {tab === 'buss' && <BussTab savedPlaces={places} />}
         {tab === 'veel' && <VeelTab onNavigate={navigate} />}
         {tab === 'loo' && <LooTab />}
@@ -57,6 +66,7 @@ export default function MajamajandusApp() {
         {tab === 'seaded' && <SeadedTab profile={profile} saveName={saveName} places={places}
           updatePlace={updatePlace} initialSection={settingsSection} />}
       </main>
+      {eventSelection && <EventDialog selection={eventSelection} calendar={calendar} onClose={() => setEventSelection(null)} />}
       <nav className="mm-nav" aria-label="Põhinavigatsioon">
         <div className="mm-nav-inner">
           {TABS.map(t => <button key={t.id} type="button" aria-current={active === t.id ? 'page' : undefined}
