@@ -1,0 +1,1105 @@
+{
+  "schemaVersion": 1,
+  "snapshotDate": "2026-09-13",
+  "scope": "SOURCE_ONLY_NOT_RUNTIME",
+  "provenance": {
+    "retrievedAt": "Date supplied by the human for these ten local official-source PDFs; not inferred from printed effective dates or PDF creation metadata.",
+    "sourceUrls": "Original local PDF Zone.Identifier HostUrl evidence, captured in DATA01.",
+    "printedValues": "Never overwritten. resolved_stop_id is blank for unresolved Napi identities; otherwise equal to printed_stop_id except the explicit Aiand resolution."
+  },
+  "extraction": {
+    "tool": "Xpdf pdftotext",
+    "modes": [
+      "-table",
+      "-raw"
+    ],
+    "verification": "AGREE_EXCEPT_EXPLICIT_NAME_EXTRACTION_ARTIFACT",
+    "layout": "Reis-header-derived character columns independently checked against content-stream token rows; no page-coordinate overrides.",
+    "rawContinuation": "A numbered name-only row may join one immediate distance/stop_id continuation; any name disagreement requires an explicit extraction artifact.",
+    "ignoredAsGates": [
+      "segment travel hints",
+      "footer total duration"
+    ]
+  },
+  "pdfs": [
+    {
+      "filename": "Linnaliin nr 1 esmaspäev kuni reede.pdf",
+      "line": "1",
+      "dayType": "E-R",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.01.2023",
+      "operator": "AS Hansabuss",
+      "sha256": "fef1b10528dcca7d03433ec88970766cc5dd391816acd0775e30a2c745909002",
+      "byteSize": 266457,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-08/Linnaliin%20nr%201%20esmasp%C3%A4ev%20kuni%20reede.pdf",
+      "tables": [
+        "line1-er-loop"
+      ]
+    },
+    {
+      "filename": "Linnaliin nr 1 laupäev.pdf",
+      "line": "1",
+      "dayType": "L",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.01.2023",
+      "operator": "AS Hansabuss",
+      "sha256": "d2ba86f267dd3a2ca12ec239aa1c7181c95844adac1678f766d725f56dd3b505",
+      "byteSize": 256027,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-08/Linnaliin%20nr%201%20laup%C3%A4ev.pdf",
+      "tables": [
+        "line1-l-loop"
+      ]
+    },
+    {
+      "filename": "Linnaliin nr 1 pühapäev, riiklikud pühad.pdf",
+      "line": "1",
+      "dayType": "P",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.01.2023",
+      "operator": "AS Hansabuss",
+      "sha256": "9b4772d36b633786d0094ace6da46b41032a3ddf101c7a1090812e910e2aa541",
+      "byteSize": 253371,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-08/Linnaliin%20nr%201%20p%C3%BChap%C3%A4ev%2C%20riiklikud%20p%C3%BChad.pdf",
+      "tables": [
+        "line1-p-loop"
+      ]
+    },
+    {
+      "filename": "Linnaliin nr 2 esmaspäev kuni reede.pdf",
+      "line": "2",
+      "dayType": "E-R",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.01.2023",
+      "operator": "AS Hansabuss",
+      "sha256": "46219d07dc13d242dcb7ce2e0c995cf8a54a5ba81abbd08780cf96aba9b36603",
+      "byteSize": 274206,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-08/Linnaliin%20nr%202%20esmasp%C3%A4ev%20kuni%20reede.pdf",
+      "tables": [
+        "line2-er-piira-lihakombinaat",
+        "line2-er-lihakombinaat-piira"
+      ]
+    },
+    {
+      "filename": "Linnaliin nr 3 esmaspäev kuni reede.pdf",
+      "line": "3",
+      "dayType": "E-R",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.01.2023",
+      "operator": "AS Hansabuss",
+      "sha256": "5df61c8f3a3d2dc4ae593d96228449c3303bfbcff7903858b72b20b510292af9",
+      "byteSize": 351506,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-08/Linnaliin%20nr%203%20esmasp%C3%A4ev%20kuni%20reede.pdf",
+      "tables": [
+        "line3-er-keskvaljak",
+        "line3-er-koidula"
+      ]
+    },
+    {
+      "filename": "Linnaliin nr 3 laupäev.pdf",
+      "line": "3",
+      "dayType": "L",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.01.2023",
+      "operator": "AS Hansabuss",
+      "sha256": "80d0492ce9c54455139e7836a09e197fc94faa4070ac6d39fbcc6e6ae8a1a5ae",
+      "byteSize": 339308,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-08/Linnaliin%20nr%203%20laup%C3%A4ev.pdf",
+      "tables": [
+        "line3-l-keskvaljak",
+        "line3-l-koidula"
+      ]
+    },
+    {
+      "filename": "Linnaliin nr 3 pühapäev, riiklikud pühad.pdf",
+      "line": "3",
+      "dayType": "P",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.01.2023",
+      "operator": "AS Hansabuss",
+      "sha256": "282879caa17cdafc0c2e75c0da57e37e98ccd87765b01d9a39605ce3823a9888",
+      "byteSize": 335543,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-08/Linnaliin%20nr%203%20p%C3%BChap%C3%A4ev%2C%20riiklikud%20p%C3%BChad.pdf",
+      "tables": [
+        "line3-p-keskvaljak",
+        "line3-p-koidula"
+      ]
+    },
+    {
+      "filename": "Llinnaliin 5 sõiduplaan E-R alates 011225.pdf",
+      "line": "5",
+      "dayType": "E-R",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.12.2025",
+      "operator": "AS Hansabuss",
+      "sha256": "c82db52c545ce58d06f4c0aac68916ca4d8d63e08ec299b89bccc54b239fd8fb",
+      "byteSize": 492024,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-12/Llinnaliin%205%20s%C3%B5iduplaan%20E-R%20alates%20011225.pdf",
+      "tables": [
+        "line5-er-ragavere-pohjakeskus",
+        "line5-er-pohjakeskus-ragavere"
+      ]
+    },
+    {
+      "filename": "Llinnaliin 5 sõiduplaan L alates 011225.pdf",
+      "line": "5",
+      "dayType": "L",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.12.2025",
+      "operator": "AS Hansabuss",
+      "sha256": "0dafee307bec8b522174c75e8eecc9f2485965e573a7713c1299702347ae1a55",
+      "byteSize": 452553,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-12/Llinnaliin%205%20s%C3%B5iduplaan%20L%20alates%20011225.pdf",
+      "tables": [
+        "line5-l-ragavere-pohjakeskus",
+        "line5-l-pohjakeskus-ragavere"
+      ]
+    },
+    {
+      "filename": "Llinnaliin 5 sõiduplaan P alates 011225.pdf",
+      "line": "5",
+      "dayType": "P",
+      "retrievedAt": "2026-09-13",
+      "printedEffectiveDate": "01.12.2025",
+      "operator": "AS Hansabuss",
+      "sha256": "d2366e89327088576c6a1127ede497a563a7558a0d1499211e731533ccf523e2",
+      "byteSize": 442958,
+      "sourceUrl": "https://rakvere.ee/sites/default/files/documents/2025-12/Llinnaliin%205%20s%C3%B5iduplaan%20P%20alates%20011225.pdf",
+      "tables": [
+        "line5-p-ragavere-pohjakeskus",
+        "line5-p-pohjakeskus-ragavere"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "id": "line1-er-loop",
+      "filename": "line1-er-loop.csv",
+      "sourcePdf": "Linnaliin nr 1 esmaspäev kuni reede.pdf",
+      "line": "1",
+      "dayType": "E-R",
+      "sourceTableIndex": 1,
+      "rowCount": 32,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "1-02"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "1-03"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_13",
+          "printedReis": "13",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_15",
+          "printedReis": "15",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_17",
+          "printedReis": "17",
+          "block": "1-01"
+        }
+      ]
+    },
+    {
+      "id": "line1-l-loop",
+      "filename": "line1-l-loop.csv",
+      "sourcePdf": "Linnaliin nr 1 laupäev.pdf",
+      "line": "1",
+      "dayType": "L",
+      "sourceTableIndex": 1,
+      "rowCount": 32,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "1-01"
+        }
+      ]
+    },
+    {
+      "id": "line1-p-loop",
+      "filename": "line1-p-loop.csv",
+      "sourcePdf": "Linnaliin nr 1 pühapäev, riiklikud pühad.pdf",
+      "line": "1",
+      "dayType": "P",
+      "sourceTableIndex": 1,
+      "rowCount": 32,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "1-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "1-01"
+        }
+      ]
+    },
+    {
+      "id": "line2-er-piira-lihakombinaat",
+      "filename": "line2-er-piira-lihakombinaat.csv",
+      "sourcePdf": "Linnaliin nr 2 esmaspäev kuni reede.pdf",
+      "line": "2",
+      "dayType": "E-R",
+      "sourceTableIndex": 1,
+      "rowCount": 14,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "2-01"
+        }
+      ]
+    },
+    {
+      "id": "line2-er-lihakombinaat-piira",
+      "filename": "line2-er-lihakombinaat-piira.csv",
+      "sourcePdf": "Linnaliin nr 2 esmaspäev kuni reede.pdf",
+      "line": "2",
+      "dayType": "E-R",
+      "sourceTableIndex": 2,
+      "rowCount": 14,
+      "trips": [
+        {
+          "column": "reis_02",
+          "printedReis": "02",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_04",
+          "printedReis": "04",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_06",
+          "printedReis": "06",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_08",
+          "printedReis": "08",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_10",
+          "printedReis": "10",
+          "block": "2-01"
+        },
+        {
+          "column": "reis_12",
+          "printedReis": "12",
+          "block": "2-01"
+        }
+      ]
+    },
+    {
+      "id": "line3-er-keskvaljak",
+      "filename": "line3-er-keskvaljak.csv",
+      "sourcePdf": "Linnaliin nr 3 esmaspäev kuni reede.pdf",
+      "line": "3",
+      "dayType": "E-R",
+      "sourceTableIndex": 1,
+      "rowCount": 16,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_13",
+          "printedReis": "13",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_15",
+          "printedReis": "15",
+          "block": "3-01"
+        }
+      ]
+    },
+    {
+      "id": "line3-er-koidula",
+      "filename": "line3-er-koidula.csv",
+      "sourcePdf": "Linnaliin nr 3 esmaspäev kuni reede.pdf",
+      "line": "3",
+      "dayType": "E-R",
+      "sourceTableIndex": 2,
+      "rowCount": 15,
+      "trips": [
+        {
+          "column": "reis_02",
+          "printedReis": "02",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_04",
+          "printedReis": "04",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_06",
+          "printedReis": "06",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_08",
+          "printedReis": "08",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_10",
+          "printedReis": "10",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_12",
+          "printedReis": "12",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_14",
+          "printedReis": "14",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_16",
+          "printedReis": "16",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_18",
+          "printedReis": "18",
+          "block": "3-01"
+        }
+      ]
+    },
+    {
+      "id": "line3-l-keskvaljak",
+      "filename": "line3-l-keskvaljak.csv",
+      "sourcePdf": "Linnaliin nr 3 laupäev.pdf",
+      "line": "3",
+      "dayType": "L",
+      "sourceTableIndex": 1,
+      "rowCount": 16,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_13",
+          "printedReis": "13",
+          "block": "3-01"
+        }
+      ]
+    },
+    {
+      "id": "line3-l-koidula",
+      "filename": "line3-l-koidula.csv",
+      "sourcePdf": "Linnaliin nr 3 laupäev.pdf",
+      "line": "3",
+      "dayType": "L",
+      "sourceTableIndex": 2,
+      "rowCount": 15,
+      "trips": [
+        {
+          "column": "reis_02",
+          "printedReis": "02",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_04",
+          "printedReis": "04",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_06",
+          "printedReis": "06",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_08",
+          "printedReis": "08",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_10",
+          "printedReis": "10",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_12",
+          "printedReis": "12",
+          "block": "3-01"
+        }
+      ]
+    },
+    {
+      "id": "line3-p-keskvaljak",
+      "filename": "line3-p-keskvaljak.csv",
+      "sourcePdf": "Linnaliin nr 3 pühapäev, riiklikud pühad.pdf",
+      "line": "3",
+      "dayType": "P",
+      "sourceTableIndex": 1,
+      "rowCount": 16,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "3-01"
+        }
+      ]
+    },
+    {
+      "id": "line3-p-koidula",
+      "filename": "line3-p-koidula.csv",
+      "sourcePdf": "Linnaliin nr 3 pühapäev, riiklikud pühad.pdf",
+      "line": "3",
+      "dayType": "P",
+      "sourceTableIndex": 2,
+      "rowCount": 15,
+      "trips": [
+        {
+          "column": "reis_02",
+          "printedReis": "02",
+          "block": "3-02"
+        },
+        {
+          "column": "reis_04",
+          "printedReis": "04",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_06",
+          "printedReis": "06",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_08",
+          "printedReis": "08",
+          "block": "3-01"
+        },
+        {
+          "column": "reis_10",
+          "printedReis": "10",
+          "block": "3-01"
+        }
+      ]
+    },
+    {
+      "id": "line5-er-ragavere-pohjakeskus",
+      "filename": "line5-er-ragavere-pohjakeskus.csv",
+      "sourcePdf": "Llinnaliin 5 sõiduplaan E-R alates 011225.pdf",
+      "line": "5",
+      "dayType": "E-R",
+      "sourceTableIndex": 1,
+      "rowCount": 14,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "5-02"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "5-03"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_13",
+          "printedReis": "13",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_15",
+          "printedReis": "15",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_17",
+          "printedReis": "17",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_19",
+          "printedReis": "19",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_21",
+          "printedReis": "21",
+          "block": "5-01"
+        }
+      ]
+    },
+    {
+      "id": "line5-er-pohjakeskus-ragavere",
+      "filename": "line5-er-pohjakeskus-ragavere.csv",
+      "sourcePdf": "Llinnaliin 5 sõiduplaan E-R alates 011225.pdf",
+      "line": "5",
+      "dayType": "E-R",
+      "sourceTableIndex": 2,
+      "rowCount": 15,
+      "trips": [
+        {
+          "column": "reis_02",
+          "printedReis": "02",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_04",
+          "printedReis": "04",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_06",
+          "printedReis": "06",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_08",
+          "printedReis": "08",
+          "block": "5-02"
+        },
+        {
+          "column": "reis_10",
+          "printedReis": "10",
+          "block": "5-03"
+        },
+        {
+          "column": "reis_14",
+          "printedReis": "14",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_12",
+          "printedReis": "12",
+          "block": "5-03"
+        },
+        {
+          "column": "reis_16",
+          "printedReis": "16",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_18",
+          "printedReis": "18",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_20",
+          "printedReis": "20",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_22",
+          "printedReis": "22",
+          "block": "5-01"
+        }
+      ]
+    },
+    {
+      "id": "line5-l-ragavere-pohjakeskus",
+      "filename": "line5-l-ragavere-pohjakeskus.csv",
+      "sourcePdf": "Llinnaliin 5 sõiduplaan L alates 011225.pdf",
+      "line": "5",
+      "dayType": "L",
+      "sourceTableIndex": 1,
+      "rowCount": 14,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_13",
+          "printedReis": "13",
+          "block": "5-01"
+        }
+      ]
+    },
+    {
+      "id": "line5-l-pohjakeskus-ragavere",
+      "filename": "line5-l-pohjakeskus-ragavere.csv",
+      "sourcePdf": "Llinnaliin 5 sõiduplaan L alates 011225.pdf",
+      "line": "5",
+      "dayType": "L",
+      "sourceTableIndex": 2,
+      "rowCount": 15,
+      "trips": [
+        {
+          "column": "reis_02",
+          "printedReis": "02",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_04",
+          "printedReis": "04",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_06",
+          "printedReis": "06",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_08",
+          "printedReis": "08",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_10",
+          "printedReis": "10",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_12",
+          "printedReis": "12",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_14",
+          "printedReis": "14",
+          "block": "5-01"
+        }
+      ]
+    },
+    {
+      "id": "line5-p-ragavere-pohjakeskus",
+      "filename": "line5-p-ragavere-pohjakeskus.csv",
+      "sourcePdf": "Llinnaliin 5 sõiduplaan P alates 011225.pdf",
+      "line": "5",
+      "dayType": "P",
+      "sourceTableIndex": 1,
+      "rowCount": 14,
+      "trips": [
+        {
+          "column": "reis_01",
+          "printedReis": "01",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_03",
+          "printedReis": "03",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_05",
+          "printedReis": "05",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_07",
+          "printedReis": "07",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_09",
+          "printedReis": "09",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_11",
+          "printedReis": "11",
+          "block": "5-01"
+        }
+      ]
+    },
+    {
+      "id": "line5-p-pohjakeskus-ragavere",
+      "filename": "line5-p-pohjakeskus-ragavere.csv",
+      "sourcePdf": "Llinnaliin 5 sõiduplaan P alates 011225.pdf",
+      "line": "5",
+      "dayType": "P",
+      "sourceTableIndex": 2,
+      "rowCount": 15,
+      "trips": [
+        {
+          "column": "reis_02",
+          "printedReis": "02",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_04",
+          "printedReis": "04",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_06",
+          "printedReis": "06",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_08",
+          "printedReis": "08",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_10",
+          "printedReis": "10",
+          "block": "5-01"
+        },
+        {
+          "column": "reis_12",
+          "printedReis": "12",
+          "block": "5-01"
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "line": "2",
+      "dayType": "L",
+      "status": "NO_SERVICE",
+      "authority": "DATA01 explicit human decision for this snapshot; not inferred from missing generated trips."
+    },
+    {
+      "line": "2",
+      "dayType": "P",
+      "status": "NO_SERVICE",
+      "authority": "DATA01 explicit human decision for this snapshot; not inferred from missing generated trips."
+    }
+  ],
+  "anomalies": [
+    {
+      "state": "SOURCE_CONFLICT",
+      "status": "UNRESOLVED",
+      "table": "line1-er-loop",
+      "row": 17,
+      "printedValue": "5900508-1",
+      "resolvedValue": null,
+      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+    },
+    {
+      "state": "SOURCE_CONFLICT",
+      "status": "UNRESOLVED",
+      "table": "line1-er-loop",
+      "row": 18,
+      "printedValue": "5900508-1",
+      "resolvedValue": null,
+      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+    },
+    {
+      "state": "SOURCE_CONFLICT",
+      "status": "UNRESOLVED",
+      "table": "line1-l-loop",
+      "row": 17,
+      "printedValue": "5900508-1",
+      "resolvedValue": null,
+      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+    },
+    {
+      "state": "SOURCE_CONFLICT",
+      "status": "UNRESOLVED",
+      "table": "line1-l-loop",
+      "row": 18,
+      "printedValue": "5900508-1",
+      "resolvedValue": null,
+      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+    },
+    {
+      "state": "SOURCE_CONFLICT",
+      "status": "UNRESOLVED",
+      "table": "line1-p-loop",
+      "row": 17,
+      "printedValue": "5900508-1",
+      "resolvedValue": null,
+      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+    },
+    {
+      "state": "SOURCE_CONFLICT",
+      "status": "UNRESOLVED",
+      "table": "line1-p-loop",
+      "row": 18,
+      "printedValue": "5900508-1",
+      "resolvedValue": null,
+      "reason": "PDF repeated stop_id versus reported GTFS/Peatus two-stop-point model; no identity or visit collapse authorized."
+    },
+    {
+      "state": "SUSPECTED_TYPO",
+      "status": "UNRESOLVED",
+      "table": "line2-er-piira-lihakombinaat",
+      "row": 6,
+      "trip": "01",
+      "printedValue": "06:04",
+      "resolvedValue": null,
+      "reason": "Keep the printed 06:04; do not substitute 06:01."
+    },
+    {
+      "state": "EXTRACTION_ARTIFACT",
+      "status": "RESOLVED_EXTRACTION_ONLY",
+      "table": "line3-er-keskvaljak",
+      "row": 10,
+      "field": "name",
+      "tableModeValue": "Carl Robert Jakobs5o,n1i82",
+      "rawModeValue": "Carl Robert Jakobsoni",
+      "resolvedValue": "Carl Robert Jakobsoni",
+      "evidence": "DATA01 PDF visual inspection and raw content stream: distance 5,182 overlaps the stop-name cell in table-mode extraction. No source identity or timetable value changed."
+    },
+    {
+      "state": "STOP_ID_MISMATCH",
+      "status": "RESOLVED",
+      "table": "line5-er-pohjakeskus-ragavere",
+      "row": 6,
+      "printedValue": "5900597-1",
+      "resolvedValue": "5900013-1",
+      "authority": "DATA01 explicit human decision: Aiand only; printed source retained."
+    },
+    {
+      "state": "TRIP_KEY_ANOMALY",
+      "status": "UNRESOLVED",
+      "table": "line5-er-pohjakeskus-ragavere",
+      "printedValue": [
+        "02",
+        "04",
+        "06",
+        "08",
+        "10",
+        "14",
+        "12",
+        "16",
+        "18",
+        "20",
+        "22"
+      ],
+      "resolvedValue": null,
+      "reason": "Printed column order retained, including Reis 14 before Reis 12; no renumbering or sorting."
+    },
+    {
+      "state": "STOP_ID_MISMATCH",
+      "status": "RESOLVED",
+      "table": "line5-l-pohjakeskus-ragavere",
+      "row": 6,
+      "printedValue": "5900597-1",
+      "resolvedValue": "5900013-1",
+      "authority": "DATA01 explicit human decision: Aiand only; printed source retained."
+    },
+    {
+      "state": "STOP_ID_MISMATCH",
+      "status": "RESOLVED",
+      "table": "line5-p-pohjakeskus-ragavere",
+      "row": 6,
+      "printedValue": "5900597-1",
+      "resolvedValue": "5900013-1",
+      "authority": "DATA01 explicit human decision: Aiand only; printed source retained."
+    }
+  ]
+}
