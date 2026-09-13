@@ -12,13 +12,13 @@ Status: compact low-token state snapshot for future Codex passes.
 
 ## Accepted runtime features
 
-- destination-first bus flow is active in `BussTab`
+- Accepted bus baseline: `5a27600` (includes `2bf9830` simplified bus UX and `9e6e142` route-row key fix).
+- `BussTab` has two primary tasks: nearby GPS departures and destination selection.
 - route cards include:
   - `Mine peatusesse`
   - `Sõida liiniga`
   - `Välju peatuses`
-- POI/place-first destination search is wired in `BussTab`
-- popular place chips are active in bus destination UI
+- Free-text/POI search and popular-place chips are no longer visible; underlying helpers remain transitional.
 - map destination picker is integrated in `BussTab` via `BusMapPicker`
 - GTFS stop-point coordinate layer exists in `src/data/gtfsStopCoords.js`
 - `nearest(...)` and `BusMapPicker` prefer GTFS stop-point coords by stopId
@@ -84,16 +84,16 @@ Status: compact low-token state snapshot for future Codex passes.
 
 ## Current bus architecture
 
-- primary prompt is destination-first: `Kuhu soovid minna?`
+- primary sections: `JÄRGMISED BUSSID` and `KUHU TAHAD MINNA?`
 - effective origin model:
   - `effectiveOrigin = manualOriginOverride ?? currentOrigin`
-- route engine remains:
+- legacy / transitional route engine (not the future general routing API):
   - `depsWithMeta(...)`
 - coordinate-to-stop resolver remains:
   - `nearest(...)`
 - GTFS coordinate precedence for stop points:
   - `GTFS_STOP_COORDS_BY_ID[stopId] -> BUS_DATA.by_code[stopId] -> legacy fallback`
-- origin code resolution is protected:
+- legacy / transitional origin code resolution (retain until migration; do not copy into the new read-model):
   - `displayCodes || codes || [code]`
 - nearby candidate logic remains active
 - map pin destination flow remains active and feeds destination candidates
@@ -102,11 +102,11 @@ Status: compact low-token state snapshot for future Codex passes.
   - take line
   - get off at destination stop
 
-## POI/place direction
+## Historical POI/place direction (superseded visible UI)
 
 - users should search places, not internal stop names
 - stop-name search remains fallback/advanced path
-- current implementation state:
+- historical implementation state (search UI is no longer visible):
   - POI dataset is active input for enabled place search
   - place-search UI is implemented in `BussTab`
   - map picker is implemented as destination input aid
@@ -116,17 +116,17 @@ Status: compact low-token state snapshot for future Codex passes.
 
 - future product direction may include extracting the bus module into a standalone dedicated app
 - this is not current implementation scope
-- current scope remains stabilizing and field-testing the bus module inside AnniVibe first
+- current scope is LOCK00, followed by DATA01 normalized timetable source work; runtime routing/UI changes await later passes
 - future planning reference:
   - `docs/audit/bus-module-extraction-future-plan.md`
 
 ## Protected boundaries
 
-- do not rewrite `depsWithMeta(...)` casually
+- retain transitional `depsWithMeta(...)` during source work; do not expand it into the new general routing API
 - do not rewrite `nearest(...)` casually
-- do not remove `displayCodes || codes || [code]` fallback
+- retain transitional `displayCodes || codes || [code]` until migration; it is not a rule for new routing/read-model code
 - do not remove Õie/Tulika nearby behavior
-- do not remove Kivi/Kesk sibling-code behavior
+- preserve sibling boarding choices, not pre-routing stop_id merging; follow `docs/BUS_LOGIC_LOCK.md`
 - do not mix bus work with Üllata/API work
 - do not add map inside non-map pass
 - do not touch runtime in docs-only pass
@@ -156,11 +156,10 @@ Sniper Matrix visual asset:
 - `docs/assets/annivibe-sniper-matrix.png`
 - source of truth remains `docs/CODEBASE_IMPACT_MAP.md`
 
-## Next likely passes
+## Next authorized pass
 
-- `PASS 31C — MAP_CODE_SPLIT_AND_DATA_LAZY_LOAD`
-- field testing / on-device performance validation
-- `MAP_VISUAL_LOAD_TUNING_2` only if jank reappears on target devices
+- After LOCK00: `DATA01 — NORMALIZED_TIMETABLE_SOURCE`.
+- Earlier next-pass suggestions are superseded; no runtime routing/UI work is authorized here.
 
 ## Known deploy notes
 

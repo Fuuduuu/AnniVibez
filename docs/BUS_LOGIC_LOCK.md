@@ -29,15 +29,31 @@ Source semantics:
 - TXT files provide stop order / stop IDs / sample stop times.
 - PDFs provide timetable/service variants where available.
 
-## Data hierarchy
+## Current runtime data hierarchy (legacy / transitional)
 Line -> Pattern -> ordered stopIds -> stop times/offsets -> service-day trips -> upcoming departures.
 
+## New routing direction (not yet implemented)
+- Preserve concrete stop-point identity, use visit-aware timetable structure and a shared reachability/read-model.
+- `depsWithMeta()` is LEGACY / TRANSITIONAL; it may remain operational during migration but must not be expanded into the new general routing API.
+- Runtime routing/UI migration requires later passes; DATA01 authorizes normalized timetable source work only.
+
 ## Stop identity rules
-- stopId is runtime identity
+- Concrete `stop_id` (`stopId` in current runtime) is routing identity.
 - stop name is display label
 - same-name grouping is display-only
 - direction-specific stop IDs must not be merged for routing
 - display group may contain several stop IDs, but routing must use selected stopId
+- Same-name stop-points must not be merged before routing; evaluate each candidate stop_id independently.
+
+## displayCodes migration rule
+- `displayCodes || codes || [code]` is LEGACY / TRANSITIONAL.
+- Existing behavior may remain in current runtime until migration; do not remove it in LOCK00 or DATA01.
+- MUST NOT BE COPIED INTO NEW ROUTING/READ-MODEL ARCHITECTURE.
+- Preserve access to sibling boarding candidates without merging their stop_ids.
+
+## Origin context
+- Primary context contains the nearest concrete stop-point and sibling stop-points belonging to the same logical stop, each retaining its own stop_id.
+- Other nearby stop groups are fallback candidates, not automatically part of primary origin context.
 
 ## Õie / Tulika locked example
 Õie:

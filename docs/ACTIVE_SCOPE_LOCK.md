@@ -10,7 +10,19 @@ Loe ja järgi selles järjekorras:
 
 ## Praegune faas
 
-**PASS 26B (TOKEN_BUDGET_AND_WORKFLOW_OPTIMIZATION) on tehtud (docs-only).**
+**LOCK00 — MINIMAL_ROUTING_SCOPE_UPDATE (docs-only).**
+
+Accepted runtime baseline: `5a27600268bce8e9b1b20e05844d4ed3c435a7a1`.
+- `2bf9830`: simplified bus UX
+- `9e6e142`: route-row key fix
+- `5a27600`: nearby departures
+
+LOCK00 supersedes older next-pass declarations in `docs/SESSION_BOOT.md`,
+`docs/TRUTH_INDEX.md` and `docs/ACCEPTED_CHECKPOINTS.md`; those declarations
+are historical, not current work authority. Routing migration rules live in
+`docs/BUS_LOGIC_LOCK.md`; legacy API preservation is not a future architecture mandate.
+
+## Historical pass results (superseded scope, not current authority)
 
 PASS 25A runtime tulemus:
 - route recommendation cards said selgema "kuidas kohale saada" konteksti
@@ -62,15 +74,15 @@ PASS 26B docs-only tulemus:
 ## Järgmine lukustatud töö
 
 Praegune lukustatud järgmine faas:
-- **PASS 26C — WORKFLOW_AND_BUS_LOGIC_DIAGRAMS**
-- add workflow and bus-logic Mermaid docs in a narrow docs-only pass
-- hoia pass kitsas ja kontrollitav
+- After LOCK00: **DATA01 — NORMALIZED_TIMETABLE_SOURCE** implementation is authorized.
+- DATA01 is limited to normalized timetable source work, not runtime routing/UI changes.
 
 ## Selles passis lubatud
 
-- docs-only workflow/diagram planning updates
-- no runtime/source changes
-- checkpoint docs sync
+- LOCK00: minimal updates to `docs/ACTIVE_SCOPE_LOCK.md` and `docs/BUS_LOGIC_LOCK.md`.
+- Update `docs/CURRENT_STATE.md` only to remove conflicting live guidance.
+- No runtime changes in LOCK00; this does not revoke the accepted runtime baseline.
+- No new documentation artifacts or wider documentation refresh.
 
 ## Selles passis mitte lubatud
 
@@ -86,11 +98,11 @@ Praegune lukustatud järgmine faas:
 
 ## Decision gate
 
-Pass 26C loetakse lõpetatuks ainult siis, kui:
-1. workflow/bus-logic diagram scope on dokumenteeritud kitsalt
-2. runtime/source faile ei muudeta
-3. checkpoint docs on sünkroonitud
-4. broad scope does not reopen
+LOCK00 completion requires:
+1. Stop identity, transitional APIs and future routing direction are consistent with `docs/BUS_LOGIC_LOCK.md`.
+2. `git diff --check` passes and active guidance is checked for superseded rules.
+3. Only the allowed existing docs change; no runtime changes or new artifacts.
+4. DATA01 is the next authorized pass; runtime routing/UI changes require later passes.
 
 ## Hooldusreegel
 
