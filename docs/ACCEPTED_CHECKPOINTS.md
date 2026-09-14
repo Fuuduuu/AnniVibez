@@ -617,6 +617,27 @@ Sisu:
   - `PASS 25H — LIVE_FIELD_TEST`
 - runtime/source code remained unchanged in this pass
 
+### 32. Motion polish
+**Staatus:** accepted
+
+Sisu:
+- checkpoint: `20ac51b481c1b2a7ea58ce2251f28ceb96f31046` (`style: add subtle native motion`)
+- subtle page entrance, tactile bottom navigation, button/row press feedback, calendar state motion and event-dialog entrance are accepted
+- reduced-motion support is preserved
+- validation: `211 PASS`, `0 FAIL`
+- human phone acceptance: PASS
+
+### 33. Calendar UX v2
+**Staatus:** accepted
+
+Sisu:
+- checkpoint: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
+- visible `+ Lisa`, integrated `Täna`, month-aligned selected-day content and a post-content category legend are accepted
+- essential event fields appear first; `Rohkem valikuid` contains recurrence, reminder and notes
+- meaningful existing advanced values open the advanced section; imported-event protections and recurring-event semantics are preserved
+- validation: `206 PASS`, `0 FAIL`
+- production smoke and human phone acceptance: PASS
+
 ## Accepted not-yet-done areas
 
 Need on teadaolevad puuduvad või lõpetamata osad, aga ei ava automaatselt uut scope’i:
@@ -651,7 +672,7 @@ Põhjus:
 - vastuolus kitsa-passilise töökorraldusega
 - nõuab eraldi locki
 
-## Praegune aktiivne faas
+## Historical active phase (superseded)
 
 - Pass 17 BUS_DISPLAYCODES_AND_DESTINATION_RESET completed
 - Pass 18 BUS_DISPLAYCODES_SMOKE_AND_CHECKPOINT completed
@@ -667,9 +688,9 @@ Põhjus:
 - Pass 26A PROMPT_SYSTEM_AND_MERMAID_DOCS_SYNC completed (docs-only)
 - Pass 24 DEPLOY_ENV_DOCS completed (docs-only)
 - Pass 25B PLACE_DESTINATION_MODEL_DOCS completed (docs-only)
-- järgmine on PASS 25C LOCAL_POI_DATASET_RAKVERE
+- This historical queue is superseded by `COMMON_BACKEND_ARCHITECTURE` in `docs/ACTIVE_SCOPE_LOCK.md`.
 
-## Järgmine lubatud samm
+## Historical next allowed step (superseded)
 
 - PASS 25C: LOCAL_POI_DATASET_RAKVERE
 - focus:

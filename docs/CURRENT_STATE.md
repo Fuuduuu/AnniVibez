@@ -1,177 +1,36 @@
 # CURRENT_STATE
 
-Status: compact low-token state snapshot for future Codex passes.
+Status: compact operational snapshot for future Majandus passes.
 
-## Repo
+## Product and production
 
-- branch: `main`
-- canonical app URL: `https://annivibe.pages.dev`
-- Cloudflare Pages project: `annivibe`
-- build command: `npm run build`
-- deploy command: `npx wrangler pages deploy dist --project-name annivibe`
+- visible product: `Majandus`
+- current accepted runtime: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
+- canonical production: `https://annivibe.pages.dev`
+- production and human phone validation: PASS
 
-## Accepted runtime features
+## Accepted product state
 
-- Accepted committed bus baseline: `c1e8469`; LIVE / FIELD SMOKE is pending. Older deployed/smoked notes below describe earlier checkpoints, not field validation of this baseline.
-- Normalized current Rakvere timetable runtime, evidence-backed stop identity resolutions and deterministic timetable generator are accepted.
-- Terminal arrivals are excluded from boarding departures.
-- Shared `busReach` core supplies reachable-only destination selection, truthful direct routes with exact board/alight IDs and reachable exact-ID map targets.
-- Leaflet lifecycle stabilization is accepted.
-- Earlier bus UX baseline `5a27600` (includes `2bf9830` simplified bus UX and `9e6e142` route-row key fix) remains included.
-- `BussTab` has two primary tasks: nearby GPS departures and destination selection.
-- route cards include:
-  - `Mine peatusesse`
-  - `Sõida liiniga`
-  - `Välju peatuses`
-- Free-text/POI search and popular-place chips are no longer visible; underlying helpers remain transitional.
-- map destination picker is integrated in `BussTab` via `BusMapPicker`
-- GTFS stop-point coordinate layer exists in `src/data/gtfsStopCoords.js`
-- `nearest(...)` and `BusMapPicker` prefer GTFS stop-point coords by stopId
-- Historical: GTFS coordinate wiring did not overwrite `src/data/busData.js`; DATA03 subsequently replaced its timetable runtime.
-- PASS `27F2` is accepted/live
-- PASS `28A` direct-route candidate-search planning is completed (docs-only)
-- PASS `28B` direct-route candidate-search MVP is deployed/smoked
-- map picker UX design spec saved: `docs/audit/map-picker-ux-design-spec.md`
-- PASS `28C_UI_MAP_PICKER_LAYOUT` is implemented, committed, and deployed/smoked
-- PASS `28D_MAP_MARKER_VISUALS` is implemented, committed, and deployed/smoked
-- PASS `28E_MAP_CONTEXT_MARKERS` is implemented, committed, and deployed/smoked
-- PASS `28F_MAP_LINE_COLOR_DATA_LAYER` is live (`src/data/stopLineMap.js`)
-- PASS `28G_MAP_LINE_BADGE_MARKERS` is live
-- PASS `28H_MAP_LINE_FILTER` is live
-- PASS `28I_ROUTE_GEOMETRY_SOURCE_DISCOVERY` is completed
-- PASS `28J_MAP_ROUTE_HIGHLIGHT_BY_DIRECTION` is live
-- PASS `MAP_SMOOTHNESS` + `MAP_VISUAL_LOAD_TUNING` are live
-- map picker now opens as full-screen modal/overlay with bottom-sheet decision UI
-- map decision states include:
-  - `Lähim peatus sihtkohale`
-  - `Mitu peatust on lähedal`
-- map confirm action is:
-  - `Kasuta seda sihtkohta`
-- raw coordinate UX copy is removed from normal flow
-- map context markers are active:
-  - `Minu asukoht` (currentPosition)
-  - `Lähim peatus` (effectiveOrigin context)
-- map line filter control is active:
-  - `Kõik | 1 | 2 | 3 | 5`
-  - default: `Kõik`
-  - selected line highlights relevant stops
-  - unrelated stops fade, not disappear
-  - multi-line stops remain visible if they serve selected line
-- direct routes in `BussTab` now use the shared read-model, replacing the legacy candidate matrix search
-- transfer routing is not implemented yet
-- map line color data layer is implemented (`STOP_TO_LINES`, `LINE_COLORS`, `LINE_PATTERNS`)
-- line badges are implemented in `BusMapPicker`
-- route highlight by direction is live in `BusMapPicker`
-- route line uses GTFS shape points (`src/data/routeShapes.js`), not synthetic stop-to-stop lines
-- line 3 and line 5 expose direction selector in map UI
-- line 1 and line 2 auto-select their single available pattern
-- map smoothness tuning is live:
-  - `preferCanvas` enabled
-  - marker style updates are batched via `requestAnimationFrame`
-  - line-badge threshold is `LINE_BADGE_MIN_ZOOM = 17`
-  - when a line filter is active, unrelated stops stay faded but do not render badges
-  - route polyline visual load reduced with lower weight/opacity and `smoothFactor`
-  - performance is improved, but additional tuning may still be needed if jank returns on target devices
-- geocoding is not implemented
-- Õie/Tulika coordinate smoke improved (Õie now resolves around ~8 m vs earlier large drift)
-- Üllata provider chain is `Gemini -> OpenAI -> local`
-- PASS `31B` Ullata API abuse guards are accepted/live and deployed/smoked
-- `AUDIT-001` (Ullata public abuse/cost guard gap) is addressed in runtime
-- Ullata API guardrails now include:
-  - max body-size validation (`Content-Length` + actual bytes)
-  - prompt/systemPrompt length limits
-  - safe `400` on invalid JSON or oversized/invalid request shape
-  - safe `429` rate limit with `Retry-After`
-  - provider fallback order preserved (`Gemini -> OpenAI -> local`)
-  - no raw provider error leakage to client
-- Üllata save persistence uses localStorage key `annivibe_saved_ideas`
-- build/deploy workflow for Cloudflare Pages is documented and in use
-
-## Current bus architecture
-
-- primary sections: `JÄRGMISED BUSSID` and `KUHU TAHAD MINNA?`
-- effective origin model:
-  - `effectiveOrigin = manualOriginOverride ?? currentOrigin`
-- shared routing read-model in `src/utils/busReach.js`:
-  - `createOriginContext(...)`, `reachableDestinations(...)`, `findDirectRoutes(...)`
-- dropdown, direct routes and map use reachability truth with concrete stop_id identity; route cards use actual board/alight IDs
-- legacy / transitional nearby departure API (not the general routing API):
-  - `depsWithMeta(...)`
-- coordinate-to-stop resolver remains:
-  - `nearest(...)`
-- GTFS coordinate precedence for stop points:
-  - `GTFS_STOP_COORDS_BY_ID[stopId] -> BUS_DATA.by_code[stopId] -> legacy fallback`
-- legacy / transitional origin code resolution (retain until migration; do not copy into the new read-model):
-  - `displayCodes || codes || [code]`
-- nearby candidate logic remains active
-- map pin destination flow selects reachable exact-ID candidates when origin is known; no-origin browsing remains available
-- route-card intent is:
-  - walk to origin stop
-  - take line
-  - get off at destination stop
-
-## Historical POI/place direction (superseded visible UI)
-
-- users should search places, not internal stop names
-- stop-name search remains fallback/advanced path
-- historical implementation state (search UI is no longer visible):
-  - POI dataset is active input for enabled place search
-  - place-search UI is implemented in `BussTab`
-  - map picker is implemented as destination input aid
-- map is an input aid, not a new routing engine
-
-## Future direction (not active scope)
-
-- future product direction may include extracting the bus module into a standalone dedicated app
-- this is not current implementation scope
-- runtime feature development is paused until LIVE / FIELD SMOKE result
-- future planning reference:
-  - `docs/audit/bus-module-extraction-future-plan.md`
+- Majandus application shell: Kodu, Kalender, Buss, Veel and Seaded.
+- Household calendar, waste/household functionality and reminders are accepted.
+- Existing Buss functionality is preserved, including concrete stop_id routing, nearby departures and map destination selection.
+- Motion polish is accepted at `20ac51b481c1b2a7ea58ce2251f28ceb96f31046` (`style: add subtle native motion`): subtle page entrance, tactile navigation and press feedback, calendar state motion, event-dialog entrance and reduced-motion support.
+- Calendar UX v2 is accepted at `062cdcbe6488282854cbb7d8fcf2309c50360dec`: visible `+ Lisa`, integrated `Täna`, month-aligned selected-day content, the legend after selected-day content, essential-first event creation and truthful advanced options.
 
 ## Protected boundaries
 
-- retain transitional `depsWithMeta(...)` where still used; do not expand it into the general routing API
-- do not rewrite `nearest(...)` casually
-- retain transitional `displayCodes || codes || [code]` until migration; it is not a rule for new routing/read-model code
-- do not remove Õie/Tulika nearby behavior
-- preserve sibling boarding choices, not pre-routing stop_id merging; follow `docs/BUS_LOGIC_LOCK.md`
-- do not mix bus work with Üllata/API work
-- do not add map inside non-map pass
-- do not touch runtime in docs-only pass
+- Preserve current bus routing behavior and concrete stop_id identity; `depsWithMeta(...)` and `displayCodes` remain transitional where present.
+- Preserve calendar recurrence and imported-event protections.
+- Preserve local-only data until an accepted migration plan exists.
+- Do not reopen Trends in v1 or combine unrelated feature work.
 
-## Agent workflow
+## Evidence
 
-- Human/user: final acceptance, field testing, deploy approval
-- ChatGPT: scope controller, prompt writer, reviewer
-- Claude: architecture and edge-case planner
-- Qwen/Ollama: low-cost reviewer / patch drafter
-- Codex: real repo edits, build/deploy/status execution
-
-## Default future Codex read-first rule
-
-For most passes, read only:
-- `AGENTS.md`
-- `docs/CURRENT_STATE.md`
-- pass-specific files listed in the prompt
-
-Expand reads only when the prompt explicitly requires it.
-
-Use these docs to decide read/touch/validate boundaries:
-- `docs/CODEBASE_IMPACT_MAP.md`
-- `docs/PROTECTED_SURFACES.md`
-
-Sniper Matrix visual asset:
-- `docs/assets/annivibe-sniper-matrix.png`
-- source of truth remains `docs/CODEBASE_IMPACT_MAP.md`
+- Motion polish validation: `211 PASS`, `0 FAIL`; human phone review: PASS.
+- Calendar UX v2 validation: `206 PASS`, `0 FAIL`; production smoke and human phone review: PASS.
+- These are pass-specific validation results, not the repository-wide test total.
 
 ## Next action
 
-- **LIVE / FIELD SMOKE**.
-- Runtime feature development is **PAUSED until live smoke result**; earlier next-pass suggestions are superseded.
-
-## Known deploy notes
-
-- Wrangler/Cloudflare can occasionally fail with `10500` / `503`
-- canonical/PWA cache can briefly show an older bundle
-- after deploy, verify canonical HTML bundle asset
-- recovery details are in `docs/DEPLOYMENT.md`
+- **COMMON_BACKEND_ARCHITECTURE** (`architecture / planning`).
+- Planning only: no backend implementation, persistence replacement, authentication integration, database creation, migration, secrets or deploy configuration changes.
