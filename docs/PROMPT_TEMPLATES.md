@@ -19,17 +19,20 @@ Use this at the top of short prompts:
 
 ```text
 Read and obey AGENTS.md.
-Read docs/CURRENT_STATE.md.
-Follow docs/TOKEN_BUDGET_RULES.md.
-Follow docs/ACTIVE_SCOPE_LOCK.md.
+Read docs/SESSION_BOOT.md, docs/CURRENT_STATE.md and docs/ACTIVE_SCOPE_LOCK.md.
 Use the relevant template from docs/PROMPT_TEMPLATES.md.
+Read only pass-specific files beyond that.
 Do one narrow pass only.
 ```
 
-Default read-first is:
+Default read-first is the `AGENTS.md` default read set:
 - `AGENTS.md`
+- `docs/SESSION_BOOT.md`
 - `docs/CURRENT_STATE.md`
+- `docs/ACTIVE_SCOPE_LOCK.md`
 - pass-specific files only
+
+Authority, audit validity, human gate, exact staging, closeout and test-integrity rules live in `AGENTS.md`. Templates reference them and do not restate them.
 
 ---
 
@@ -45,6 +48,7 @@ D. What stayed untouched
 E. Whether this is checkpointable
 F. Recommended next narrow pass
 G. Remaining risks / open questions
+H. Current git status
 ```
 
 ---
@@ -64,7 +68,42 @@ Common placeholders:
 - `LIKELY_TOUCHED`
 - `PROTECTED_FILES`
 - `VALIDATION`
+- `STOP_IF`
+- `CLAUDE_AUDIT_PACKET`
 - `OUTPUT_REQUIRED`
+
+### Execution prompt extensions: STOP_IF and CLAUDE_AUDIT_PACKET
+
+`STOP_IF` lists the conditions that end the pass with a report instead of a workaround. Default entries, extended per pass:
+
+```text
+STOP_IF:
+- live repo/branch/HEAD/worktree/staged state differs from the expected baseline
+- live Git state advances during the pass or audit (restart from the new baseline)
+- canonical docs still conflict after the AGENTS.md conflict rule
+- a required change falls outside LIKELY_TOUCHED or touches PROTECTED_FILES
+- a required validation cannot be run
+- <pass-specific conditions>
+```
+
+`CLAUDE_AUDIT_PACKET` is produced at the end of an implementation pass for the fresh read-only audit. Generate every field from live Git output and commands actually run:
+
+```text
+CLAUDE_AUDIT_PACKET:
+BASELINE: <branch> @ <git rev-parse HEAD> (expected: <EXPECTED_HEAD>)
+CHANGED_FILES: <git status --short --untracked-files=all, this pass's files>
+DIFF: <git diff -- <changed files>; untracked files included in full>
+VALIDATION_RUN: <exact command -> exit code and PASS/FAIL counts>
+CHECKS_NOT_RUN: <check -> reason>
+MANUAL_SMOKE: not-required (<reason>) | PENDING | PASS (<human, device/URL, what>) | FAIL (<what>)
+GIT_STATUS: <git status --short --untracked-files=all>
+STAGED: <git diff --cached --name-only>
+```
+
+Packet rules:
+- Never invent packet, validation or smoke content; unrun checks stay listed under `CHECKS_NOT_RUN`.
+- A packet describes one state only. Any later material delta makes it and its verdict stale (`AGENTS.md` audit and evidence rule).
+- The packet lives in the pass output. Ordinary passes need no diff hashes or separate audit files.
 
 ### 1) Docs-only planning pass
 
@@ -85,6 +124,7 @@ FILES_TO_READ: <FILES_TO_READ>
 LIKELY_TOUCHED: docs/*
 PROTECTED_FILES: <PROTECTED_FILES>
 VALIDATION: git status --short --untracked-files=all (docs-only changes)
+STOP_IF: <STOP_IF>
 OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
 Stop and wait.
 ```
@@ -101,7 +141,12 @@ PROTECTED_FILES: <PROTECTED_FILES>
 VALIDATION:
 - <VALIDATION>
 - npm run build
-OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
+MANUAL_SMOKE: required (<what>) | not-required (<reason>)
+STOP_IF: <STOP_IF>
+OUTPUT_REQUIRED:
+- <OUTPUT_REQUIRED>
+- CLAUDE_AUDIT_PACKET
+No staging or commit in this pass.
 Stop and wait.
 ```
 
@@ -142,11 +187,20 @@ Stop and wait.
 
 ```text
 PASS_NAME: <PASS_NAME>
-GOAL: Stage only intended files, commit, push.
+GOAL: Stage the exact accepted file set, commit, push.
 FILES_TO_READ: docs/SESSION_BOOT.md
+EXPECTED_HEAD: <EXPECTED_HEAD>
+ACCEPTED_FILES: <explicit paths>
+PRECONDITION: fresh audit PASS for the current diff; human smoke PASS when required
 LIKELY_TOUCHED: none
 PROTECTED_FILES: all non-listed files
+STOP_IF:
+- HEAD, worktree or staged state differs from the audited state
+- the audit verdict predates the latest change
+- any file outside ACCEPTED_FILES would be staged
+STAGING: git add -- <ACCEPTED_FILES> (exact paths only; AGENTS.md exact staging rule)
 VALIDATION:
+- git diff --cached --name-only (must equal ACCEPTED_FILES)
 - git status --short --untracked-files=all
 - git log --oneline -3
 OUTPUT_REQUIRED: <OUTPUT_REQUIRED>
@@ -183,6 +237,22 @@ OUTPUT_REQUIRED:
 - findings by severity
 - minimal patch suggestion
 - what to verify in Codex
+```
+
+### 8) Claude read-only audit
+
+```text
+PASS_NAME: <PASS_NAME>_AUDIT
+GOAL: fresh read-only audit of the exact state in CLAUDE_AUDIT_PACKET.
+INPUT: <CLAUDE_AUDIT_PACKET>
+Constraints:
+- no edits, staging or commits
+- verify live branch/HEAD/status matches the packet first; if not, STOP (stale packet)
+- the verdict applies only to this packet's state
+OUTPUT_REQUIRED:
+- VERDICT: PASS | AMEND | FAIL
+- findings by severity with file:line
+- checks not run and manual smoke still required
 ```
 
 ---
@@ -582,5 +652,6 @@ Structure:
 3. allowed files
 4. must preserve
 5. validation
+6. stop conditions (`STOP_IF`)
 
 If the prompt needs more than that, update the docs first instead of expanding the prompt.

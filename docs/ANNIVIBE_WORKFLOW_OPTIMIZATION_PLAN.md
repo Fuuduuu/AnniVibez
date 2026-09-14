@@ -17,18 +17,22 @@ See tähendab:
 - ainult lubatud failid muutmiseks;
 - vaikimisi ei tehta docs-sync’i iga väikse koodipassi järel;
 - runtime/UI passid saavad buildi ja vajadusel live-smoke’i;
-- commit tehakse alles pärast kontrolli;
+- commit tehakse alles pärast valideerimist, vajadusel inimese smoke'i ja värsket auditit (`AGENTS.md` → Standard closeout);
 - järgmine pass algab alles inimese selge käsuga.
+
+Autoriteedi, auditi kehtivuse, täpse stagingu, testide terviklikkuse ja disainiautoriteedi reeglite primaarne kodu on `AGENTS.md`. See plaan neid ei korda.
 
 ---
 
 ## 2. Uus vaikimisi read-first reegel
 
-Tulevased Codexi passid loevad vaikimisi ainult:
+Tulevased Codexi passid loevad vaikimisi ainult `AGENTS.md` vaikimisi lugemiskomplekti:
 
 ```txt
 AGENTS.md
+docs/SESSION_BOOT.md
 docs/CURRENT_STATE.md
+docs/ACTIVE_SCOPE_LOCK.md
 <konkreetse passi jaoks vajalikud failid>
 ```
 
@@ -38,6 +42,8 @@ Mitte vaikimisi:
 docs/ACCEPTED_CHECKPOINTS.md
 docs/AUDIT_FINDINGS_BACKLOG.md
 docs/TRUTH_INDEX.md
+docs/PROJECT_MEMORY.md
+docs/audit/*
 kogu src/
 kogu docs/
 kogu repo
@@ -51,7 +57,7 @@ Neid loetakse ainult siis, kui pass seda päriselt vajab.
 
 | Klass | Millal kasutada | Loe | Muuda | Docs update |
 |---|---|---|---|---|
-| **Surgical** | Üks fail / väike kood või data muutus | `AGENTS.md`, `CURRENT_STATE.md`, passifailid | ainult lubatud failid | vaikimisi ei |
+| **Surgical** | Üks fail / väike kood või data muutus | vaikimisi lugemiskomplekt, passifailid | ainult lubatud failid | vaikimisi ei |
 | **Checkpoint** | build, smoke, deploy, commit, release state | status + seotud failid | docs/checkpoint või mitte midagi | ainult kui vaja |
 | **Architecture** | suunamuutus / uus loogikamudel | plan docs + vajadusel Claude input | ainult docs | jah |
 
@@ -76,7 +82,9 @@ PASS_TYPE: surgical | checkpoint | architecture
 
 READ:
 - AGENTS.md
+- docs/SESSION_BOOT.md
 - docs/CURRENT_STATE.md
+- docs/ACTIVE_SCOPE_LOCK.md
 - <ainult vajalikud failid>
 
 TOUCH:
@@ -88,14 +96,18 @@ DO_NOT_TOUCH:
 VALIDATE:
 - <minimaalne vajalik kontroll>
 
+STOP_IF:
+- <peatumistingimused>
+
 DOCS:
 - none | checkpoint | planning
 
 STOP_AFTER:
 - report only
+- CLAUDE_AUDIT_PACKET (implementation passi korral)
 ```
 
-See asendab pikki ajaloo- ja kontekstiplokke.
+See asendab pikki ajaloo- ja kontekstiplokke. `STOP_IF` ja `CLAUDE_AUDIT_PACKET` formaadi primaarne kodu on `docs/PROMPT_TEMPLATES.md`.
 
 ---
 
@@ -119,6 +131,8 @@ place/POI model decision → docs yes
 live smoke accepted → checkpoint docs yes
 commit-only pass → docs no
 ```
+
+Docs/memory kompaktseerimine on eraldi pass pärast route closeout'i, mitte osa implementation passist.
 
 ---
 
@@ -316,13 +330,21 @@ Commit only:
 Message:
 data: add Rakvere POI destinations
 
+Precondition:
+fresh audit PASS for the current diff
+
+Stage:
+git add -- src/data/poiData.js
+
 Before commit:
-git status --short
-git diff --name-only -- src/functions/package.json/dist
+git status --short --untracked-files=all
+git diff --cached --name-only   (must list exactly src/data/poiData.js)
 
 If unexpected files appear, stop.
 Commit, push, report hash/status.
 ```
+
+Staging käib alati täpse failinimekirjaga (`AGENTS.md` → Exact staging rule).
 
 Pikka commit-body’t vaja ainult suuremate checkpointide puhul.
 
@@ -350,6 +372,8 @@ Figma jaoks anna ainult:
 
 Mitte kogu repo ajalugu.
 
+Figma/mockupid ja genereeritud disainikood on disaini- ja päritolusisend, mitte runtime'i autoriteet (`AGENTS.md` → Design authority rule).
+
 ---
 
 ## 12. Soovitatud järgmised passid
@@ -370,6 +394,8 @@ Eesmärk:
 ```txt
 default read-first = AGENTS.md + CURRENT_STATE.md + pass-specific files
 ```
+
+Ajalooline PASS 26B eesmärk; kehtiv vaikimisi lugemiskomplekt on §2 ja `AGENTS.md`.
 
 ### PASS 26C — CODEBASE_IMPACT_MAP_AND_SNIPER_MATRIX
 
@@ -437,7 +463,9 @@ Working tree clean
 
 READ:
 - AGENTS.md
+- docs/SESSION_BOOT.md
 - docs/CURRENT_STATE.md
+- docs/ACTIVE_SCOPE_LOCK.md
 - <pass files>
 
 TOUCH:
@@ -449,6 +477,9 @@ DO_NOT_TOUCH:
 VALIDATE:
 - <minimal commands>
 
+STOP_IF:
+- <stop conditions>
+
 DOCS:
 - none
 
@@ -457,6 +488,7 @@ OUTPUT:
 - files changed
 - validation result
 - protected files untouched
+- CLAUDE_AUDIT_PACKET
 - git status
 - stop
 ```
@@ -467,11 +499,12 @@ OUTPUT:
 
 Kõige suurem tokenisääst tuleb nendest reeglitest:
 
-1. `CURRENT_STATE.md` vaikimisi kontekstiks;
+1. kompaktne vaikimisi lugemiskomplekt (`AGENTS.md`, `SESSION_BOOT.md`, `CURRENT_STATE.md`, `ACTIVE_SCOPE_LOCK.md`);
 2. `docs update = no` väikestes koodipassides;
 3. pass manifest formaadis promptid;
 4. `CODEBASE_IMPACT_MAP.md` + sniper matrix;
 5. `PROTECTED_SURFACES.md`;
 6. valideerimisskriptid korduvate kontrollideks;
 7. Claude/Qwen saavad väikseid bundle’eid, mitte kogu ZIP-i;
-8. Figma tuleb pärast Mermaid source-of-truth’i.
+8. Figma tuleb pärast Mermaid source-of-truth’i;
+9. audit kehtib ainult auditeeritud diffile ning staging käib täpse failinimekirjaga (`AGENTS.md`).
