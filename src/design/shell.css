@@ -1,6 +1,10 @@
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
 [data-app-shell] {
+  --mm-motion-fast: 120ms;
+  --mm-motion-normal: 180ms;
+  --mm-motion-slow: 240ms;
+  --mm-motion-ease: cubic-bezier(.2,.8,.2,1);
   min-height: 100vh;
   padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   color-scheme: light;
@@ -17,7 +21,15 @@ body { margin: 0; }
   outline: 2px solid var(--mm-primary); outline-offset: 3px;
 }
 .mm-page, .mm-back { max-width: 520px; margin: 0 auto; padding: 24px 16px 0; }
-.mm-main { animation: mm-enter .2s ease-out; }
+.mm-main { animation: mm-enter var(--mm-motion-slow) var(--mm-motion-ease); }
+/* A fixed overlay must remain viewport-bound even if opened during entrance. */
+.mm-main:has([role=dialog]) { animation: none; }
+.mm-mark { animation: mm-mark-enter var(--mm-motion-normal) var(--mm-motion-ease); }
+.mm-page:has(> .mm-home-header) > .mm-section {
+  animation: mm-section-enter var(--mm-motion-normal) var(--mm-motion-ease) backwards;
+}
+.mm-page:has(> .mm-home-header) > .mm-section:nth-of-type(2) { animation-delay: 30ms; }
+.mm-page:has(> .mm-home-header) > .mm-section:nth-of-type(3) { animation-delay: 60ms; }
 .mm-home-header { display: flex; align-items: center; gap: 11px; margin-bottom: 22px; }
 .mm-home-header h1 { font: 600 22px/28px var(--mm-display); letter-spacing: -.025em; }
 .mm-home-header p, .mm-page-header p { color: var(--mm-soft); font-size: 13px; margin-top: 3px; }
@@ -44,9 +56,7 @@ body { margin: 0; }
 .mm-button { display: flex; align-items: center; gap: 9px; min-height: 48px; padding: 10px 13px; border-radius: 12px; font-size: 14.5px; font-weight: 500; cursor: pointer; }
 .mm-button svg { flex-shrink: 0; }
 .mm-button-primary { justify-content: center; min-height: 52px; background: var(--mm-primary); color: white; border: 1px solid var(--mm-primary); font-size: 15.5px; font-weight: 600; }
-.mm-button-primary:hover { background: var(--mm-strong); }
 .mm-button-secondary { background: var(--mm-surface); color: var(--mm-ink); border: 1px solid var(--mm-border); }
-.mm-button-secondary:hover, .mm-utility-row:hover { background: var(--mm-secondary); }
 .mm-utility-list { overflow: hidden; }
 .mm-utility-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 76px; padding: 16px 15px; text-align: left;
   background: var(--mm-surface); color: var(--mm-soft); border: 0; cursor: pointer; }
@@ -75,10 +85,51 @@ body { margin: 0; }
   min-height: 56px; border: 0; border-radius: 10px; background: transparent; color: var(--mm-soft); font-size: 11px; cursor: pointer; }
 .mm-nav-icon { width: 44px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
 .mm-nav [aria-current=page] { color: var(--mm-primary); background: var(--mm-tint); font-weight: 600; }
+.mm-nav [aria-current=page] .mm-nav-icon { transform: translateY(-1px) scale(1.06); }
+:is(.mm-button, .mm-text-button, .mm-utility-row, .mm-nav button,
+    .mm-month-heading button, .mm-day, .mm-event-row, .mm-agenda-row) {
+  transition-property: transform, background-color, color, border-color, box-shadow;
+  transition-duration: var(--mm-motion-normal);
+  transition-timing-function: var(--mm-motion-ease);
+}
+:is(.mm-button, .mm-text-button, .mm-utility-row, .mm-nav button,
+    .mm-month-heading button, .mm-day, .mm-event-row, .mm-agenda-row):not(:disabled):not([aria-disabled=true]):active {
+  transform: scale(.98);
+  transition-duration: var(--mm-motion-fast);
+}
+:is(.mm-button, .mm-text-button, .mm-utility-row, .mm-nav button,
+    .mm-month-heading button, .mm-day, .mm-event-row, .mm-agenda-row):is(:disabled, [aria-disabled=true]) {
+  transform: none;
+  transition: none;
+}
+.mm-nav-icon, .mm-utility-row > svg:last-child, .mm-utility-row .mm-icon-tile,
+.mm-settings-group summary::after { transition: transform var(--mm-motion-normal) var(--mm-motion-ease); }
+.mm-utility-row:not(:disabled):not([aria-disabled=true]):active .mm-icon-tile { transform: scale(.98); }
+.mm-utility-row:not(:disabled):not([aria-disabled=true]):focus-visible > svg:last-child { transform: translateX(2px); }
+@media (hover: hover) and (pointer: fine) {
+  .mm-button-primary:not(:disabled):not([aria-disabled=true]):hover { background: var(--mm-strong); }
+  :is(.mm-button-secondary, .mm-utility-row, .mm-event-row, .mm-agenda-row):not(:disabled):not([aria-disabled=true]):hover { background: var(--mm-secondary); }
+  .mm-utility-row:not(:disabled):not([aria-disabled=true]):hover > svg:last-child { transform: translateX(2px); }
+}
+[data-app-shell] :is(input, select, textarea) {
+  transition: border-color var(--mm-motion-normal) var(--mm-motion-ease), box-shadow var(--mm-motion-normal) var(--mm-motion-ease);
+}
+[data-app-shell] :is(input, select, textarea):focus {
+  border-color: var(--mm-primary);
+  box-shadow: 0 0 0 2px var(--mm-tint);
+}
 .mm-bus-headsign { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mm-nearby-departures li + li { border-top: 1px solid var(--mm-border); }
-@keyframes mm-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mm-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes mm-section-enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes mm-mark-enter { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes av-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes av-pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
 @keyframes av-bounce { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
-@media (prefers-reduced-motion: reduce) { [data-app-shell] *, [data-app-shell] *::before, [data-app-shell] *::after { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) {
+  [data-app-shell] *, [data-app-shell] *::before, [data-app-shell] *::after,
+  [data-app-shell] dialog::backdrop { animation: none !important; transition: none !important; }
+  .mm-nav-icon, .mm-utility-row > svg:last-child, .mm-utility-row .mm-icon-tile,
+  :is(.mm-button, .mm-text-button, .mm-utility-row, .mm-nav button,
+      .mm-month-heading button, .mm-day, .mm-event-row, .mm-agenda-row) { transform: none !important; }
+}

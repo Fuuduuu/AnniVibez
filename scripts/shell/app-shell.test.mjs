@@ -147,6 +147,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
     await send('Network.enable');
     await send('Network.setBlockedURLs', {urls:['*://*.tile.openstreetmap.org/*','*://fonts.googleapis.com/*']});
     await send('Emulation.setDeviceMetricsOverride', {width:390,height:844,deviceScaleFactor:1,mobile:true});
+    await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
     await send('Page.navigate', {url:`http://127.0.0.1:${server.address().port}`});
     await waitFor("!!document.querySelector('nav')");
     const initialStorage = await storage();
@@ -274,6 +275,161 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
         .reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
       const values = colors.map(luminance).sort((a,b)=>b-a);
       assert.ok((values[0]+.05)/(values[1]+.05) >= 4.5, 'GPS label contrast must remain compliant');
+    });
+    // Sample real CSS animation endpoints instead of depending on wall-clock frames.
+    const finishMotion = () => evaluate(`Promise.all(document.getAnimations()
+      .filter(a=>Number.isFinite(a.effect.getTiming().iterations))
+      .map(a=>a.finished.catch(()=>{}))).then(()=>true)`);
+    const entrance = selector => evaluate(`(() => {
+      const el=document.querySelector(${JSON.stringify(selector)});
+      const animation=el.getAnimations().find(a=>a.effect.target===el);
+      if(!animation) return null;
+      animation.pause(); animation.currentTime=0;
+      const start={opacity:getComputedStyle(el).opacity,transform:getComputedStyle(el).transform};
+      const timing=animation.effect.getTiming(); animation.currentTime=timing.delay+timing.duration;
+      const end={opacity:getComputedStyle(el).opacity,transform:getComputedStyle(el).transform};
+      animation.finish(); return {start,end,duration:timing.duration,iterations:timing.iterations};
+    })()`);
+    const assertEntrance = (motion, min, max) => {
+      assert.ok(motion, 'a finite entrance animation must exist');
+      assert.notEqual(motion.start.transform, motion.end.transform, 'entrance must move, not only fade');
+      assert.ok(Number(motion.start.opacity) < Number(motion.end.opacity), 'entrance must fade in');
+      assert.ok(motion.duration >= min && motion.duration <= max, 'entrance stays brief');
+      assert.equal(motion.iterations, 1, 'entrance must not loop');
+    };
+    const assertPress = async selector => {
+      await finishMotion();
+      await send('DOM.enable'); await send('CSS.enable');
+      const {root:domRoot}=await send('DOM.getDocument');
+      const {nodeId}=await send('DOM.querySelector',{nodeId:domRoot.nodeId,selector});
+      assert.ok(nodeId, `rendered control required: ${selector}`);
+      const style = () => evaluate(`(() => {const el=document.querySelector(${JSON.stringify(selector)});
+        const s=getComputedStyle(el); return {transform:s.transform,properties:s.transitionProperty,
+          duration:s.transitionDuration,scale:new DOMMatrixReadOnly(s.transform).a};})()`);
+      assert.match((await style()).properties, /transform/, selector+' must transition its press state');
+      try {
+        await send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['active']});
+        await finishMotion();
+        const pressed=await style();
+        assert.ok(pressed.scale >= .96 && pressed.scale < 1, selector+' must have subtle press feedback');
+        await evaluate(`document.querySelector(${JSON.stringify(selector)}).disabled=true`);
+        await finishMotion();
+        assert.equal((await style()).transform,'none', 'disabled controls must not shrink');
+      } finally {
+        await evaluate(`document.querySelector(${JSON.stringify(selector)}).disabled=false`);
+        await send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});
+      }
+    };
+    await t.test('native motion: page and Home entrances are brief, spatial and finite', async () => {
+      await nav('Veel'); await nav('Kodu');
+      assertEntrance(await entrance('.mm-main'),200,240);
+      assertEntrance(await entrance('.mm-mark'),120,240);
+      const delays=await evaluate("[...document.querySelectorAll('.mm-page > .mm-section')].map(e=>parseFloat(getComputedStyle(e).animationDelay)*1000)");
+      assert.equal(delays.length,3);
+      for(let i=1;i<delays.length;i++) assert.ok(delays[i]-delays[i-1]>=20 && delays[i]-delays[i-1]<=40);
+      await finishMotion();
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-main')).transform"),'none',
+        'finished entrance must not retain a containing block for fixed map overlays');
+    });
+    await t.test('native motion: selected navigation icon moves without moving labels', async () => {
+      await nav('Kodu'); await finishMotion();
+      const labelTop=await evaluate("document.querySelectorAll('nav button')[1].lastElementChild.getBoundingClientRect().top");
+      await nav('Kalender'); await finishMotion();
+      const selected=await evaluate(`(() => {const el=document.querySelector('nav [aria-current=page] .mm-nav-icon');
+        const s=getComputedStyle(el),m=new DOMMatrixReadOnly(s.transform);
+        return {scale:m.a,y:m.f,transition:s.transitionProperty,
+          labelTop:el.nextElementSibling.getBoundingClientRect().top};})()`);
+      assert.ok(selected.scale>=1.05 && selected.scale<=1.08, 'active icon has restrained emphasis');
+      assert.ok(selected.y<0 && selected.y>=-2);
+      assert.match(selected.transition,/transform/);
+      assert.equal(selected.labelTop,labelTop);
+    });
+    await t.test('native motion: one pointer or touch activation navigates without moving the nav layout', async () => {
+      try {
+        for(const [width,height,touch] of [[375,812,true],[390,844,true],[1280,900,false]]) {
+          await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:touch});
+          await send('Emulation.setTouchEmulationEnabled',{enabled:touch});
+          for(let repeat=0;repeat<2;repeat++) for(const label of ['Kodu','Kalender','Buss','Veel','Seaded','Kodu']) {
+            await finishMotion();
+            const point=await evaluate(`(() => {const r=[...document.querySelectorAll('nav button')]
+              .find(e=>e.textContent.trim()===${JSON.stringify(label)}).getBoundingClientRect();
+              return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+            if(touch) {
+              await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+              await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+            } else {
+              await send('Input.dispatchMouseEvent',{type:'mouseMoved',...point});
+              await send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
+              await send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
+            }
+            await waitFor(`document.querySelector('nav [aria-current=page]').textContent.trim()===${JSON.stringify(label)}`);
+            await finishMotion();
+            assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth &&
+              [...document.querySelectorAll('nav button')].every(e=>{const r=e.getBoundingClientRect();
+                return r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight+1;})`));
+          }
+        }
+      } finally { await send('Emulation.setTouchEmulationEnabled',{enabled:false}); }
+    });
+    await t.test('native motion: enabled controls press, disabled controls remain still', async () => {
+      await nav('Kodu');
+      for(const selector of ['.mm-quick-grid .mm-button','.mm-text-button','.mm-nav button']) await assertPress(selector);
+      await nav('Kalender');
+      for(const selector of ['.mm-month-heading button','.mm-day']) await assertPress(selector);
+      await nav('Veel'); await assertPress('.mm-utility-row');
+    });
+    await t.test('native motion: calendar selection and dialog entrance preserve usable controls', async () => {
+      await nav('Kalender'); await finishMotion();
+      const scale=await evaluate("new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.mm-day[aria-pressed=true]')).transform).a");
+      assert.ok(scale>1 && scale<=1.03, 'selected day has subtle emphasis');
+      for(const width of [375,1280]) {
+        await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:false});
+        await click('Lisa sündmus');
+        try {
+          assertEntrance(await entrance('.mm-event-dialog'),200,240);
+          assert.notEqual(await evaluate("getComputedStyle(document.querySelector('.mm-event-dialog'),'::backdrop').animationName"),'none');
+          await finishMotion();
+          assert.ok(await evaluate(`(() => {const r=document.querySelector('.mm-save-event').getBoundingClientRect();
+            return r.top>=0 && r.bottom<=innerHeight && document.documentElement.scrollWidth<=innerWidth;})()`));
+        } finally { await click('Tühista'); }
+      }
+    });
+    await t.test('native motion: utility arrow, disclosure and input focus expose state transitions', async () => {
+      await nav('Veel');
+      assert.match(await evaluate("getComputedStyle(document.querySelector('.mm-utility-row > svg:last-child')).transitionProperty"),/transform/);
+      await nav('Seaded');
+      assert.match(await evaluate("getComputedStyle(document.querySelector('.mm-settings-group summary'),'::after').transitionProperty"),/transform/);
+      await nav('Kalender'); await click('Lisa sündmus');
+      try {
+        await evaluate("document.querySelector('#event-title').focus()");
+        await finishMotion();
+        assert.notEqual(await evaluate("getComputedStyle(document.querySelector('#event-title')).boxShadow"),'none');
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('#event-title')).outlineStyle"),'solid');
+      } finally { await click('Tühista'); }
+    });
+    await t.test('native motion: no looping shell decoration and reduced motion keeps navigation/dialogs usable', async () => {
+      const before=await storage();
+      for(const label of ['Kodu','Kalender','Buss','Veel','Seaded']) {
+        await nav(label);
+        assert.deepEqual(await evaluate(`[...document.querySelectorAll('[class*="mm-"]')]
+          .filter(e=>getComputedStyle(e).animationIterationCount.split(',').some(v=>v.trim()==='infinite'))
+          .map(e=>e.className)`),[],label+' must not have looping shell motion');
+      }
+      await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+      try {
+        for(const label of ['Kodu','Kalender','Buss','Veel','Seaded']) {
+          await nav(label);
+          assert.equal(await evaluate("document.querySelector('nav [aria-current=page]').textContent.trim()"),label);
+          assert.ok(await evaluate(`[...document.querySelectorAll('[data-app-shell] *')].every(e=>
+            ['', '::before','::after'].every(p=>{const s=getComputedStyle(e,p||null);
+              return s.animationName==='none' && s.transitionDuration.split(',').every(v=>parseFloat(v)===0);}))`));
+        }
+        await nav('Kalender'); await click('Lisa sündmus');
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-event-dialog')).animationName"),'none');
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-event-dialog'),'::backdrop').animationName"),'none');
+        await click('Tühista');
+        assert.equal(await storage(),before);
+      } finally { await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]}); }
     });
     if (process.env.VISUAL_TESTS === '1') {
       await runVisualChecks({t,nav,click,input,evaluate,waitFor,body,send});
