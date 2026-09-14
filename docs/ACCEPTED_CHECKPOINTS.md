@@ -2,6 +2,14 @@
 
 ## Accepted checkpointid
 
+### Phase A backend foundation authority
+**Staatus:** accepted
+
+- `COMMON_BACKEND_ARCHITECTURE_V1 = ACCEPTED`
+- `PHASE_A_INDEXEDDB_FOUNDATION_PLAN = ACCEPTED`
+- plan checkpoint: `4e9a65af179c45ce95395aae21d577fe90ed13b2`
+- approved next action: `TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES`
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

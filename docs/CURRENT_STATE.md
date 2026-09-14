@@ -32,5 +32,6 @@ Status: compact operational snapshot for future Majandus passes.
 
 ## Next action
 
-- **COMMON_BACKEND_ARCHITECTURE** (`architecture / planning`).
-- Planning only: no backend implementation, persistence replacement, authentication integration, database creation, migration, secrets or deploy configuration changes.
+- **PHASE_A_INDEXEDDB_FOUNDATION** / `TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES`.
+- Common Backend Architecture v1 is accepted; Cloudflare Pages Functions + D1 is selected for the v1 backend; the Phase A implementation plan is accepted.
+- Current implementation authority is only Task 1's dormant schema/primitives and real Chromium validation. Task 2+ remains locked; no runtime cutover, migration, backend, authentication, sync, dependency, or deployment work is authorized.

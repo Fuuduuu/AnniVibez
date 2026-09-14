@@ -11,7 +11,7 @@ https://annivibe.pages.dev
 
 ## Accepted baseline
 
-- current accepted HEAD: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
+- accepted production/runtime baseline: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
 - human production/phone validation: PASS
 - motion polish: accepted at `20ac51b481c1b2a7ea58ce2251f28ceb96f31046` with `211 PASS`, `0 FAIL` and human phone acceptance
 - Calendar UX v2: accepted at `062cdcbe6488282854cbb7d8fcf2309c50360dec` with `206 PASS`, `0 FAIL`, production smoke PASS and human phone acceptance
@@ -25,9 +25,13 @@ https://annivibe.pages.dev
 
 ## Current active phase
 
-**COMMON_BACKEND_ARCHITECTURE** (`architecture / planning`).
+**PHASE_A_INDEXEDDB_FOUNDATION**.
 
-The next pass may inspect current local persistence, map data ownership, compare backend options and design shared auth, household, synchronization, migration, privacy and deployment boundaries. It must not implement a backend, create a database, change authentication, migrate data, replace local persistence, expose secrets or alter deployment configuration.
+- `COMMON_BACKEND_ARCHITECTURE_V1 = ACCEPTED`.
+- `Phase A IndexedDB Foundation Plan = ACCEPTED` at `4e9a65af179c45ce95395aae21d577fe90ed13b2`.
+- Current implementation task: `TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES`.
+
+Task 1 is authorized to create only `src/storage/schema.js`, `src/storage/indexedDb.js`, and `scripts/storage/indexeddb-browser.test.mjs` for native IndexedDB schema, transaction/request primitives, and real Chromium validation. Phase A remains dormant relative to production UI; current production behavior continues using the accepted localStorage runtime.
 
 ## Required reads by task
 

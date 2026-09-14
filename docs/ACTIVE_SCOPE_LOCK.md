@@ -3,10 +3,10 @@
 ## Active truth layer
 
 Read and follow in this order:
-1. `docs/SESSION_BOOT.md`
-2. `docs/CURRENT_STATE.md`
-3. `docs/ACTIVE_SCOPE_LOCK.md`
-4. `docs/ACCEPTED_CHECKPOINTS.md`
+1. `AGENTS.md`
+2. `docs/SESSION_BOOT.md`
+3. `docs/CURRENT_STATE.md`
+4. `docs/ACTIVE_SCOPE_LOCK.md`
 
 ## Accepted baseline
 
@@ -17,27 +17,23 @@ Read and follow in this order:
 
 ## Current phase
 
-**COMMON_BACKEND_ARCHITECTURE** (`architecture / planning`).
+**PHASE_A_INDEXEDDB_FOUNDATION**.
 
-This phase authorizes planning for one shared Majandus backend foundation. It does not authorize implementation.
+Current pass: **TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES**.
 
 ## Allowed in this phase
 
-- inspect current frontend and local persistence
-- map data ownership for users, households and household membership
-- compare backend architecture options without selecting a technology
-- design identity/authentication, shared data, API and synchronization boundaries
-- design calendar, recurrence, waste, reminders and settings data responsibilities
-- design offline/local-first interaction, conflict resolution, privacy, security, migration and deployment boundaries
-- produce architecture and specification artifacts within a separately approved architecture pass
+- create only `src/storage/schema.js`, `src/storage/indexedDb.js`, and `scripts/storage/indexeddb-browser.test.mjs`
+- define the `majandus_local_v1` schema, its nine approved object stores, and outbox `bySequence`
+- implement native IndexedDB open, close, request, and transaction primitives
+- add real Chromium/CDP validation for commit, rollback, versionchange, and blocked-open semantics
 
 ## Forbidden until architecture approval
 
-- backend implementation, database creation or schema migration
-- authentication integration, production secrets or backend deployment
-- replacing local persistence or runtime frontend rewrites
-- changes to accepted bus routing, calendar recurrence, reminders or waste behavior
-- unrelated redesign, broad refactor or Trends work
+- create `src/storage/localReplica.js` or `src/storage/legacyMigration.js`, or implement Task 2+
+- wire IndexedDB into React/App, change localStorage repositories, perform legacy/startup migration, dual-write, or create production UI outbox mutations
+- implement sync, authentication, D1, Cloudflare bindings, network/backend calls, dependencies, deployment, or runtime UI changes
+- modify accepted calendar, bus, waste, or reminder behavior; unrelated redesign, broad refactor, or Trends work
 
 ## Protected current behavior
 
@@ -45,6 +41,10 @@ This phase authorizes planning for one shared Majandus backend foundation. It do
 - Treat `depsWithMeta(...)` and `displayCodes` as transitional where they remain; do not expand them into new architecture by default.
 - Preserve imported-event and recurrence protections.
 
+## Implementation boundary
+
+Task 1 creates a dormant storage foundation only. Current production behavior continues using the existing accepted runtime/localStorage path.
+
 ## Decision gate
 
-The next implementation authority requires an accepted common-backend architecture decision. Until then, work remains architecture/planning only.
+Task 1 implementation is authorized. Task 2 remains locked until Task 1 passes validation, fresh review, exact commit/push, and a separate explicit scope opening.
