@@ -115,7 +115,7 @@ applied_mutations(mutation_id, household_id, result_json, created_at)
 
 `one_time_tokens.purpose` is exactly one of `INVITE`, `DEVICE_LINK` or `MEMBER_RECOVERY`. `subject_user_id` is null only for `INVITE`; `DEVICE_LINK` and `MEMBER_RECOVERY` must target an existing non-revoked user in the same household. Consumption, revocation and expiry are mutually exclusive terminal states. Token use must atomically verify the correct purpose, active state and expiry before it changes the state.
 
-The model must enforce unique session-token hashes, unique active one-time token consumption, unique `mutation_id` records and household scoping. It must preserve exactly one active OWNER per household: an OWNER cannot be removed, revoked or demoted unless the same transaction first assigns a non-revoked successor OWNER. V1 does not expose ownership transfer as a product flow. `seq` is the monotonically increasing cursor for one household's change stream. Synced entity IDs are client-generated permanent UUID-style values; array index and temporary server IDs are never sync identity.
+The model must enforce unique session-token hashes, unique active one-time token consumption, unique `mutation_id` records and household scoping. It must preserve exactly one active OWNER per household: an OWNER cannot be removed, revoked or demoted unless the same transaction first assigns a non-revoked successor OWNER. V1 does not expose ownership transfer as a product flow. `seq` is the monotonically increasing cursor for one household's change stream. Client-generated permanent UUID-style IDs apply to synchronized domain entities created through sync `CREATE`, including calendar events, shared places and waste configuration; array index and temporary server IDs are never sync identity. Household identity is created by `/api/auth/create-household`, then stored locally in `householdProfile.serverHouseholdId`; the local singleton key `household` is not that server household ID.
 
 ## 8. Local replica and migration
 
@@ -127,7 +127,9 @@ householdProfile, calendarEvents, sharedPlaces, wasteState,
 outbox, syncState, conflicts
 ```
 
-`auth` is device-private and never enters the household outbox. Local shared entities include server synchronization metadata: `id`, `payload`, `revision`, `updatedAt`, `deletedAt` and `syncStatus` (`synced`, `pending` or `conflict`). Server revision, not client time, is the concurrency authority.
+`auth` is device-private and never enters the household outbox. Local shared entities include server synchronization metadata: `id`, `payload`, `revision`, `updatedAt`, `deletedAt` and `syncStatus` (`local`, `synced`, `pending` or `conflict`); local singleton stores use their fixed `key` instead of `id`. `local` is client/local-replica state only: it has `revision = 0`, has never been uploaded, and has no outbox mutation. When a user explicitly enables synchronization, `local` becomes `pending`; a successful server `CREATE` makes it `synced`, while a rejected or conflicting server result for its pending mutation makes it `conflict`. Server revision, not client time, is the concurrency authority.
+
+`householdProfile` is a local singleton with at most one active record. Its fixed local record key is `household`; it contains `serverHouseholdId`, which is `null` until a later accepted backend pass creates the household and writes the returned server household ID. The pre-server local record must not invent a server household UUID. `wasteState` is also a local singleton with at most one active record and fixed local record key `waste`. A future permanent sync entity ID, when needed, is stored separately from either singleton key.
 
 Migration is copy-first and non-destructive. The current localStorage sources that need an explicit migration inventory are:
 
