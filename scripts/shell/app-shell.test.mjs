@@ -12,6 +12,7 @@ import { runCalendarChecks } from '../calendar/browser-cases.mjs';
 import { runWasteChecks } from '../waste/browser-cases.mjs';
 import { runReminderChecks } from '../reminders/browser-cases.mjs';
 import { runVisualChecks } from './visual-cases.mjs';
+import { createEvent } from '../../src/calendar/eventModel.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const browser = [process.env.BUS_TEST_BROWSER,
@@ -130,7 +131,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       assert.fail('Condition not met: ' + expression);
     };
     const click = async (text, within = 'document') => {
-      await evaluate(`[...${within}.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)}).click()`);
+      await evaluate(`[...${within}.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)} || b.getAttribute('aria-label') === ${JSON.stringify(text)}).click()`);
       await pause(80);
     };
     const nav = text => click(text, "document.querySelector('nav')");
@@ -430,6 +431,114 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
         await click('Tühista');
         assert.equal(await storage(),before);
       } finally { await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]}); }
+    });
+    const selectField = (selector,value) => evaluate(`(() => {const el=document.querySelector(${JSON.stringify(selector)});
+      el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    const toggleAdvanced = () => evaluate("document.querySelector('.mm-event-dialog details > summary').click()");
+    const withEvents = async (events,check) => {
+      const before=await evaluate("localStorage.getItem('majamajandus_household_events_v1')");
+      try {
+        await evaluate(`localStorage.setItem('majamajandus_household_events_v1',${JSON.stringify(JSON.stringify({version:1,events}))})`);
+        await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Kalender');
+        await check();
+      } finally {
+        await evaluate(before === null ? "localStorage.removeItem('majamajandus_household_events_v1')" :
+          `localStorage.setItem('majamajandus_household_events_v1',${JSON.stringify(before)})`);
+        await send('Page.reload');await waitFor("!!document.querySelector('nav')");
+      }
+    };
+    await t.test('Calendar UX V2: visible Lisa and grouped today control fit mobile and desktop',async()=>{
+      await nav('Kalender');
+      for(const [width,height] of [[375,812],[390,844],[1280,900]]) {
+        await send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await finishMotion();
+        const header=await evaluate(`(() => {const b=document.querySelector('.mm-calendar-header > button'),r=b.getBoundingClientRect();
+          const span=b.querySelector('span'),s=span.getBoundingClientRect(),h=document.querySelector('.mm-calendar-header h1').getBoundingClientRect();
+          return {text:span.textContent,name:b.getAttribute('aria-label'),visible:s.width>10 && s.height>10,
+            icon:!!b.querySelector('svg'),fits:h.right<r.left && r.right<=innerWidth,height:r.height};})()`);
+        assert.equal(header.text,'Lisa');assert.equal(header.name,'Lisa sündmus');
+        assert.ok(header.visible && header.icon && header.fits && header.height>=44);
+        assert.ok(await evaluate("[...document.querySelectorAll('.mm-month-heading button')].some(b=>b.textContent.trim()==='Täna')"),
+          'Today belongs with the month controls');
+      }
+      await click('Järgmine kuu');await click('Täna');
+      assert.equal(await evaluate("document.querySelector('.mm-day[aria-pressed=true]').dataset.date"),'2026-09-14');
+      await click('Eelmine kuu');await click('Täna');
+      assert.equal(await evaluate("document.querySelector('.mm-day[aria-pressed=true]').dataset.date"),'2026-09-14');
+    });
+    await t.test('Calendar UX V2: date result directly follows month before legend and agenda',async()=>{
+      await nav('Kalender');await finishMotion();
+      assert.equal(await evaluate("document.querySelector('.mm-month').nextElementSibling.id"),'selected-events');
+      assert.ok(await evaluate("document.querySelector('#selected-events').nextElementSibling.classList.contains('mm-calendar-legend')"));
+      assert.notEqual(await evaluate("getComputedStyle(document.querySelector('#selected-heading')).textTransform"),'uppercase');
+      const scroll=await evaluate('scrollY');
+      for(const day of ['2026-09-15','2026-09-18']) {
+        await evaluate(`document.querySelector('[data-date="${day}"]').click()`);
+        await waitFor(`document.querySelector('.mm-day[aria-pressed=true]').dataset.date==='${day}'`);
+        assert.ok((await evaluate("document.querySelector('#selected-heading').textContent")).includes(String(Number(day.slice(8)))));
+        assert.equal(await evaluate('scrollY'),scroll);assert.equal(await evaluate("!!document.querySelector('dialog[open]')"),false);
+      }
+    });
+    await t.test('Calendar UX V2: essentials-only creation saves the selected date without opening advanced fields',async()=>{
+      await withEvents([],async()=>{
+        await evaluate("document.querySelector('[data-date=\"2026-09-18\"]').click()");
+        await click('Lisa sündmus');await finishMotion();
+        try {
+          assert.equal(await evaluate("document.querySelector('#event-date').value"),'2026-09-18');
+          assert.ok(await evaluate("!!document.querySelector('.mm-event-dialog details > summary')"),'advanced disclosure exists');
+          assert.equal(await evaluate("document.querySelector('.mm-event-dialog details').open"),false);
+          for(const id of ['title','category','date','time']) assert.ok(await evaluate(`document.querySelector('#event-${id}').checkVisibility()`));
+          for(const id of ['repeat','reminder','notes']) assert.equal(await evaluate(`document.querySelector('#event-${id}').checkVisibility()`),false);
+          await selectField('#event-category','waste');
+          await waitFor("!!document.querySelector('#event-subtype')");
+          assert.ok(await evaluate("document.querySelector('#event-subtype').checkVisibility()"),'waste subtype remains essential');
+          await input('#event-title','UX quick event');await click('Salvesta sündmus');
+          await waitFor("!document.querySelector('dialog[open]')");
+          assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/UX quick event/);
+          const saved=await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events[0]");
+          assert.equal(saved.date,'2026-09-18');assert.equal(saved.recurrence.frequency,'none');assert.equal(saved.reminder.daysBefore,0);
+          await evaluate("document.querySelector('#selected-events [data-occurrence]').click()");await click('Kustuta');await click('Kinnita kustutamine');
+          assert.equal(await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events.length"),0);
+        } finally { if(await evaluate("!!document.querySelector('dialog[open]')")) await click('Tühista'); }
+      });
+    });
+    await t.test('Calendar UX V2: advanced creation preserves recurrence reminder and notes on edit',async()=>{
+      await withEvents([],async()=>{
+        await click('Lisa sündmus');
+        assert.ok(await evaluate("!!document.querySelector('.mm-event-dialog details')"),'advanced disclosure exists');
+        await toggleAdvanced();await waitFor("document.querySelector('.mm-event-dialog details').open");
+        for(const id of ['repeat','reminder','notes']) assert.ok(await evaluate(`document.querySelector('#event-${id}').checkVisibility()`));
+        await input('#event-title','UX advanced event');await selectField('#event-repeat','weekly');
+        await waitFor("!!document.querySelector('#event-interval')");await input('#event-interval','2');await selectField('#event-reminder','3');
+        await evaluate("(()=>{const e=document.querySelector('#event-notes');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'Bring keys');e.dispatchEvent(new Event('input',{bubbles:true}));})()");
+        await toggleAdvanced();await click('Salvesta sündmus');await waitFor("!document.querySelector('dialog[open]')");
+        await evaluate("document.querySelector('#selected-events [data-occurrence]').click()");await click('Muuda');await click('Kogu sari');
+        assert.equal(await evaluate("document.querySelector('.mm-event-dialog details').open"),true);
+        assert.deepEqual(await evaluate("['repeat','interval','reminder','notes'].map(id=>document.querySelector('#event-'+id).value)"),['weekly','2','3','Bring keys']);
+        await input('#event-title','UX renamed');await click('Salvesta sündmus');await waitFor("!document.querySelector('dialog[open]')");
+        assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/UX renamed/);
+        await evaluate("document.querySelector('#selected-events [data-occurrence]').click()");await click('Kustuta');await click('Kogu sari');await click('Kinnita kustutamine');
+        assert.equal(await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events.length"),0);
+      });
+    });
+    await t.test('Calendar UX V2: each existing advanced setting and imported edit is disclosed without weakening source fields',async()=>{
+      for(const patch of [{},{notes:'Existing notes'},{reminder:{daysBefore:1}},{recurrence:{frequency:'weekly',interval:1}},{source:'imported'}]) {
+        const event={...createEvent({title:'UX fixture',category:'general',date:'2026-09-14',...patch},'ux-fixture'),...patch};
+        await withEvents([event],async()=>{
+          await evaluate("document.querySelector('#selected-events [data-occurrence]').click()");await click('Muuda');
+          if(event.recurrence.frequency!=='none') await click('Ainult see kord');
+          assert.ok(await evaluate("!!document.querySelector('.mm-event-dialog details')"),'advanced disclosure exists when editing');
+          assert.equal(await evaluate("document.querySelector('.mm-event-dialog details').open"),Object.keys(patch).length>0);
+          if(event.source==='imported') {
+            for(const id of ['title','category','date','time','repeat']) assert.ok(await evaluate(`document.querySelector('#event-${id}').matches(':disabled')`),id+' remains protected');
+            for(const id of ['reminder','notes']) assert.ok(await evaluate(`!document.querySelector('#event-${id}').matches(':disabled') && document.querySelector('#event-${id}').checkVisibility()`));
+            await selectField('#event-reminder','7');await click('Salvesta sündmus');
+            await waitFor("!document.querySelector('dialog[open]')");
+            const saved=await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events[0]");
+            assert.equal(saved.reminder.daysBefore,7);assert.equal(saved.title,event.title);assert.equal(saved.date,event.date);assert.equal(saved.source,'imported');
+          } else await click('Tühista');
+        });
+      }
     });
     if (process.env.VISUAL_TESTS === '1') {
       await runVisualChecks({t,nav,click,input,evaluate,waitFor,body,send});

@@ -19,14 +19,17 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
     <div className="mm-calendar-header">
       <PageHeader title="Kalender" subtitle="Kodu sündmused ühes vaates" />
       <button className="mm-button mm-button-primary" aria-label="Lisa sündmus" disabled={!calendar.writable} onClick={()=>onAdd(selected,setSelected)}>
-        <ShellIcon name="add" /><span className="mm-sr-only">Lisa sündmus</span>
+        <ShellIcon name="add" /><span>Lisa</span>
       </button>
     </div>
     <CalendarError error={calendar.error} />
     <section className="mm-card mm-month" aria-label="Kuukalender">
       <div className="mm-month-heading">
         <button className="mm-button mm-button-secondary" aria-label="Eelmine kuu" disabled={selected.startsWith('1000-01')} onClick={()=>setSelected(addMonths(selected,-1))}><ShellIcon name="back" /></button>
-        <h2>{formatDate(selected,{month:'long',year:'numeric'})}</h2>
+        <div className="mm-month-title">
+          <h2>{formatDate(selected,{month:'long',year:'numeric'})}</h2>
+          <button className="mm-text-button" onClick={()=>setSelected(today)}>Täna</button>
+        </div>
         <button className="mm-button mm-button-secondary" aria-label="Järgmine kuu" disabled={selected.startsWith('9999-12')} onClick={()=>setSelected(addMonths(selected,1))}><ShellIcon name="next" /></button>
       </div>
       <div className="mm-month-grid" aria-hidden="true">{['E','T','K','N','R','L','P'].map((d,i)=><span className="mm-weekday" key={i}>{d}</span>)}</div>
@@ -46,11 +49,9 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
           </button>;
         })}
       </div>
-      <button className="mm-text-button" onClick={()=>setSelected(today)}>Täna</button>
     </section>
-    <div className="mm-calendar-legend">{Object.entries(CATEGORIES).map(([key,c])=><span key={key} style={{color:c.color,background:c.tint}}>{c.label}</span>)}</div>
     <section id="selected-events" aria-labelledby="selected-heading" className="mm-section">
-      <h2 id="selected-heading" className="mm-section-label">{formatDate(selected,{weekday:'long',day:'numeric',month:'long'})}</h2>
+      <h2 id="selected-heading" className="mm-selected-heading">{formatDate(selected,{weekday:'long',day:'numeric',month:'long'})}</h2>
       <EventRows items={selectedItems} today={today} now={now} onOpen={item=>onOpen(item,setSelected)} variant="selected" />
       {!selectedItems.length && <div className="mm-card mm-calendar-empty">
         <h3>{calendar.events.length ? 'Sel päeval pole midagi plaanis' : 'Ühtegi sündmust pole veel'}</h3>
@@ -58,6 +59,7 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
         <button className="mm-button mm-button-secondary" disabled={!calendar.writable} onClick={()=>onAdd(selected,setSelected)}>{calendar.events.length ? 'Lisa sündmus siia' : 'Lisa esimene sündmus'}</button>
       </div>}
     </section>
+    <div className="mm-calendar-legend">{Object.entries(CATEGORIES).map(([key,c])=><span key={key} style={{color:c.color,background:c.tint}}>{c.label}</span>)}</div>
     {agenda.length > 0 && <p className="mm-footnote">Järgmised kolm kuud</p>}
     {['Sel nädalal','Järgmisel nädalal','Hiljem'].map(group=>{
       const items=agenda.filter(e=>agendaGroup(e.date,today) === group);

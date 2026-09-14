@@ -1,10 +1,13 @@
 .mm-calendar-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.mm-calendar-header > button { min-height: 44px; padding: 10px; }
+.mm-calendar-header > button { min-height: 44px; padding: 10px 12px; flex-shrink: 0; white-space: nowrap; }
 .mm-sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
-.mm-month { padding: 14px 12px 0; }
+.mm-month { padding: 14px 12px 12px; }
 .mm-month-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .mm-month-heading h2 { font: 600 17px var(--mm-display); text-transform: capitalize; }
-.mm-month-heading button { min-height: 40px; padding: 8px; border-radius: 10px; }
+.mm-month-heading button { min-height: 44px; min-width: 44px; padding: 8px; border-radius: 10px; }
+.mm-month-title { display: flex; flex-direction: column; align-items: center; }
+[data-app-shell] .mm-selected-heading { margin: 18px 0 10px; font: 600 18px/1.4 var(--mm-display); color: var(--mm-ink); }
+.mm-selected-heading::first-letter { text-transform: uppercase; }
 .mm-month-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 3px; }
 .mm-weekday { text-align: center; color: var(--mm-soft); font-size: 11.5px; padding: 4px 0; font-weight: 600; }
 .mm-day { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 46px; padding: 3px 0;
@@ -68,6 +71,15 @@
 .mm-field input, .mm-field select, .mm-field textarea { width: 100%; min-width: 0; min-height: 48px; padding: 10px 12px; border-radius: 10px;
   border: 1px solid var(--mm-border-strong); background: var(--mm-secondary); color: var(--mm-ink); font-size: 16px; font-weight: 400; }
 .mm-field textarea { resize: vertical; }
+.mm-event-options { border-top: 1px solid var(--mm-border); }
+.mm-event-options > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 44px; padding: 12px 0; cursor: pointer; list-style: none; font-size: 14px; font-weight: 500; }
+.mm-event-options > summary::-webkit-details-marker { display: none; }
+.mm-event-options > summary small { display: block; margin-top: 2px; color: var(--mm-soft); font-size: 12px; font-weight: 400; }
+.mm-event-options > summary::after { content: ''; width: 7px; height: 7px; flex-shrink: 0; margin-right: 3px;
+  border-right: 1.7px solid currentColor; border-bottom: 1.7px solid currentColor; transform: rotate(-45deg);
+  transition: transform var(--mm-motion-normal) var(--mm-motion-ease); }
+.mm-event-options[open] > summary::after { transform: rotate(45deg); }
 .mm-form-pair { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
 .mm-dialog-body .mm-notice { margin-bottom: 16px; }
 .mm-dialog-body .mm-footnote { margin: -5px 0 16px; }

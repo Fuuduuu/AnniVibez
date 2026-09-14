@@ -7,6 +7,8 @@ import { ReminderStatus } from './ReminderStatus';
 const fields = event => ({title:event.title || '',category:event.category || 'general',subtype:event.subtype || 'mixed',
   date:event.date,time:event.time || '',recurrence:{...(event.recurrence ?? {frequency:'none',interval:1})},
   reminder:{...(event.reminder ?? {daysBefore:0})},notes:event.notes || ''});
+const hasAdvanced = event => event.recurrence?.frequency !== 'none' && !!event.recurrence
+  || event.reminder?.daysBefore > 0 || !!event.notes?.trim();
 
 export function EventDialog({selection,calendar,onClose}) {
   const now=useCalendarNow();
@@ -15,6 +17,7 @@ export function EventDialog({selection,calendar,onClose}) {
   const [scope,setScope]=useState(null);
   const [form,setForm]=useState(()=>fields(selection.item || {date:selection.date,...selection.defaults}));
   const [error,setError]=useState('');
+  const [advancedOpen,setAdvancedOpen]=useState(false);
   const dialog=useRef(null);
   const recurring=source?.recurrence.frequency !== 'none' && !!source;
   const imported=source?.source === 'imported';
@@ -26,7 +29,9 @@ export function EventDialog({selection,calendar,onClose}) {
   const set=(key,value)=>setForm(prev=>({...prev,[key]:value}));
   function edit(chosenScope) {
     setScope(chosenScope);
-    setForm(fields(chosenScope === 'series' ? source : selection.item));
+    const values=fields(chosenScope === 'series' ? source : selection.item);
+    setForm(values);
+    setAdvancedOpen(imported || hasAdvanced(values));
     setMode('edit');
   }
   function save(event) {
@@ -90,6 +95,10 @@ export function EventDialog({selection,calendar,onClose}) {
           <label className="mm-field" htmlFor="event-date">Kuupäev<input id="event-date" type="date" value={form.date} onChange={e=>set('date',e.target.value)} required /></label>
           <label className="mm-field" htmlFor="event-time">Kellaaeg (valikuline)<input id="event-time" type="time" value={form.time} onChange={e=>set('time',e.target.value)} /></label>
         </div>
+        </fieldset>
+        <details className="mm-event-options" open={advancedOpen} onToggle={event=>setAdvancedOpen(event.currentTarget.open)}>
+        <summary><span>Rohkem valikuid<small>Kordus, meeldetuletus ja märkmed</small></span></summary>
+        <fieldset className="mm-source-fields" disabled={imported}>
         <label className="mm-field" htmlFor="event-repeat">Kordus<select id="event-repeat" value={form.recurrence.frequency} disabled={scope === 'occurrence'} onChange={e=>set('recurrence',{frequency:e.target.value,interval:1})}>{Object.entries(FREQUENCIES).map(([key,value])=><option value={key} key={key}>{value}</option>)}</select></label>
         {['weekly','monthly'].includes(form.recurrence.frequency) && <label className="mm-field" htmlFor="event-interval">Iga mitme {form.recurrence.frequency === 'weekly' ? 'nädala' : 'kuu'} järel?<input id="event-interval" type="number" min={1} max={form.recurrence.frequency === 'weekly' ? 52 : 12} value={form.recurrence.interval} disabled={scope === 'occurrence'} onChange={e=>set('recurrence',{...form.recurrence,interval:Number(e.target.value)})} required /></label>}
         {['monthly','yearly'].includes(form.recurrence.frequency) && <p className="mm-footnote">Kui kuupäev kuus puudub, kasutatakse selle kuu viimast päeva.</p>}
@@ -97,6 +106,7 @@ export function EventDialog({selection,calendar,onClose}) {
         <label className="mm-field" htmlFor="event-reminder">Meeldetuletuse eelistus<select id="event-reminder" value={form.reminder.daysBefore} onChange={e=>set('reminder',{daysBefore:Number(e.target.value)})}>{[[0,'Puudub'],[1,'1 päev enne'],[3,'3 päeva enne'],[7,'1 nädal enne']].map(([key,value])=><option key={key} value={key}>{value}</option>)}</select></label>
         <p className="mm-footnote">Meeldetuletus kuvatakse äpis. Ilma kellaajata algab see valitud päeval kell 09:00. Seadme teavitusi saad lubada seadetes; taustal saatmist ei lubata.</p>
         <label className="mm-field" htmlFor="event-notes">Märkmed (valikuline)<textarea id="event-notes" value={form.notes} onChange={e=>set('notes',e.target.value)} maxLength={5000} rows={3} /></label>
+        </details>
         <footer className="mm-event-footer">
           <button className="mm-button mm-button-secondary" type="button" onClick={onClose}>Tühista</button>
           <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable}>Salvesta sündmus</button>
