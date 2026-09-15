@@ -115,6 +115,24 @@ Commit: `feat: add local replica storage contracts`
 
 **Interfaces:** `LEGACY_SHARED_KEYS`, `readLegacySources(storage)`, `validateLegacySources(sources)`, `sourceDigest(sources,cryptoApi)`, `prepareLegacyMigration({validated,newId,now,preparationId,savedIds})`, `verifyReplica({expected,actual})`.
 
+### Task 3 return contracts
+
+`readLegacySources(storage)` returns `{status:'readable',raw:{calendar,household,places}}`, where each raw value is the exact string or `null` read in `LEGACY_SHARED_KEYS` order. `null`/`undefined` storage or any approved read failure returns `{status:'unreadable-source',raw:null}`; no partial snapshot is returned. Empty and malformed strings are present data.
+
+`validateLegacySources(sources)` accepts that result and returns `{status:'unreadable-source'}`, `{status:'invalid-source',source:'calendar'|'household'|'places'}` (the first invalid source in key order), or `{status:'valid',raw,parsed:{calendar,household,places},data:{calendarEvents,wasteImports,householdProfile,sharedPlaces}}`. Parsed values are raw parsed sources. Calendar IDs are retained; `wasteImports` is defined only for a present calendar envelope that defines it; absent household maps to `householdProfile:null`; places are normalized but never padded; validation mints no IDs.
+
+`prepareLegacyMigration({validated,newId,now,preparationId,savedIds})` requires `validated.status === 'valid'` or throws `TypeError`. `now` is a zero-argument function called exactly once, whose ISO result is used for every record. Absent `savedIds` generates one ID per actual shared place. Present `savedIds.sharedPlaces` must be an array of non-empty strings whose length exactly matches the place count; all are reused or the function throws. It returns exactly:
+
+```js
+{ preparationId, generatedIds:{sharedPlaces:Array<string>}, replica:{householdProfile,calendarEvents,sharedPlaces,wasteState,meta,outbox:[]} }
+```
+
+`generatedIds.sharedPlaces` is the exact IDs used, in legacy order, including reused IDs. Household is `null` when absent, otherwise `{key:'household',payload:{...householdProfile,serverHouseholdId:null},revision:0,updatedAt:stamp,deletedAt:null,syncStatus:'local'}`. Calendar records retain legacy IDs and use the legacy event as payload. Shared places use `{id,order,payload,revision:0,updatedAt:stamp,deletedAt:null,syncStatus:'local'}`. Waste is `null` unless calendar is present and `wasteImports !== undefined`; otherwise it is the fixed `waste` singleton with payload `{wasteImports}`. All domain records pass their Task 2 validators.
+
+`replica.meta` contains calendar extras only for a present calendar source as `{key:'calendarLegacyEnvelopeExtras',value:{sourceVersion,fields}}`, excluding raw `version`, `events`, and `wasteImports`; household extras are equivalent with key `householdLegacyEnvelopeExtras`, excluding `version` and `profile`. Present envelopes with no extras use `fields:{}`. Digest remains separate and is not in preparation.
+
+`verifyReplica({expected,actual})` returns `true` for semantically identical replica structures and `false` for any structural/data mismatch; invalid arguments may throw `TypeError`. It is pure. Only collection ordering is canonicalized: calendar by `id`, places by `order` then `id`, meta by `key`, and outbox by `sequence`; singleton values compare exactly.
+
 Use read-only snapshot adapters with current `createEventRepository` and `createHouseholdRepository`; adapters allow one approved read and throw on write/enumeration/other key. Validate every prepared record with Task-2 exported validators before transaction A. Places match current normalization, do not pad, and golden parity includes null, number, string, invalid coordinates, blank name, missing address, short arrays. Household invalid parity includes version 2, null profile, and name length over 100.
 
 Raw parsed extras only: calendar `{key:'calendarLegacyEnvelopeExtras',value:{sourceVersion,fields}}` excludes version/events/wasteImports; household equivalent excludes version/profile. Present zero-extras source uses `fields:{}`; absent source has no extras. Digest is Web Crypto SHA-256 hex over `JSON.stringify([rawCalendarOrNull,rawHouseholdOrNull,rawPlacesOrNull])`.

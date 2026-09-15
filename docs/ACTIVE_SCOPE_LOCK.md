@@ -40,6 +40,7 @@ Task 3 in `docs/superpowers/plans/2026-09-14-majandus-phase-a-indexeddb-foundati
 - prepared household, calendar-event, shared-place and waste records must pass the matching Task 2 exported validator; Task 2 exports no meta-record validator, so extras records are checked against the exact shape above inside `legacyMigration.js`
 - preparation creates no outbox records
 - `verifyReplica` performs deterministic structural comparison only: no writes, repair, after-the-fact normalization, network or localStorage access
+- Task 3 return contracts are locked in the accepted Phase A plan: `readLegacySources` returns readable/raw or unreadable-source/raw:null; `validateLegacySources` returns unreadable-source, invalid-source plus source, or valid plus raw/parsed/data; `prepareLegacyMigration` returns preparationId plus generatedIds and a replica snapshot; `verifyReplica` returns a boolean
 - prove behavior with strict RED -> GREEN Node tests run by `node --test scripts/storage/storage.test.mjs`
 
 ## Forbidden in this pass

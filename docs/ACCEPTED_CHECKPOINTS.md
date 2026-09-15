@@ -16,6 +16,11 @@
 - Task 2 evidence: Chromium storage tests `6/6 PASS` (Task 1 regression PASS, Task 2 validator/outbox tests PASS), `npm run build` PASS, `git diff --check` PASS, runtime cutover NO
 - approved next action: `TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST`; Task 4+ locked
 
+### TASK_3_RETURN_CONTRACT_AMENDMENT
+- status: ACCEPTED
+- baseline: `a083c6d467c0f00fa1bce2a72544aed1184c22ef`
+- closes Task 3 return-shape ambiguity only; Task 3 implementation remains incomplete and Task 4+ remains locked.
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
