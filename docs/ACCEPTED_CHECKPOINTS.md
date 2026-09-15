@@ -21,6 +21,13 @@
 - baseline: `a083c6d467c0f00fa1bce2a72544aed1184c22ef`
 - closes Task 3 return-shape ambiguity only; Task 3 implementation remains incomplete and Task 4+ remains locked.
 
+### PHASE_A_TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST
+- status: ACCEPTED / COMPLETE
+- commit: `7ace02444fc3783898a14251c62ebe032113e0ea` (`feat: prepare non-destructive legacy migration`)
+- surfaces: `src/storage/legacyMigration.js`, `scripts/storage/storage.test.mjs`
+- evidence: storage tests `45/45 PASS`, IndexedDB regressions `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS, runtime migration NO
+- approved next action: `TASK_4_MIGRATION_STATE_MACHINE` behind the Claude Opus 5 gate; Task 5+ locked
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

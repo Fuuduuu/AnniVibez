@@ -19,38 +19,51 @@ Read and follow in this order:
 
 **PHASE_A_INDEXEDDB_FOUNDATION**.
 
-Current pass: **TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST**.
+Current pass: **TASK_4_MIGRATION_STATE_MACHINE**.
 
-Task 3 in `docs/superpowers/plans/2026-09-14-majandus-phase-a-indexeddb-foundation.md` is authoritative where more specific.
+Task 4 in `docs/superpowers/plans/2026-09-14-majandus-phase-a-indexeddb-foundation.md` is authoritative where more specific; this lock adds the safety requirements below.
+
+## Claude Opus 5 gate
+
+Task 4 is a high-risk migration-state-machine pass. Before writing production Task 4 code, Claude Opus 5 must independently review the current plan, Task 1–3 implementation contracts, and this scope lock for contradictions or underspecified durable state.
+
+If that review finds ambiguity that can materially affect data preservation, marker recovery, cleanup ownership, concurrency or idempotence, Claude must stop before production implementation and propose a narrow docs contract amendment. Minor naming/style choices are not blockers.
+
+The plan already names these marker identities: meta key `legacyMigrationV1`, `preparationId`, `sourceDigest`, `generatedIds.sharedPlaces` and `migratedSingletonKeys`. It requires, but does not name, the migrated calendar IDs, migrated meta keys and prepared/complete state fields, and it defines no marker timestamp fields. The review must confirm or amend these before implementation; do not invent a durable marker schema silently.
 
 ## Allowed in this phase
 
-- create only `src/storage/legacyMigration.js` and `scripts/storage/storage.test.mjs`
-- export only `LEGACY_SHARED_KEYS`, `readLegacySources(storage)`, `validateLegacySources(sources)`, `sourceDigest(sources, cryptoApi)`, `prepareLegacyMigration({ validated, newId, now, preparationId, savedIds })` and `verifyReplica({ expected, actual })`
-- read only `majamajandus_household_events_v1`, `majamajandus_household_profile_v1` and `sade_saved_places`, in that order, with `getItem` only; production code contains no other legacy storage key strings, and private/device-local key lists exist only in tests
-- classify sources: `null` or `undefined` storage, or a thrown approved `getItem`, is `unreadable-source`; absent means only `getItem(key) === null` and is not corrupt; all three absent is a valid clean-install input
-- validate calendar and household through read-only snapshot adapters over the current `createEventRepository` and `createHouseholdRepository`; adapters permit the approved `getItem` and throw on writes, enumeration and any other key; do not hand-duplicate repository validation rules
-- household invalid parity covers at least version 2, `null` profile and name over 100 characters; a household record exists only for a present valid household source, with `serverHouseholdId: null`; a waste record exists only for a present calendar source with defined `wasteImports`
-- retain existing valid calendar event IDs; never mint replacement calendar IDs
-- saved places mirror current `normalizePlace` semantics from `src/hooks/useSavedPlaces.js` (not exported; do not modify or import it) with golden parity for `null`, number and string items, invalid coordinates, blank name, missing address and short arrays; never pad Kodu/Kool/Trenn defaults
-- prepared shared places are `{ id, order, payload, revision: 0, updatedAt, deletedAt: null, syncStatus: 'local' }`; `id` is a generated permanent ID and `order` is the integer legacy index, not identity
-- preserve only raw parsed envelope extras: `{ key: 'calendarLegacyEnvelopeExtras', value: { sourceVersion, fields } }` excluding `version`, `events`, `wasteImports`; household equivalent excluding `version`, `profile`; present source with no extras uses `fields: {}`; absent source has no extras record
-- digest is lowercase Web Crypto SHA-256 hex over exactly `JSON.stringify([rawCalendarOrNull, rawHouseholdOrNull, rawPlacesOrNull])`; no normalized or private data enters the digest
-- `newId`, `now` and `preparationId` are injectable; no IDs are generated during validation; provided `savedIds` are reused exactly
-- prepared household, calendar-event, shared-place and waste records must pass the matching Task 2 exported validator; Task 2 exports no meta-record validator, so extras records are checked against the exact shape above inside `legacyMigration.js`
-- preparation creates no outbox records
-- `verifyReplica` performs deterministic structural comparison only: no writes, repair, after-the-fact normalization, network or localStorage access
-- Task 3 return contracts are locked in the accepted Phase A plan: `readLegacySources` returns readable/raw or unreadable-source/raw:null; `validateLegacySources` returns unreadable-source, invalid-source plus source, or valid plus raw/parsed/data; `prepareLegacyMigration` returns preparationId plus generatedIds and a replica snapshot; `verifyReplica` returns a boolean
-- prove behavior with strict RED -> GREEN Node tests run by `node --test scripts/storage/storage.test.mjs`
+- modify only `src/storage/legacyMigration.js`, `scripts/storage/storage.test.mjs` and `scripts/storage/indexeddb-browser.test.mjs`
+- add `runLegacyMigration({ replica, storage, cryptoApi, newId, newPreparationId, now, locks })`; Task 3 exports and return contracts are otherwise preserved
+- return only `completed`, `already-complete`, `source-changed-after-complete`, `prepared-recovered`, `reprepared`, `invalid-source`, `unreadable-source`, `replica-not-empty`, `concurrent-migration`, `verification-failed` or `write-failed`; every result includes `legacyMutated: false`; other result metadata only where needed for deterministic testing/diagnostics and only after the Claude gate confirms it creates no conflicting public contract
+- legacy storage is non-destructive: read only the approved sources; never `setItem`, `removeItem`, `clear`, rewrite, normalize in place or delete legacy data
+- persist the accepted migration marker in IndexedDB `meta`, sufficient to recover and retry safely, carrying `preparationId`, `sourceDigest`, generated shared-place IDs, migrated calendar IDs, migrated meta keys, migrated singleton keys and prepared/complete state, using the plan's exact names where specified
+- marker timestamp safety: Task 4 validates every timestamp it persists in the marker as a real acceptable ISO timestamp itself, never indirectly through Task 3 record validators (a clean install prepares no domain records); do not modify Task 3 for this
+- before any IndexedDB transaction: legacy reads, parsing, validation, digest, ID generation, preparation and lock coordination
+- order: read raw approved values, compute the source digest, then inspect the marker
+- complete marker: matching digest returns `already-complete`; a changed digest returns `source-changed-after-complete` before any parsing, validation or writing of the changed source, even when it is now malformed (for example calendar `{oops`), with marker, IndexedDB records and legacy storage unchanged
+- no marker: validate and prepare, then transaction A
+- transaction A atomically writes the prepared marker and the prepared household (if any), calendar, shared-place, waste (if any) and migration meta extras records; it enqueues no outbox mutations; before writing it re-checks the marker and that the migration-owned target space is safe per the plan: entity stores `householdProfile`, `calendarEvents`, `sharedPlaces`, `wasteState` and migration meta keys only, where an existing `{ key: 'outboxSequence', ... }` is valid; unsafe existing replica state returns `replica-not-empty` with no destructive cleanup; never overwrite unrelated or pre-existing replica entities
+- verify: after A commits, read the actual migration-owned replica state and compare it with the expected prepared state using Task 3 `verifyReplica`; a mismatch returns `verification-failed` and never marks the migration complete
+- transaction B marks a prepared migration complete only after re-checking the matching prepared marker; it never completes a different or stale `preparationId`, `sourceDigest` or marker state; if B fails after A succeeded, the prepared state stays recoverable and a retry can return `prepared-recovered` with the original prepared IDs
+- transaction C is guarded cleanup of migration-owned IndexedDB records only: before deleting it re-checks marker state prepared, matching `preparationId` and matching `sourceDigest`; it deletes only records named by the prepared marker (generated shared-place IDs, migrated calendar IDs, migrated meta keys, migrated singleton keys) and the marker as appropriate to the accepted recovery path; never broad-clear stores, delete unrelated records or touch legacy storage
+- prepared marker with matching digest: verify the prepared replica; if it matches, finish through B with the original saved IDs and return `prepared-recovered`; on mismatch follow the plan (guarded C, then rebuild with saved IDs); never mint new IDs
+- prepared marker with changed digest: validate and prepare the current source first; an invalid or unreadable current source returns that status with no cleanup, leaving the old preparation recoverable; only then may guarded C remove the old migration-owned prepared data and rebuild with deterministic accepted ID handling; `reprepared` only after the new A, verify and B succeed
+- concurrency: handle overlapping executions; the browser test mechanically forces overlap before transaction A so one execution returns `completed` and the other `concurrent-migration`, never relying on timing; `locks` is injectable so tests can coordinate overlap deterministically; the Claude gate reviews lock semantics; add no Web Locks usage or runtime dependency unless the accepted contract justifies it
+- `invalid-source` and `unreadable-source` produce zero new migrated records, no new marker, zero outbox mutations and unchanged legacy storage; browser corrupt-source tests seed the other two approved sources valid
+- clean install (all approved sources absent) completes with zero domain entities, a completed marker and zero outbox items
+- after every successful migration, recovery or reprepare path the outbox count is `0`; migrated records remain `syncStatus: 'local'` and `revision: 0`
+- prove behavior with strict RED -> GREEN tests run by `node --test scripts/storage/storage.test.mjs` and `node --test scripts/storage/indexeddb-browser.test.mjs`
 
 ## Forbidden in this pass
 
-- modify `src/storage/schema.js`, `src/storage/indexedDb.js`, `src/storage/localReplica.js` or `scripts/storage/indexeddb-browser.test.mjs`; a real Task 1 or Task 2 correctness defect means STOP and report, not a fix
-- Task 4+: `runLegacyMigration`, migration transactions A/B/C, prepared/complete marker state machine, concurrent migration locking, cleanup/recovery executor, `source-changed-after-complete` execution, startup migration
-- write migration data or markers to IndexedDB, delete or rewrite localStorage, dual-write, create outbox mutations, or cut runtime reads/writes over to IndexedDB
-- import `src/storage/` from React/App or any production component; change UI/runtime or accepted calendar, household, waste, saved-place, bus or reminder behavior or repositories
+- modify `src/storage/schema.js`, `src/storage/indexedDb.js`, `src/storage/localReplica.js` or any file outside the three allowed files; a proven upstream correctness defect means STOP and report, not a fix
+- bump the schema version or add IndexedDB stores
+- mutate legacy storage in any way, or change Task 3 exports or return contracts beyond adding `runLegacyMigration`
+- Task 5+: additional integration breadth or dormant import/bundle guards, except where a Task 4 acceptance test necessarily shares existing helpers
+- import storage migration into App/React or any production component, run migration at startup, switch reads from localStorage to IndexedDB, dual-write, or create outbox mutations
 - implement sync, authentication, D1, Cloudflare bindings, network/backend calls, dependencies or deployment
-- bump the schema version or add IndexedDB stores; unrelated redesign, broad refactor or Trends work
+- modify accepted calendar, household, waste, saved-place, bus or reminder behavior or repositories; unrelated redesign, broad refactor or Trends work
 
 ## Protected current behavior
 
@@ -60,8 +73,8 @@ Task 3 in `docs/superpowers/plans/2026-09-14-majandus-phase-a-indexeddb-foundati
 
 ## Implementation boundary
 
-Task 3 only validates and prepares legacy shared data. The running Majandus application continues using its existing accepted localStorage/runtime paths. No user data is migrated during Task 3.
+Task 4 adds a dormant migration state machine exercised only by tests. The running Majandus application continues using its existing accepted localStorage/runtime paths; nothing invokes migration at runtime and no user data is migrated.
 
 ## Decision gate
 
-Task 3 implementation is authorized. Task 4+ is locked until Task 3 passes validation, fresh review, exact commit/push, and a separate explicit scope opening. Task 4 is a high-risk migration-state-machine pass and requires its own opened scope with an independent Claude Opus 5 review/implementation workflow.
+Task 4 implementation is authorized once this docs checkpoint is committed, subject to the Claude Opus 5 gate above. Task 5+ is locked until Task 4 passes validation, fresh independent review, exact commit/push, and a separate explicit scope opening.

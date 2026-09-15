@@ -31,9 +31,10 @@ https://annivibe.pages.dev
 - `Phase A IndexedDB Foundation Plan = ACCEPTED` at `4e9a65af179c45ce95395aae21d577fe90ed13b2`.
 - `PHASE_A_TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES = ACCEPTED / COMPLETE` at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium IndexedDB tests `5/5 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime cutover.
 - `PHASE_A_TASK_2_LOCAL_REPLICA_CONTRACTS = ACCEPTED / COMPLETE` at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime cutover.
-- Current implementation task: `TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST`.
+- `PHASE_A_TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST = ACCEPTED / COMPLETE` at `7ace02444fc3783898a14251c62ebe032113e0ea` with storage tests `45/45 PASS`, IndexedDB regressions `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime migration.
+- Current implementation task: `TASK_4_MIGRATION_STATE_MACHINE`.
 
-Task 3 is authorized to create only `src/storage/legacyMigration.js` and `scripts/storage/storage.test.mjs`: read the three approved legacy shared keys, validate, transform, digest, prepare IDs and verify replica snapshots. Task 4+ remains locked. Task 3 only validates and prepares legacy shared data. The running Majandus application continues using its existing accepted localStorage/runtime paths. No user data is migrated during Task 3.
+Task 4 may modify only `src/storage/legacyMigration.js`, `scripts/storage/storage.test.mjs` and `scripts/storage/indexeddb-browser.test.mjs` to add the dormant, legacy-non-destructive `runLegacyMigration` state machine (transaction A, verify, B, guarded C). Before production code, Claude Opus 5 must independently review the plan, Task 1–3 contracts and `docs/ACTIVE_SCOPE_LOCK.md`, and stop with a narrow contract amendment if durable-state ambiguity remains. Task 5+ remains locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 
