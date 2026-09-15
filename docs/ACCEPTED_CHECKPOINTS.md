@@ -8,7 +8,10 @@
 - `COMMON_BACKEND_ARCHITECTURE_V1 = ACCEPTED`
 - `PHASE_A_INDEXEDDB_FOUNDATION_PLAN = ACCEPTED`
 - plan checkpoint: `4e9a65af179c45ce95395aae21d577fe90ed13b2`
-- approved next action: `TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES`
+- `PHASE_A_TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES = ACCEPTED / COMPLETE`
+- Task 1 checkpoint: `f2fe59c7b1704c5a1feb2266123606acaa4a1342` (`feat: add native IndexedDB foundation`)
+- Task 1 evidence: real Chromium IndexedDB tests `5/5 PASS`, `npm run build` PASS, `git diff --check` PASS, runtime cutover NO
+- approved next action: `TASK_2_LOCAL_REPLICA_CONTRACTS`
 
 ### 1. Initial governance baseline
 **Staatus:** accepted

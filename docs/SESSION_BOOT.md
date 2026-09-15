@@ -29,9 +29,10 @@ https://annivibe.pages.dev
 
 - `COMMON_BACKEND_ARCHITECTURE_V1 = ACCEPTED`.
 - `Phase A IndexedDB Foundation Plan = ACCEPTED` at `4e9a65af179c45ce95395aae21d577fe90ed13b2`.
-- Current implementation task: `TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES`.
+- `PHASE_A_TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES = ACCEPTED / COMPLETE` at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium IndexedDB tests `5/5 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime cutover.
+- Current implementation task: `TASK_2_LOCAL_REPLICA_CONTRACTS`.
 
-Task 1 is authorized to create only `src/storage/schema.js`, `src/storage/indexedDb.js`, and `scripts/storage/indexeddb-browser.test.mjs` for native IndexedDB schema, transaction/request primitives, and real Chromium validation. Phase A remains dormant relative to production UI; current production behavior continues using the accepted localStorage runtime.
+Task 2 is authorized to create only `src/storage/localReplica.js` and extend `scripts/storage/indexeddb-browser.test.mjs` for validated local-replica access APIs over the accepted Task 1 primitives. Task 3+ remains locked. Phase A remains dormant relative to production UI; current production behavior continues using the accepted localStorage runtime.
 
 ## Required reads by task
 
