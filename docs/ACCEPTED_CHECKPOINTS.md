@@ -11,7 +11,10 @@
 - `PHASE_A_TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES = ACCEPTED / COMPLETE`
 - Task 1 checkpoint: `f2fe59c7b1704c5a1feb2266123606acaa4a1342` (`feat: add native IndexedDB foundation`)
 - Task 1 evidence: real Chromium IndexedDB tests `5/5 PASS`, `npm run build` PASS, `git diff --check` PASS, runtime cutover NO
-- approved next action: `TASK_2_LOCAL_REPLICA_CONTRACTS`
+- `PHASE_A_TASK_2_LOCAL_REPLICA_CONTRACTS = ACCEPTED / COMPLETE`
+- Task 2 checkpoint: `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` (`feat: add local replica storage contracts`)
+- Task 2 evidence: Chromium storage tests `6/6 PASS` (Task 1 regression PASS, Task 2 validator/outbox tests PASS), `npm run build` PASS, `git diff --check` PASS, runtime cutover NO
+- approved next action: `TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST`; Task 4+ locked
 
 ### 1. Initial governance baseline
 **Staatus:** accepted

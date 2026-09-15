@@ -30,9 +30,10 @@ https://annivibe.pages.dev
 - `COMMON_BACKEND_ARCHITECTURE_V1 = ACCEPTED`.
 - `Phase A IndexedDB Foundation Plan = ACCEPTED` at `4e9a65af179c45ce95395aae21d577fe90ed13b2`.
 - `PHASE_A_TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES = ACCEPTED / COMPLETE` at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium IndexedDB tests `5/5 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime cutover.
-- Current implementation task: `TASK_2_LOCAL_REPLICA_CONTRACTS`.
+- `PHASE_A_TASK_2_LOCAL_REPLICA_CONTRACTS = ACCEPTED / COMPLETE` at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime cutover.
+- Current implementation task: `TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST`.
 
-Task 2 is authorized to create only `src/storage/localReplica.js` and extend `scripts/storage/indexeddb-browser.test.mjs` for validated local-replica access APIs over the accepted Task 1 primitives. Task 3+ remains locked. Phase A remains dormant relative to production UI; current production behavior continues using the accepted localStorage runtime.
+Task 3 is authorized to create only `src/storage/legacyMigration.js` and `scripts/storage/storage.test.mjs`: read the three approved legacy shared keys, validate, transform, digest, prepare IDs and verify replica snapshots. Task 4+ remains locked. Task 3 only validates and prepares legacy shared data. The running Majandus application continues using its existing accepted localStorage/runtime paths. No user data is migrated during Task 3.
 
 ## Required reads by task
 

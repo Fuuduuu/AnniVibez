@@ -32,7 +32,8 @@ Status: compact operational snapshot for future Majandus passes.
 
 ## Next action
 
-- **PHASE_A_INDEXEDDB_FOUNDATION** / `TASK_2_LOCAL_REPLICA_CONTRACTS`.
+- **PHASE_A_INDEXEDDB_FOUNDATION** / `TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST`.
 - Common Backend Architecture v1 is accepted; Cloudflare Pages Functions + D1 is selected for the v1 backend; the Phase A implementation plan is accepted.
 - Task 1's native IndexedDB schema/primitives are accepted at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium tests `5/5 PASS`, build PASS and no runtime cutover.
-- Current implementation authority is only Task 2's dormant local-replica contracts in `src/storage/localReplica.js` and `scripts/storage/indexeddb-browser.test.mjs`. Task 3+ remains locked; no runtime cutover, migration, backend, authentication, sync, dependency, or deployment work is authorized.
+- Task 2's local-replica contracts and exported record validators are accepted at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, build PASS and no runtime cutover.
+- Current implementation authority is only Task 3's dormant legacy validation, transformation and digest in `src/storage/legacyMigration.js` and `scripts/storage/storage.test.mjs`. Task 4+ remains locked; no migration execution, runtime cutover, backend, D1, authentication, sync, dependency, or deployment work is authorized.
