@@ -40,7 +40,8 @@ async function createBrowserHarness() {
       contents: `
         import { DB_NAME, DB_VERSION, STORE_NAMES, upgradeSchema } from './src/storage/schema.js';
         import { openMajandusDb, closeDb, requestResult, runTransaction } from './src/storage/indexedDb.js';
-        window.storageApi = { DB_NAME, DB_VERSION, STORE_NAMES, upgradeSchema, openMajandusDb, closeDb, requestResult, runTransaction };
+        import { validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord, createLocalReplica } from './src/storage/localReplica.js';
+        window.storageApi = { DB_NAME, DB_VERSION, STORE_NAMES, upgradeSchema, openMajandusDb, closeDb, requestResult, runTransaction, validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord, createLocalReplica };
       `,
     },
   });
@@ -286,6 +287,104 @@ test('native versionchange closes the handle so database deletion completes', { 
       return 'deleted';
     })()`);
     assert.equal(result, 'deleted');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('local replica validates contracts, persists records, and keeps outbox sequence atomic', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await createBrowserHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { DB_NAME, createLocalReplica, validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord } = window.storageApi;
+      const remove = indexedDB.deleteDatabase(DB_NAME);
+      await new Promise((resolve, reject) => { remove.onsuccess = resolve; remove.onerror = () => reject(remove.error); remove.onblocked = () => reject(new Error('reset blocked')); });
+      const stamp = '2026-09-15T12:00:00.000Z';
+      const envelope = (extra = {}) => ({ payload: { ok: true }, revision: 0, updatedAt: stamp, deletedAt: null, syncStatus: 'local', ...extra });
+      const item = (mutationId, operation, baseRevision) => ({ mutationId, entityType: 'calendarEvent', entityId: mutationId, operation, baseRevision, patch: { title: mutationId }, createdAt: stamp, attemptCount: 0, lastAttemptAt: null });
+      const throws = fn => { try { fn(); return false; } catch { return true; } };
+      const validatorChecks = {
+        statuses: [
+          !throws(() => validateCalendarEventRecord(envelope({ id: 'local-0' }))),
+          !throws(() => validateCalendarEventRecord(envelope({ id: 'synced-1', revision: 1, syncStatus: 'synced' }))),
+          !throws(() => validateCalendarEventRecord(envelope({ id: 'pending-0', syncStatus: 'pending' }))),
+          !throws(() => validateCalendarEventRecord(envelope({ id: 'conflict-0', syncStatus: 'conflict' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'bad-local', revision: 1 }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'bad-synced', revision: 0, syncStatus: 'synced' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'negative', revision: -1, syncStatus: 'pending' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'float', revision: 1.5, syncStatus: 'pending' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'string', revision: '1', syncStatus: 'pending' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'unknown', syncStatus: 'mystery' }))),
+        ].every(Boolean),
+        timestamps: [
+          throws(() => validateCalendarEventRecord(envelope({ id: 'bad-updated', updatedAt: 'not-a-date' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'bad-deleted', deletedAt: 'not-a-date' }))),
+          throws(() => validateOutboxRecord({ ...item('bad-created', 'CREATE', 0), createdAt: 'bad' })),
+          throws(() => validateOutboxRecord({ ...item('bad-last', 'CREATE', 0), lastAttemptAt: 'bad' })),
+          !throws(() => validateCalendarEventRecord(envelope({ id: 'null-deleted', deletedAt: null }))),
+          !throws(() => validateOutboxRecord(item('null-last', 'CREATE', 0))),
+        ].every(Boolean),
+        strictCalendarDates: [
+          throws(() => validateCalendarEventRecord(envelope({ id: 'february-29', updatedAt: '2026-02-29T12:00:00.000Z' }))),
+          throws(() => validateHouseholdProfileRecord(envelope({ key: 'household', updatedAt: '2026-02-30T12:00:00.000Z' }))),
+          throws(() => validateSharedPlaceRecord(envelope({ id: 'february-31', order: 0, updatedAt: '2026-02-31T12:00:00.000Z' }))),
+          throws(() => validateWasteStateRecord(envelope({ key: 'waste', updatedAt: '2026-04-31T12:00:00.000Z' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'month-13', updatedAt: '2026-13-01T12:00:00.000Z' }))),
+          throws(() => validateCalendarEventRecord(envelope({ id: 'month-00', updatedAt: '2026-00-01T12:00:00.000Z' }))),
+          throws(() => validateOutboxRecord({ ...item('empty-created', 'CREATE', 0), createdAt: '' })),
+          !throws(() => validateHouseholdProfileRecord(envelope({ key: 'household', updatedAt: '2024-02-29T12:00:00.000Z' }))),
+          !throws(() => validateCalendarEventRecord(envelope({ id: 'february-28', updatedAt: '2026-02-28T12:00:00.000Z' }))),
+          !throws(() => validateSharedPlaceRecord(envelope({ id: 'april-30', order: 0, updatedAt: '2026-04-30T12:00:00.000Z' }))),
+          !throws(() => validateWasteStateRecord(envelope({ key: 'waste', updatedAt: '2026-12-31T23:59:59.999Z' }))),
+          !throws(() => validateOutboxRecord({ ...item('canonical-created', 'CREATE', 0), createdAt: new Date('2026-12-31T23:59:59.999Z').toISOString() })),
+        ].every(Boolean),
+        singletonKeys: throws(() => validateHouseholdProfileRecord(envelope({ key: 'other' }))) && throws(() => validateWasteStateRecord(envelope({ key: 'other' }))),
+        outboxRules: !throws(() => validateOutboxRecord(item('create-ok', 'CREATE', 0))) && throws(() => validateOutboxRecord(item('create-bad', 'CREATE', 1))) && !throws(() => validateOutboxRecord(item('update-ok', 'UPDATE', 1))) && throws(() => validateOutboxRecord(item('update-bad', 'UPDATE', 0))) && !throws(() => validateOutboxRecord(item('delete-ok', 'DELETE', 1))) && throws(() => validateOutboxRecord(item('delete-bad', 'DELETE', 0))),
+      };
+      const replica = createLocalReplica({ indexedDb: indexedDB, clock: () => stamp });
+      await replica.open();
+      await replica.putHouseholdProfile(envelope({ key: 'household', payload: { serverHouseholdId: null } }));
+      await replica.putWasteState(envelope({ key: 'waste' }));
+      await replica.putCalendarEvent(envelope({ id: 'event-1' }));
+      await replica.putSharedPlace(envelope({ id: 'b', order: 1 }));
+      await replica.putSharedPlace(envelope({ id: 'a', order: 1 }));
+      await replica.putSharedPlace(envelope({ id: 'z', order: 0 }));
+      await replica.putMeta({ key: 'custom', value: { saved: true } });
+      await replica.enqueueOutbox(item('z-create', 'CREATE', 0));
+      await replica.enqueueOutbox(item('a-update', 'UPDATE', 1));
+      let duplicateError = null;
+      try { await replica.enqueueOutbox(item('z-create', 'UPDATE', 1)); } catch (error) { duplicateError = error.name; }
+      const beforeReload = { places: (await replica.listSharedPlaces()).map(record => record.id), outbox: (await replica.listOutboxBySequence()).map(record => [record.mutationId, record.sequence]), sequence: await replica.getMeta('outboxSequence'), duplicateError };
+      await replica.close();
+      return { validatorChecks, beforeReload };
+    })()`);
+    assert.deepEqual(result.validatorChecks, { statuses: true, timestamps: true, strictCalendarDates: true, singletonKeys: true, outboxRules: true });
+    assert.deepEqual(result.beforeReload.places, ['z', 'a', 'b']);
+    assert.deepEqual(result.beforeReload.outbox, [['z-create', 1], ['a-update', 2]]);
+    assert.equal(result.beforeReload.sequence.value, 2);
+    assert.equal(result.beforeReload.duplicateError, 'ConstraintError');
+    await harness.pageReload();
+    const persistence = await harness.evaluate(`(async () => {
+      const { createLocalReplica } = window.storageApi;
+      const stamp = '2026-09-15T12:00:00.000Z';
+      const replica = createLocalReplica({ indexedDb: indexedDB, clock: () => stamp });
+      await replica.open();
+      const persisted = {
+        household: await replica.getHouseholdProfile(), waste: await replica.getWasteState(), event: await replica.getCalendarEvent('event-1'), place: (await replica.listSharedPlaces()).find(record => record.id === 'z'), meta: await replica.getMeta('custom'), sequence: await replica.getMeta('outboxSequence'), outbox: (await replica.listOutboxBySequence()).map(record => [record.mutationId, record.sequence]),
+      };
+      await replica.enqueueOutbox({ mutationId: 'm-third', entityType: 'calendarEvent', entityId: 'event-1', operation: 'UPDATE', baseRevision: 1, patch: {}, createdAt: stamp, attemptCount: 0, lastAttemptAt: null });
+      const afterThird = (await replica.listOutboxBySequence()).map(record => [record.mutationId, record.sequence]);
+      await replica.close();
+      return { persisted, afterThird };
+    })()`);
+    assert.equal(persistence.persisted.household.key, 'household');
+    assert.equal(persistence.persisted.waste.key, 'waste');
+    assert.equal(persistence.persisted.event.id, 'event-1');
+    assert.equal(persistence.persisted.place.id, 'z');
+    assert.deepEqual(persistence.persisted.meta, { key: 'custom', value: { saved: true } });
+    assert.equal(persistence.persisted.sequence.value, 2);
+    assert.deepEqual(persistence.persisted.outbox, [['z-create', 1], ['a-update', 2]]);
+    assert.deepEqual(persistence.afterThird, [['z-create', 1], ['a-update', 2], ['m-third', 3]]);
   } finally {
     await harness.cleanup();
   }
