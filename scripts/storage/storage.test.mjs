@@ -1,0 +1,551 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { test } from 'node:test';
+import * as legacyMigration from '../../src/storage/legacyMigration.js';
+import { LEGACY_SHARED_KEYS, readLegacySources } from '../../src/storage/legacyMigration.js';
+import { EVENT_STORAGE_KEY, createEventRepository } from '../../src/calendar/eventRepository.js';
+import { HOUSEHOLD_KEY, createHouseholdRepository } from '../../src/waste/householdRepository.js';
+import {
+  validateCalendarEventRecord, validateHouseholdProfileRecord, validateSharedPlaceRecord, validateWasteStateRecord,
+} from '../../src/storage/localReplica.js';
+
+const [CALENDAR_KEY, HOUSEHOLD_PROFILE_KEY, PLACES_KEY] = LEGACY_SHARED_KEYS;
+
+// Records every property touched on the storage object; only getItem is permitted.
+function spyStorage(values = {}, { throwOn, returnFor } = {}) {
+  const accessed = [];
+  const requests = [];
+  const target = {
+    getItem(key) {
+      requests.push(key);
+      if (key === throwOn) throw new Error('storage blocked');
+      if (returnFor && Object.hasOwn(returnFor, key)) return returnFor[key];
+      return Object.hasOwn(values, key) ? values[key] : null;
+    },
+  };
+  const storage = new Proxy(target, {
+    get(object, property) {
+      accessed.push(property);
+      if (property !== 'getItem') throw new Error(`forbidden storage access: ${String(property)}`);
+      return object[property];
+    },
+    set() { throw new Error('storage mutation is forbidden'); },
+  });
+  return { storage, accessed, requests };
+}
+
+function approvedOnlyStorage(values = {}) {
+  const requests = [];
+  return {
+    requests,
+    getItem(key) {
+      if (!LEGACY_SHARED_KEYS.includes(key)) throw new Error(`unexpected key: ${key}`);
+      requests.push(key);
+      return Object.hasOwn(values, key) ? values[key] : null;
+    },
+    setItem() { throw new Error('writes are forbidden'); },
+    key() { throw new Error('enumeration is forbidden'); },
+    get length() { throw new Error('enumeration is forbidden'); },
+  };
+}
+
+test('legacy source reader distinguishes unreadable storage and reads only approved keys in order', () => {
+  assert.equal(readLegacySources(null).status, 'unreadable-source');
+  assert.equal(readLegacySources(undefined).status, 'unreadable-source');
+  const storage = approvedOnlyStorage();
+  const sources = readLegacySources(storage);
+  assert.equal(sources.status, 'readable');
+  assert.deepEqual(storage.requests, LEGACY_SHARED_KEYS);
+});
+
+test('approved legacy keys are exactly the three repository-owned shared keys in canonical order', () => {
+  assert.deepEqual([...LEGACY_SHARED_KEYS], ['majamajandus_household_events_v1', 'majamajandus_household_profile_v1', 'sade_saved_places']);
+  assert.equal(CALENDAR_KEY, EVENT_STORAGE_KEY);
+  assert.equal(HOUSEHOLD_PROFILE_KEY, HOUSEHOLD_KEY);
+  assert.ok(Object.isFrozen(LEGACY_SHARED_KEYS));
+});
+
+test('legacy source reader returns exact unreadable shape for null and undefined storage', () => {
+  assert.deepEqual(readLegacySources(null), { status: 'unreadable-source', raw: null });
+  assert.deepEqual(readLegacySources(undefined), { status: 'unreadable-source', raw: null });
+});
+
+test('legacy source reader returns the exact readable raw snapshot using only getItem', () => {
+  const { storage, accessed, requests } = spyStorage({ [CALENDAR_KEY]: '{"a":1}', [HOUSEHOLD_PROFILE_KEY]: '', [PLACES_KEY]: '[]' });
+  assert.deepEqual(readLegacySources(storage), { status: 'readable', raw: { calendar: '{"a":1}', household: '', places: '[]' } });
+  assert.deepEqual(requests, [...LEGACY_SHARED_KEYS]);
+  assert.ok(accessed.every(property => property === 'getItem'));
+});
+
+test('legacy source reader treats all-absent sources as a readable clean install', () => {
+  const { storage } = spyStorage();
+  assert.deepEqual(readLegacySources(storage), { status: 'readable', raw: { calendar: null, household: null, places: null } });
+});
+
+test('legacy source reader treats an empty string as present data, never as absent', () => {
+  const { storage } = spyStorage({ [PLACES_KEY]: '' });
+  assert.equal(readLegacySources(storage).raw.places, '');
+});
+
+for (const key of LEGACY_SHARED_KEYS) {
+  test(`legacy source reader exposes no partial snapshot when getItem throws for ${key}`, () => {
+    const { storage, requests } = spyStorage({ [CALENDAR_KEY]: '{}', [HOUSEHOLD_PROFILE_KEY]: '{}', [PLACES_KEY]: '[]' }, { throwOn: key });
+    assert.deepEqual(readLegacySources(storage), { status: 'unreadable-source', raw: null });
+    assert.deepEqual(requests, LEGACY_SHARED_KEYS.slice(0, LEGACY_SHARED_KEYS.indexOf(key) + 1));
+  });
+}
+
+test('legacy source reader treats storage without a callable getItem as unreadable', () => {
+  assert.deepEqual(readLegacySources({}), { status: 'unreadable-source', raw: null });
+});
+
+test('legacy source reader treats a non-string, non-null value as unreadable rather than absent', () => {
+  for (const value of [undefined, 0, {}, false]) {
+    const { storage } = spyStorage({}, { returnFor: { [HOUSEHOLD_PROFILE_KEY]: value } });
+    assert.deepEqual(readLegacySources(storage), { status: 'unreadable-source', raw: null });
+  }
+});
+
+// ---- validation -------------------------------------------------------------------------
+
+const legacyEvent = (id, extra = {}) => ({
+  id, title: 'Prügivedu', category: 'waste', subtype: 'bio', date: '2026-09-20', time: null,
+  recurrence: { frequency: 'none', interval: 1 }, reminder: { daysBefore: 0 }, source: 'manual',
+  householdId: null, notes: '', seriesId: null, excludedDates: [], overrides: {}, ...extra,
+});
+const calendarRaw = envelope => JSON.stringify(envelope);
+const readable = ({ calendar = null, household = null, places = null } = {}) =>
+  readLegacySources(spyStorage({ [CALENDAR_KEY]: calendar, [HOUSEHOLD_PROFILE_KEY]: household, [PLACES_KEY]: places }).storage);
+const validate = raw => legacyMigration.validateLegacySources(readable(raw));
+// Independent parity oracle: the current repositories reading the same raw string.
+const repositoryStorage = (key, raw) => ({ getItem: requested => (requested === key ? raw : null) });
+
+const VALID_CALENDAR = calendarRaw({ version: 1, events: [legacyEvent('event-b', { title: '  Paber  ' }), legacyEvent('event-a')], wasteImports: [] });
+const VALID_HOUSEHOLD = JSON.stringify({ version: 1, profile: { name: '  Kodu  ', address: ' Tamme 5 ' } });
+const VALID_PLACES = JSON.stringify([{ name: 'Kodu', address: 'Tamme 5', lat: 59.35, lon: 26.36 }]);
+
+test('validation maps unreadable sources to the exact unreadable status', () => {
+  assert.deepEqual(legacyMigration.validateLegacySources({ status: 'unreadable-source', raw: null }), { status: 'unreadable-source' });
+});
+
+test('validation rejects arguments that are not a legacy source read result', () => {
+  for (const input of [undefined, null, {}, { status: 'readable' }, { status: 'readable', raw: { calendar: 1, household: null, places: null } }]) {
+    assert.throws(() => legacyMigration.validateLegacySources(input), TypeError);
+  }
+});
+
+test('validation accepts an all-absent clean install with empty data and no singletons', () => {
+  assert.deepEqual(validate(), {
+    status: 'valid',
+    raw: { calendar: null, household: null, places: null },
+    parsed: { calendar: null, household: null, places: null },
+    data: { calendarEvents: [], wasteImports: undefined, householdProfile: null, sharedPlaces: [] },
+  });
+});
+
+test('valid calendar source matches current repository output and retains event IDs', () => {
+  const result = validate({ calendar: VALID_CALENDAR });
+  const repository = createEventRepository(repositoryStorage(EVENT_STORAGE_KEY, VALID_CALENDAR)).load();
+  assert.equal(result.status, 'valid');
+  assert.deepEqual(result.data.calendarEvents, repository.events);
+  assert.deepEqual(result.data.calendarEvents.map(event => event.id), ['event-b', 'event-a']);
+  assert.equal(result.data.calendarEvents[0].title, 'Paber');
+  assert.deepEqual(result.data.wasteImports, []);
+  assert.deepEqual(result.parsed.calendar, JSON.parse(VALID_CALENDAR));
+  assert.equal(result.raw.calendar, VALID_CALENDAR);
+});
+
+test('calendar source without wasteImports leaves wasteImports undefined', () => {
+  const result = validate({ calendar: calendarRaw({ version: 1, events: [] }) });
+  assert.equal(result.status, 'valid');
+  assert.ok(Object.hasOwn(result.data, 'wasteImports'));
+  assert.equal(result.data.wasteImports, undefined);
+});
+
+test('malformed or repository-invalid calendar sources are invalid, never absent', () => {
+  const invalid = [
+    '', '{oops', 'null', '[]', '{}', calendarRaw({ version: 2, events: [] }), calendarRaw({ version: 1, events: {} }),
+    calendarRaw({ version: 1, events: [legacyEvent('x', { category: 'unknown' })] }),
+    calendarRaw({ version: 1, events: [legacyEvent('dup'), legacyEvent('dup')] }),
+    calendarRaw({ version: 1, events: [], wasteImports: 'nope' }),
+  ];
+  for (const calendar of invalid) {
+    assert.equal(createEventRepository(repositoryStorage(EVENT_STORAGE_KEY, calendar)).load().writable, false, `oracle agrees ${calendar}`);
+    assert.deepEqual(validate({ calendar, household: VALID_HOUSEHOLD, places: VALID_PLACES }), { status: 'invalid-source', source: 'calendar' }, calendar);
+  }
+});
+
+test('valid household source preserves current repository normalization including trimming', () => {
+  const result = validate({ household: VALID_HOUSEHOLD });
+  const repository = createHouseholdRepository(repositoryStorage(HOUSEHOLD_KEY, VALID_HOUSEHOLD)).load();
+  assert.deepEqual(result.data.householdProfile, repository.profile);
+  assert.deepEqual(result.data.householdProfile, { name: 'Kodu', address: 'Tamme 5' });
+  assert.deepEqual(result.parsed.household, JSON.parse(VALID_HOUSEHOLD));
+  assert.equal(validate({ household: JSON.stringify({ version: 1, profile: { name: 'x'.repeat(100), address: '' } }) }).status, 'valid');
+});
+
+test('household invalid parity covers version 2, null profile, overlong name and malformed JSON', () => {
+  const invalid = [
+    JSON.stringify({ version: 2, profile: { name: 'Kodu', address: '' } }),
+    JSON.stringify({ version: 1, profile: null }),
+    JSON.stringify({ version: 1, profile: { name: 'x'.repeat(101), address: '' } }),
+    '{oops', '', 'null',
+  ];
+  for (const household of invalid) {
+    assert.equal(createHouseholdRepository(repositoryStorage(HOUSEHOLD_KEY, household)).load().writable, false, `oracle agrees ${household}`);
+    assert.deepEqual(validate({ calendar: VALID_CALENDAR, household, places: VALID_PLACES }), { status: 'invalid-source', source: 'household' }, household);
+  }
+});
+
+test('malformed or non-array places sources are invalid, never absent', () => {
+  for (const places of ['', '[oops', '{}', 'null', '"text"', '3']) {
+    assert.deepEqual(validate({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places }), { status: 'invalid-source', source: 'places' }, places);
+  }
+  const result = validate({ places: VALID_PLACES });
+  assert.equal(result.status, 'valid');
+  assert.equal(result.data.sharedPlaces.length, 1);
+  assert.deepEqual(result.parsed.places, JSON.parse(VALID_PLACES));
+});
+
+test('validation reports the first invalid source in canonical key order', () => {
+  assert.deepEqual(validate({ calendar: '{oops', household: '{oops', places: '{oops' }), { status: 'invalid-source', source: 'calendar' });
+  assert.deepEqual(validate({ calendar: VALID_CALENDAR, household: '{oops', places: '{oops' }), { status: 'invalid-source', source: 'household' });
+});
+
+// ---- saved-place parity -----------------------------------------------------------------
+
+// Differential oracle: the hook's current pure normalizePlace, evaluated from its source text
+// without importing the React hook or modifying it.
+function runtimeNormalizePlace() {
+  const source = readFileSync(new URL('../../src/hooks/useSavedPlaces.js', import.meta.url), 'utf8');
+  const start = source.indexOf('const DEFAULTS');
+  const end = source.indexOf('function normalizePlaces');
+  assert.ok(start >= 0 && end > start, 'normalizePlace source markers must exist in useSavedPlaces.js');
+  return new Function(`${source.slice(start, end)}\nreturn normalizePlace;`)();
+}
+
+const PLACE_GOLDEN = [
+  [null, { name: 'Kodu', address: '', lat: null, lon: null }],
+  [42, { name: 'Kool', address: '', lat: null, lon: null }],
+  ['Tamme 5', { name: 'Trenn', address: '', lat: null, lon: null }],
+  [{ name: '   ', address: 5, lat: 'abc', lon: {} }, { name: 'Koht', address: '', lat: null, lon: null }],
+  [{ name: '  Pood  ', address: '  Keskväljak 1 ', lat: '59.5', lon: '26.4abc' }, { name: 'Pood', address: '  Keskväljak 1 ', lat: 59.5, lon: 26.4 }],
+  [{ name: 'Trenn' }, { name: 'Trenn', address: '', lat: null, lon: null }],
+  [{ name: 7, lat: 0, lon: '-12.25' }, { name: 'Koht', address: '', lat: 0, lon: -12.25 }],
+  [{ name: 'Kool', lat: true, lon: null }, { name: 'Kool', address: '', lat: null, lon: null }],
+  [[], { name: 'Koht', address: '', lat: null, lon: null }],
+  [{ id: 'legacy-id', name: 'Park', address: 'Park 1', lat: 59.3, lon: 26.3, extra: true }, { name: 'Park', address: 'Park 1', lat: 59.3, lon: 26.3 }],
+];
+
+test('saved-place normalization matches the golden table and the live runtime normalizePlace', () => {
+  const places = PLACE_GOLDEN.map(([item]) => item);
+  const result = validate({ places: JSON.stringify(places) });
+  assert.equal(result.status, 'valid');
+  assert.deepEqual(result.data.sharedPlaces, PLACE_GOLDEN.map(([, expected]) => expected));
+  const normalizePlace = runtimeNormalizePlace();
+  const parsedItems = JSON.parse(JSON.stringify(places));
+  assert.deepEqual(result.data.sharedPlaces, parsedItems.map((item, index) => normalizePlace(item, index)));
+});
+
+test('saved places are never padded with runtime defaults', () => {
+  assert.deepEqual(validate({ places: '[]' }).data.sharedPlaces, []);
+  assert.deepEqual(validate({ places: JSON.stringify([{ name: 'Ainult' }]) }).data.sharedPlaces, [{ name: 'Ainult', address: '', lat: null, lon: null }]);
+  assert.equal(validate({ places: JSON.stringify([null, null]) }).data.sharedPlaces.length, 2);
+});
+
+// ---- source digest ----------------------------------------------------------------------
+
+const sha256Hex = text => createHash('sha256').update(text, 'utf8').digest('hex');
+const digestInput = raw => JSON.stringify([raw.calendar, raw.household, raw.places]);
+
+test('source digest is lowercase SHA-256 hex over exactly the raw source tuple', async () => {
+  const raw = { calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: JSON.stringify([{ name: 'Tänav ÕÄÖÜ' }]) };
+  const digest = await legacyMigration.sourceDigest(readable(raw), globalThis.crypto);
+  assert.match(digest, /^[0-9a-f]{64}$/);
+  assert.equal(digest, sha256Hex(digestInput(raw)));
+  assert.equal(await legacyMigration.sourceDigest(readable(), globalThis.crypto), sha256Hex('[null,null,null]'));
+});
+
+test('source digest hashes only the raw JSON tuple bytes through the injected crypto API', async () => {
+  const calls = [];
+  const cryptoApi = { subtle: { digest: async (algorithm, bytes) => {
+    calls.push({ algorithm, text: new TextDecoder().decode(bytes) });
+    return globalThis.crypto.subtle.digest(algorithm, bytes);
+  } } };
+  const raw = { calendar: VALID_CALENDAR, household: null, places: '' };
+  await legacyMigration.sourceDigest(readable(raw), cryptoApi);
+  assert.deepEqual(calls, [{ algorithm: 'SHA-256', text: digestInput(raw) }]);
+});
+
+test('source digest is deterministic, raw-sensitive and distinguishes normalization-equivalent raw data', async () => {
+  const digest = raw => legacyMigration.sourceDigest(readable(raw), globalThis.crypto);
+  const base = { household: VALID_HOUSEHOLD, places: VALID_PLACES };
+  assert.equal(await digest(base), await digest({ ...base }));
+  assert.notEqual(await digest(base), await digest({ ...base, places: '[]' }));
+  const tight = JSON.stringify({ version: 1, profile: { name: 'Kodu', address: 'Tamme 5' } });
+  const padded = JSON.stringify({ version: 1, profile: { name: '  Kodu ', address: 'Tamme 5  ' } });
+  assert.deepEqual(validate({ household: tight }).data, validate({ household: padded }).data);
+  assert.notEqual(await digest({ household: tight }), await digest({ household: padded }));
+  assert.notEqual(await digest({ places: '[{"name":"A"}]' }), await digest({ places: '[ {"name":"A"} ]' }));
+});
+
+test('source digest accepts read or validated results and rejects inputs without a raw snapshot', async () => {
+  const sources = readable({ places: VALID_PLACES });
+  const validated = legacyMigration.validateLegacySources(sources);
+  assert.equal(await legacyMigration.sourceDigest(validated, globalThis.crypto), await legacyMigration.sourceDigest(sources, globalThis.crypto));
+  for (const input of [{ status: 'unreadable-source', raw: null }, { status: 'unreadable-source' }, { status: 'invalid-source', source: 'places' }, null]) {
+    await assert.rejects(legacyMigration.sourceDigest(input, globalThis.crypto), TypeError);
+  }
+  await assert.rejects(legacyMigration.sourceDigest(sources, undefined), TypeError);
+});
+
+// ---- preparation ------------------------------------------------------------------------
+
+const STAMP = '2026-09-15T12:00:00.000Z';
+function counter(values) {
+  const fn = () => {
+    fn.calls += 1;
+    if (fn.calls > values.length) throw new Error('unexpected extra call');
+    return values[fn.calls - 1];
+  };
+  fn.calls = 0;
+  return fn;
+}
+const throwingNewId = () => { throw new Error('newId must not be called'); };
+const localEnvelope = { revision: 0, updatedAt: STAMP, deletedAt: null, syncStatus: 'local' };
+const TWO_PLACES = JSON.stringify([{ name: ' Kodu ', address: 'Tamme 5', lat: '59.35', lon: 26.36 }, null]);
+const prepare = (raw, options = {}) => legacyMigration.prepareLegacyMigration({
+  validated: validate(raw), newId: counter(['place-1', 'place-2']), now: counter([STAMP]), preparationId: 'prep-1', ...options,
+});
+
+test('preparation requires a valid validation result and well-formed injected arguments', () => {
+  const validated = validate({ places: TWO_PLACES });
+  const base = { validated, newId: counter(['a', 'b']), now: () => STAMP, preparationId: 'prep-1' };
+  for (const bad of [undefined, { status: 'unreadable-source' }, { status: 'invalid-source', source: 'places' }, { status: 'valid' }]) {
+    assert.throws(() => legacyMigration.prepareLegacyMigration({ ...base, validated: bad }), TypeError);
+  }
+  assert.throws(() => legacyMigration.prepareLegacyMigration({ ...base, now: STAMP }), TypeError);
+  assert.throws(() => legacyMigration.prepareLegacyMigration({ ...base, preparationId: '' }), TypeError);
+  assert.throws(() => legacyMigration.prepareLegacyMigration({ ...base, preparationId: 7 }), TypeError);
+  assert.throws(() => legacyMigration.prepareLegacyMigration({ ...base, newId: undefined }), TypeError);
+  assert.throws(() => legacyMigration.prepareLegacyMigration(), TypeError);
+});
+
+test('preparation returns the exact locked shape for all three present sources', () => {
+  const validated = validate({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: TWO_PLACES });
+  const prepared = legacyMigration.prepareLegacyMigration({ validated, newId: counter(['place-1', 'place-2']), now: counter([STAMP]), preparationId: 'prep-1' });
+  assert.deepEqual(prepared, {
+    preparationId: 'prep-1',
+    generatedIds: { sharedPlaces: ['place-1', 'place-2'] },
+    replica: {
+      householdProfile: { key: 'household', payload: { name: 'Kodu', address: 'Tamme 5', serverHouseholdId: null }, ...localEnvelope },
+      calendarEvents: validated.data.calendarEvents.map(event => ({ id: event.id, payload: event, ...localEnvelope })),
+      sharedPlaces: [
+        { id: 'place-1', order: 0, payload: { name: 'Kodu', address: 'Tamme 5', lat: 59.35, lon: 26.36 }, ...localEnvelope },
+        { id: 'place-2', order: 1, payload: { name: 'Kool', address: '', lat: null, lon: null }, ...localEnvelope },
+      ],
+      wasteState: { key: 'waste', payload: { wasteImports: [] }, ...localEnvelope },
+      meta: [
+        { key: 'calendarLegacyEnvelopeExtras', value: { sourceVersion: 1, fields: {} } },
+        { key: 'householdLegacyEnvelopeExtras', value: { sourceVersion: 1, fields: {} } },
+      ],
+      outbox: [],
+    },
+  });
+  assert.deepEqual(prepared.replica.calendarEvents.map(record => record.id), ['event-b', 'event-a']);
+});
+
+test('preparation calls now exactly once and stamps every record with that value', () => {
+  const now = counter([STAMP]);
+  const prepared = prepare({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: TWO_PLACES }, { now });
+  assert.equal(now.calls, 1);
+  const { householdProfile, calendarEvents, sharedPlaces, wasteState } = prepared.replica;
+  assert.ok([householdProfile, ...calendarEvents, ...sharedPlaces, wasteState].every(record => record.updatedAt === STAMP));
+  const cleanInstallNow = counter([STAMP]);
+  const empty = prepare({}, { now: cleanInstallNow, newId: throwingNewId });
+  assert.equal(cleanInstallNow.calls, 1);
+  assert.deepEqual(empty.replica, { householdProfile: null, calendarEvents: [], sharedPlaces: [], wasteState: null, meta: [], outbox: [] });
+  assert.deepEqual(empty.generatedIds, { sharedPlaces: [] });
+});
+
+test('calendar preparation generates no IDs and shared places generate exactly one ID each', () => {
+  const calendarOnly = prepare({ calendar: VALID_CALENDAR }, { newId: throwingNewId });
+  assert.deepEqual(calendarOnly.replica.calendarEvents.map(record => record.id), ['event-b', 'event-a']);
+  const newId = counter(['p-1', 'p-2', 'p-3']);
+  const prepared = prepare({ places: JSON.stringify([{}, {}, {}]) }, { newId });
+  assert.equal(newId.calls, 3);
+  assert.deepEqual(prepared.generatedIds.sharedPlaces, ['p-1', 'p-2', 'p-3']);
+  assert.deepEqual(prepared.replica.sharedPlaces.map(record => [record.id, record.order]), [['p-1', 0], ['p-2', 1], ['p-3', 2]]);
+});
+
+test('saved shared-place IDs are reused exactly and never partially regenerated', () => {
+  const prepared = prepare({ places: TWO_PLACES }, { newId: throwingNewId, savedIds: { sharedPlaces: ['saved-1', 'saved-2'] } });
+  assert.deepEqual(prepared.generatedIds.sharedPlaces, ['saved-1', 'saved-2']);
+  assert.deepEqual(prepared.replica.sharedPlaces.map(record => record.id), ['saved-1', 'saved-2']);
+  const invalidSavedIds = [
+    null, {}, { sharedPlaces: 'saved-1' }, { sharedPlaces: ['saved-1'] }, { sharedPlaces: ['saved-1', 'saved-2', 'saved-3'] },
+    { sharedPlaces: ['saved-1', ''] }, { sharedPlaces: ['saved-1', 2] }, { sharedPlaces: ['same', 'same'] },
+  ];
+  for (const savedIds of invalidSavedIds) {
+    const newId = counter(['fresh-1', 'fresh-2']);
+    const now = counter([STAMP]);
+    assert.throws(() => prepare({ places: TWO_PLACES }, { newId, now, savedIds }), TypeError, JSON.stringify(savedIds));
+    assert.equal(newId.calls, 0, 'no replacement IDs are generated for rejected saved IDs');
+  }
+});
+
+test('generated shared-place IDs must be unique non-empty strings', () => {
+  assert.throws(() => prepare({ places: TWO_PLACES }, { newId: counter(['dup', 'dup']) }), TypeError);
+  assert.throws(() => prepare({ places: TWO_PLACES }, { newId: counter(['ok', '']) }), TypeError);
+});
+
+test('household preparation keeps serverHouseholdId null and exists only for a present source', () => {
+  const legacyWithServerId = JSON.stringify({ version: 1, profile: { name: 'Kodu', address: '', serverHouseholdId: 'invented-uuid' } });
+  assert.equal(prepare({ household: legacyWithServerId }).replica.householdProfile.payload.serverHouseholdId, null);
+  assert.equal(prepare({ calendar: VALID_CALENDAR, places: TWO_PLACES }).replica.householdProfile, null);
+});
+
+test('waste record exists only for a present calendar source that defines wasteImports', () => {
+  assert.equal(prepare({ household: VALID_HOUSEHOLD }).replica.wasteState, null);
+  assert.equal(prepare({ calendar: calendarRaw({ version: 1, events: [] }) }).replica.wasteState, null);
+  assert.deepEqual(prepare({ calendar: VALID_CALENDAR }).replica.wasteState, { key: 'waste', payload: { wasteImports: [] }, ...localEnvelope });
+});
+
+test('envelope extras come from raw parsed envelopes and are omitted for absent sources', () => {
+  const calendar = calendarRaw({ version: 1, events: [legacyEvent('e-1')], wasteImports: [], theme: 'dark', nested: { list: [1, '2'] }, writable: false, error: 'raw' });
+  const household = JSON.stringify({ version: 1, profile: { name: ' Kodu ', address: '' }, note: '  raw note  ' });
+  const prepared = prepare({ calendar, household });
+  assert.deepEqual(prepared.replica.meta, [
+    { key: 'calendarLegacyEnvelopeExtras', value: { sourceVersion: 1, fields: { theme: 'dark', nested: { list: [1, '2'] }, writable: false, error: 'raw' } } },
+    { key: 'householdLegacyEnvelopeExtras', value: { sourceVersion: 1, fields: { note: '  raw note  ' } } },
+  ]);
+  assert.deepEqual(prepare({ household }).replica.meta.map(record => record.key), ['householdLegacyEnvelopeExtras']);
+  assert.deepEqual(prepare({ calendar }).replica.meta.map(record => record.key), ['calendarLegacyEnvelopeExtras']);
+});
+
+test('every prepared domain record passes its Task 2 validator and the outbox stays empty', () => {
+  const { replica } = prepare({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: TWO_PLACES });
+  validateHouseholdProfileRecord(replica.householdProfile);
+  validateWasteStateRecord(replica.wasteState);
+  replica.calendarEvents.forEach(validateCalendarEventRecord);
+  replica.sharedPlaces.forEach(validateSharedPlaceRecord);
+  assert.deepEqual(replica.outbox, []);
+  assert.throws(() => prepare({ places: TWO_PLACES }, { now: () => 'not-a-timestamp' }), TypeError);
+});
+
+test('preparation does not alias or mutate validated data', () => {
+  const validated = validate({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: TWO_PLACES });
+  const before = structuredClone(validated);
+  const options = () => ({ validated, newId: counter(['place-1', 'place-2']), now: () => STAMP, preparationId: 'prep-1' });
+  const first = legacyMigration.prepareLegacyMigration(options());
+  first.replica.calendarEvents[0].payload.title = 'changed';
+  first.replica.sharedPlaces[0].payload.name = 'changed';
+  first.replica.householdProfile.payload.name = 'changed';
+  first.replica.wasteState.payload.wasteImports.push('changed');
+  assert.deepEqual(validated, before);
+  assert.deepEqual(legacyMigration.prepareLegacyMigration(options()), legacyMigration.prepareLegacyMigration(options()));
+});
+
+// ---- replica verification ---------------------------------------------------------------
+
+const fullReplica = () => prepare({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: TWO_PLACES }).replica;
+const verify = (expected, actual) => legacyMigration.verifyReplica({ expected, actual });
+const reverseKeys = value => Array.isArray(value) ? value.map(reverseKeys)
+  : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reverseKeys(item)])) : value;
+const deepFreeze = value => {
+  if (value !== null && typeof value === 'object') Object.values(Object.freeze(value)).forEach(deepFreeze);
+  return value;
+};
+const outboxItem = (mutationId, sequence) => ({ mutationId, entityType: 'calendarEvent', entityId: 'e', operation: 'CREATE', baseRevision: 0, patch: {}, createdAt: STAMP, attemptCount: 0, lastAttemptAt: null, sequence });
+
+test('replica verification accepts identical replicas and ignores object property order', () => {
+  const expected = fullReplica();
+  assert.equal(verify(expected, structuredClone(expected)), true);
+  assert.equal(verify(expected, reverseKeys(expected)), true);
+});
+
+test('replica verification canonicalizes only collection ordering', () => {
+  const expected = { ...fullReplica(), outbox: [outboxItem('m-1', 1), outboxItem('m-2', 2)] };
+  const actual = structuredClone(expected);
+  actual.calendarEvents.reverse();
+  actual.sharedPlaces.reverse();
+  actual.meta.reverse();
+  actual.outbox.reverse();
+  assert.equal(verify(expected, actual), true);
+  const nested = structuredClone(expected);
+  nested.calendarEvents[0].payload.excludedDates = ['2026-10-01', '2026-10-08'];
+  const reorderedNested = structuredClone(nested);
+  reorderedNested.calendarEvents[0].payload.excludedDates.reverse();
+  assert.equal(verify(nested, reorderedNested), false, 'arrays inside records are compared exactly');
+});
+
+test('replica verification rejects missing, extra and changed data without throwing', () => {
+  const expected = fullReplica();
+  const mismatch = mutate => {
+    const actual = structuredClone(expected);
+    mutate(actual);
+    return verify(expected, actual);
+  };
+  assert.equal(mismatch(actual => actual.calendarEvents.pop()), false, 'missing calendar event');
+  assert.equal(mismatch(actual => actual.sharedPlaces.push({ ...actual.sharedPlaces[0], id: 'extra', order: 9 })), false, 'extra place');
+  assert.equal(mismatch(actual => actual.meta.pop()), false, 'missing meta');
+  assert.equal(mismatch(actual => { delete actual.wasteState; }), false, 'missing collection key');
+  assert.equal(mismatch(actual => { actual.extra = []; }), false, 'extra top-level key');
+  assert.equal(mismatch(actual => { actual.householdProfile = null; }), false, 'missing singleton');
+  assert.equal(mismatch(actual => { actual.sharedPlaces[0].payload.name = 'Muu'; }), false, 'payload change');
+  assert.equal(mismatch(actual => { actual.sharedPlaces[0].payload.extra = true; }), false, 'extra payload field');
+  assert.equal(mismatch(actual => { actual.calendarEvents[0].revision = 1; }), false, 'revision change');
+  assert.equal(mismatch(actual => { actual.calendarEvents[0].id = 'event-z'; }), false, 'id change');
+  assert.equal(mismatch(actual => { actual.sharedPlaces[0].order = 1; actual.sharedPlaces[1].order = 0; }), false, 'order change');
+  assert.equal(mismatch(actual => { actual.wasteState.payload.wasteImports = {}; }), false, 'array versus object');
+  assert.equal(mismatch(actual => { actual.meta[0].value.sourceVersion = '1'; }), false, 'value type change');
+  assert.equal(mismatch(actual => { actual.householdProfile.payload.address = undefined; }), false, 'undefined differs from a value');
+  assert.equal(verify({ list: [1, , 3] }, { list: [1, undefined, 3] }), false, 'array holes differ from undefined');
+  assert.equal(verify({ a: undefined }, {}), false, 'undefined property differs from a missing property');
+});
+
+test('replica verification is pure and rejects non-object arguments', () => {
+  // Both sides are deep-frozen with reversed collections, so any in-place sort or mutation throws.
+  const reversed = structuredClone(fullReplica());
+  for (const name of ['calendarEvents', 'sharedPlaces', 'meta']) reversed[name].reverse();
+  const expected = deepFreeze(fullReplica());
+  const actual = deepFreeze(reverseKeys(reversed));
+  const snapshot = structuredClone(actual);
+  assert.equal(verify(expected, actual), true);
+  assert.equal(verify(actual, expected), true);
+  assert.deepEqual(actual, snapshot);
+  for (const [left, right] of [[null, {}], [{}, undefined], [[], []], ['x', {}]]) {
+    assert.throws(() => verify(left, right), TypeError);
+  }
+  assert.throws(() => legacyMigration.verifyReplica(), TypeError);
+});
+
+// ---- module boundary --------------------------------------------------------------------
+
+test('legacy migration module exports exactly the six Task 3 interfaces', () => {
+  assert.deepEqual(Object.keys(legacyMigration).sort(), [
+    'LEGACY_SHARED_KEYS', 'prepareLegacyMigration', 'readLegacySources', 'sourceDigest', 'validateLegacySources', 'verifyReplica',
+  ]);
+});
+
+test('legacy migration production source names no private keys and no storage, network or Task 4 APIs', () => {
+  const source = readFileSync(new URL('../../src/storage/legacyMigration.js', import.meta.url), 'utf8');
+  const privateKeys = ['sade_diary_pin', 'sade_diary_entries', 'majamajandus_reminder_preferences_v1', 'majamajandus_reminder_delivery_v1', 'annivibe_saved_ideas', 'sade_saved_tips', 'sade_profile'];
+  for (const key of privateKeys) assert.ok(!source.includes(key), `private key ${key}`);
+  const keyLiterals = [...source.matchAll(/['"`]((?:majamajandus|sade|annivibe)_[A-Za-z0-9_]+)['"`]/g)].map(match => match[1]);
+  assert.deepEqual([...new Set(keyLiterals)].sort(), [...LEGACY_SHARED_KEYS].sort());
+  const forbidden = /\bsetItem\b|\bremoveItem\b|\blocalStorage\b|\bindexedDB\b|\bcreateLocalReplica\b|\btransact\b|runLegacyMigration|navigator\.locks|\bfetch\s*\(|\bopenMajandusDb\b|\brunTransaction\b/;
+  assert.doesNotMatch(source, forbidden);
+});
+
+test('validation generates no IDs and does not mutate its input', t => {
+  const randomUUID = t.mock.method(globalThis.crypto, 'randomUUID', () => { throw new Error('validation must not mint IDs'); });
+  const sources = readable({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: VALID_PLACES });
+  const before = structuredClone(sources);
+  const result = legacyMigration.validateLegacySources(sources);
+  assert.equal(result.status, 'valid');
+  assert.equal(randomUUID.mock.callCount(), 0);
+  assert.deepEqual(sources, before);
+  assert.ok(result.data.sharedPlaces.every(place => !Object.hasOwn(place, 'id')));
+});
