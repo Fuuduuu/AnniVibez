@@ -28,6 +28,13 @@
 - evidence: storage tests `45/45 PASS`, IndexedDB regressions `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS, runtime migration NO
 - approved next action: `TASK_4_MIGRATION_STATE_MACHINE` behind the Claude Opus 5 gate; Task 5+ locked
 
+### TASK_4_MIGRATION_CONTRACT_AMENDMENT
+- status: ACCEPTED
+- baseline: `e8aef8e2eb01cd3f21ff8ce0035b000597dabbc0`
+- origin: independent Claude Opus 5 Task 4 contract review returned AMEND
+- scope: durable marker, prepared recovery, atomic C+A cleanup/rebuild, changed-source ID policy, verification ownership, locks semantics and exact status mapping; defined in Plan Task 4 "Task 4 migration contracts"
+- satisfies the Claude Opus 5 gate; Task 4 implementation is not started and Task 5+ remains locked
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

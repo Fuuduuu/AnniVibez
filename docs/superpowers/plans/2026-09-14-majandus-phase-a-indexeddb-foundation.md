@@ -163,13 +163,43 @@ Commit: `feat: prepare non-destructive legacy migration`
 
 **Interfaces:** `runLegacyMigration({replica,storage,cryptoApi,newId,newPreparationId,now,locks})` returns `completed`, `already-complete`, `source-changed-after-complete`, `prepared-recovered`, `reprepared`, `invalid-source`, `unreadable-source`, `replica-not-empty`, `concurrent-migration`, `verification-failed`, or `write-failed`, always with `legacyMutated:false`. `newPreparationId` is injectable.
 
-Marker has saved generated IDs, migrated calendar IDs, migrated meta keys, and `migratedSingletonKeys`. A checks entity stores only and meta migration keys only; existing outboxSequence is valid. B rechecks matching prepared marker before complete. C rechecks prepared status, preparationId, and sourceDigest before deleting only marker-named records.
+### Task 4 migration contracts
+
+These contracts are authoritative for Task 4.
+
+**A. Durable marker.** Store `meta`, key `legacyMigrationV1`, exact key set:
+
+```js
+{ key:'legacyMigrationV1', status:'prepared'|'complete', preparationId, sourceDigest, preparedAt,
+  generatedIds:{sharedPlaces:string[]}, migratedCalendarIds:string[],
+  migratedMetaKeys:('calendarLegacyEnvelopeExtras'|'householdLegacyEnvelopeExtras')[],
+  migratedSingletonKeys:('household'|'waste')[] }
+```
+
+Validation: `status` is exactly `prepared` or `complete`; `preparationId` is a non-empty string; `sourceDigest` is exactly 64 lowercase hex characters; `preparedAt` is a strict calendar-valid ISO timestamp; `generatedIds.sharedPlaces` and `migratedCalendarIds` are arrays of unique non-empty strings in legacy order; `migratedMetaKeys` contains only the two extras keys and `migratedSingletonKeys` only `household`/`waste`, each unique. The marker's own key is never in `migratedMetaKeys`. `preparedAt` is the only marker timestamp (no `completedAt`); it is the single preparation timestamp, equals every prepared record's `updatedAt`, and Task 4 validates it itself before any marker write, including a clean install with zero domain records. An existing `legacyMigrationV1` that fails this validation, or a prepared marker whose saved shared-place IDs cannot be reused for its same-digest source, returns `replica-not-empty` with no source parsing, migration writes, cleanup or repair.
+
+**B. Flow.** Read the approved raw sources; unreadable returns `unreadable-source`. Otherwise compute `sourceDigest`, then read and validate the marker. Legacy-domain parsing and validation happen only where a branch below requires them.
+
+- Complete marker: same digest returns `already-complete`; a different digest returns `source-changed-after-complete` before parsing or validating the changed source, even if it is malformed (for example calendar `{oops`). Neither parses, validates, generates IDs, writes or cleans up; marker, IndexedDB records, legacy storage and outbox are unchanged.
+- No marker: validate (`invalid-source` on failure); prepare with fresh `newPreparationId()`, fresh `now()` and `newId` where Task 3 requires IDs; run transaction A.
+- Transaction A (one readwrite transaction): re-read the marker, which returns `concurrent-migration` if it now exists; any record in `householdProfile`, `calendarEvents`, `sharedPlaces` or `wasteState`, or an existing `calendarLegacyEnvelopeExtras` / `householdLegacyEnvelopeExtras`, returns `replica-not-empty` with no cleanup. `meta/outboxSequence`, other non-migration meta, `auth` and `syncState` are allowed and preserved. Otherwise write all prepared domain records, extras records and the prepared marker together, with zero outbox mutations.
+- Verify after A reads only marker-owned records: singletons named by `migratedSingletonKeys`, calendar IDs from `migratedCalendarIds`, shared places from `generatedIds.sharedPlaces`, meta from `migratedMetaKeys`. Never whole-store equality; unrelated records do not fail verification. Compare with the expected Task 3 replica via `verifyReplica`; a mismatch returns `verification-failed` and leaves the marker prepared. An IndexedDB read, request or transaction failure returns `write-failed`.
+- Transaction B re-reads the marker and requires `status === 'prepared'` and exact equality of `preparationId`, `sourceDigest`, `generatedIds.sharedPlaces`, `migratedCalendarIds`, `migratedMetaKeys` and `migratedSingletonKeys`; otherwise it returns `concurrent-migration` with no write. On match it changes only `status` to `complete`.
+- Prepared marker, same digest: rebuild the expected preparation from the current source with `marker.preparationId`, `marker.preparedAt` and `marker.generatedIds.sharedPlaces`, without calling `newId`, `newPreparationId` or `now`. A source that no longer validates returns `invalid-source` with no cleanup. If marker-owned data verifies, run B and return `prepared-recovered`; on mismatch, run C+A reusing the same `preparationId`, `preparedAt` and shared-place IDs, then verify and B, returning `prepared-recovered`. No replacement place IDs are minted.
+- Prepared marker, changed digest: first validate and prepare the current source with fresh `newPreparationId()`, fresh `now()` and fresh `newId` place IDs. Old shared-place IDs are never reused across a changed source, because legacy array positions may now describe different places. An invalid current source returns `invalid-source` and leaves the old preparation untouched. Only a valid new preparation runs C+A, verify and B, returning `reprepared`.
+- C+A (one readwrite transaction; cleanup is never committed separately): re-read the marker and require `status === 'prepared'` with the observed old `preparationId` and `sourceDigest`, otherwise abort with `concurrent-migration`. Delete only the records named by the old marker (`generatedIds.sharedPlaces`, `migratedCalendarIds`, `migratedMetaKeys`, `migratedSingletonKeys`); never `clear()`, broad-delete or touch unrelated records. Still in that transaction, apply the transaction-A target-space rule: any remaining entity record or extras-key collision aborts the whole transaction with `replica-not-empty`, leaving the old preparation, old marker and unrelated records intact. Otherwise write the new prepared state and replace the marker in the same transaction.
+
+Status mapping: fresh success `completed`; complete plus same digest `already-complete`; complete plus changed digest `source-changed-after-complete`; prepared same digest recovered with or without C+A `prepared-recovered`; prepared changed digest rebuilt `reprepared`; invalid current source `invalid-source`; unreadable current source `unreadable-source`; unsafe target space or unusable marker `replica-not-empty`; marker changed by another execution `concurrent-migration`; expected replica differs from marker-owned data `verification-failed`; IndexedDB open, request, transaction or read failure `write-failed`. Every result is exactly `{status, legacyMutated:false}` with no other public fields. Unexpected non-IndexedDB exceptions (contract or invariant violations) are thrown, never mapped to a status.
+
+**C. Locks.** `locks` is optional, shaped `{request(name, callback)}` (Web Locks subset). When provided, `locks.request('majandus:legacy-migration', callback)` wraps the whole run; when omitted, the run executes directly. Task 4 production code never accesses `navigator.locks`. Correctness never depends on the lock: it comes from the marker re-checks in A, B and C+A; the lock is supplemental serialization only. The concurrency test omits `locks` or passes a pass-through, mechanically holds both executions just before transaction A, then releases both; exactly one returns `completed` and the other `concurrent-migration`, without random sleeps. A separate small test proves a supplied `locks.request` wraps a run.
+
+**D. Unrelated records and failure injection.** An unrelated entity record inserted after an old preparation makes C+A return `replica-not-empty` and preserves the old preparation, old marker, unrelated record and legacy source. Unrelated non-migration meta, `auth` and `syncState` records, and `meta/outboxSequence`, survive a successful migration and a successful C+A. Failure injection (A, B, C+A or write failures) uses test-only replica/transaction wrappers; production code has no failure flags.
 
 - [ ] **Step 1: RED cases and command**
 
 ```js
 const [one,two]=await forcedOverlapBeforeTransactionA(pageRunMigration);
-assert.equal(one.status,'completed');assert.equal(two.status,'concurrent-migration');
+assert.deepEqual([one.status,two.status].sort(),['completed','concurrent-migration']);
 assert.deepEqual((await pageList('sharedPlaces')).map(x=>x.id),(await pageMeta('legacyMigrationV1')).generatedIds.sharedPlaces);
 assert.equal((await pageRunMigration({storage:null})).status,'unreadable-source');
 ```
@@ -178,9 +208,9 @@ Run: `node --test scripts/storage/indexeddb-browser.test.mjs`
 
 Expected: FAIL because migration executor is absent.
 
-- [ ] **Step 2: Implement A, verify, B, C**
+- [ ] **Step 2: Implement A, verify, B, C+A**
 
-Read raw values, digest, inspect marker. Complete + changed digest returns source-changed-after-complete without parsing/writing; test mutates calendar to `{oops` after complete and snapshots marker/stores/localStorage unchanged. No marker validates/prepares then A. Matching prepared verifies, and on mismatch C cleans then rebuilds with saved IDs. Changed prepared validates/prepares current data before guarded C; invalid/unreadable does no cleanup. `reprepared` means new A/verify/B succeeded. B-fails-once leaves prepared and retry returns prepared-recovered with original IDs.
+Implement exactly the Task 4 migration contracts above. Tests prove: complete marker plus calendar mutated to `{oops` returns `source-changed-after-complete` with marker, stores, outbox and localStorage snapshot unchanged; a matching prepared marker recovers with original IDs, using atomic C+A on mismatch; a changed prepared source validates and prepares before C+A and does no cleanup when invalid; `reprepared` means the new C+A, verify and B succeeded; B-fails-once leaves prepared and a retry returns `prepared-recovered` with original IDs.
 
 - [ ] **Step 3: GREEN and checkpoint**
 
