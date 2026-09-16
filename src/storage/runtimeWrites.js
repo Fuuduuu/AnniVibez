@@ -124,6 +124,8 @@ export async function runReplicaMutation({ replica, authority, domain, stores, r
     // PLAN: synchronous and pure.
     const planned = plan(snapshot);
     if (isThenable(planned)) throw new TypeError('plan must be synchronous and must not return a thenable');
+    // A thenable result would be adopted after the writes commit, so reject it before any write request.
+    if (isPlainObject(planned) && isThenable(planned.result)) throw new TypeError('plan result must be synchronous and must not be a thenable');
 
     // VALIDATE: every record and the resulting place order, before any write request.
     validatePlan(planned, writableStores);

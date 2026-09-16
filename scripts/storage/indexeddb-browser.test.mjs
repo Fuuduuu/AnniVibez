@@ -400,6 +400,42 @@ test('C3 a thenable plan throws TypeError before any write and leaves every stor
   }
 });
 
+test('C3 a thenable plan result throws TypeError before any write and is never adopted', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c3Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { setup, state, attempt, placesMutation, place } = window.__c3;
+      const replica = await setup();
+      const before = await state(replica);
+      await replica.close();
+      const dumpBefore = JSON.stringify(await window.__t.dump());
+      const runReplica = window.__t.makeReplica();
+      let thenCalled = false;
+      const delayedThenable = {
+        then(resolve, reject) {
+          thenCalled = true;
+          setTimeout(() => { const error = new Error('late result rejection'); error.name = 'LateResultRejection'; reject(error); }, 50);
+        },
+      };
+      const outcome = await attempt(placesMutation(runReplica, { plan: () => ({ puts: [{ store: 'sharedPlaces', record: place('place-1', 0, 'A') }], deletes: [], result: delayedThenable }) }));
+      await new Promise(resolve => setTimeout(resolve, 150));
+      const after = await state(runReplica);
+      await runReplica.close();
+      const dumpAfter = JSON.stringify(await window.__t.dump());
+      return { outcome, thenCalled, before, after, identical: dumpAfter === dumpBefore };
+    })()`);
+    assert.equal(result.outcome.ok, false);
+    assert.equal(result.outcome.error.name, 'TypeError');
+    assert.equal(result.thenCalled, false, 'the helper never invokes a thenable result');
+    assert.deepEqual(result.after.places, [], 'zero domain writes');
+    assert.equal(result.after.authority.commitCount, result.before.authority.commitCount, 'commitCount unchanged');
+    assert.deepEqual(result.after, result.before);
+    assert.equal(result.identical, true, 'every store is byte-identical');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
 test('C3 validation failure aborts the whole mutation with zero domain and meta writes', { concurrency: false, timeout: 120000 }, async () => {
   const harness = await c3Harness();
   try {
