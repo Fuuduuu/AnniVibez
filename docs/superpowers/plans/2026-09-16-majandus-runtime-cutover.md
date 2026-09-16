@@ -1,6 +1,6 @@
 # Majandus Runtime Cutover Plan (localStorage -> IndexedDB)
 
-Status: HUMAN ACCEPTED (plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). AMENDED four times after independent fresh reviews returned AMEND (amendment record in Section 12); the final fresh independent review returned PASS. It authorizes no runtime code by itself. Each phase opens only through its own separate scope-open pass. C1 scope OPEN at `022b8b72cfec44b5b3e0433489f1ac5d67e7d356` (docs-only scope-open pass; implementation in a separate pass); C2-C8 LOCKED.
+Status: HUMAN ACCEPTED (plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). AMENDED four times after independent fresh reviews returned AMEND (amendment record in Section 12); the final fresh independent review returned PASS. It authorizes no runtime code by itself. Each phase opens only through its own separate scope-open pass. C1 ACCEPTED / CHECKPOINTED at `704cc7a815d1df1efdbfba979814aceb94886c09`; C2 opens only through its docs-only scope-open pass; C2-C8 LOCKED.
 
 **Goal:** Make the accepted Phase A IndexedDB replica the runtime authority for the three shared household domains without data loss, split authority or an unrecoverable rollback.
 

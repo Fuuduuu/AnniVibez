@@ -184,6 +184,28 @@
 - runtime behavior change: NONE (storage foundation dormant; nothing outside `src/storage/` imports it)
 - C2-C8: LOCKED
 
+### RUNTIME_CUTOVER_C1
+- status: ACCEPTED / CHECKPOINTED
+- final implementation HEAD: `704cc7a815d1df1efdbfba979814aceb94886c09` (`fix: make replica close await stale opens`)
+- implementation history: `e2b2c7d10e03bcdee187719a7e12bddfd9123fc7` (`feat: harden IndexedDB replica connection lifecycle`), then `704cc7a815d1df1efdbfba979814aceb94886c09` (`fix: make replica close await stale opens`)
+- independent review: initial AMEND (a repeated close could resolve before the shared pending open settled), final PASS / ACCEPT
+- changed files: `src/storage/localReplica.js`, `src/storage/indexedDb.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`
+- accepted behavior:
+  - generation-owned connections; close/open race protection
+  - repeated or concurrent `close()` waits for every older in-flight open
+  - a fresh-generation reopen survives an older `close()`
+  - stale opens reject with `ReplicaClosedError`
+  - `openMajandusDb(indexedDb, { onVersionChange, onClose })`; the handle closes before the `versionchange` callback
+  - exact connection events `{ type: 'versionchange', oldVersion, newVersion }` and `{ type: 'close' }`
+  - `replica.subscribe(listener)` with idempotent unsubscribe, ordered synchronous delivery and microtask rethrow of the first listener error
+  - terminal `ReplicaConnectionLostError` for `open()`/`transact()` with no further `indexedDb.open()`
+  - stale-generation events ignored
+  - no-options `openMajandusDb()` keeps the accepted Task 1 behavior
+- evidence: storage `65/65`, IndexedDB/Chromium `18/18`, calendar `19/19`, calendar UI `29/29`, app shell `23/23`, reminders `28/28`, reminder UI `30/30`, native notifications `24/24`, waste `23/23`, waste UI `30/30`, build PASS, diff check PASS
+- runtime behavior change: NONE; storage foundation: DORMANT
+- C1 source scope: CLOSED
+- next project gate: `RUNTIME_CUTOVER_C2_SCOPE_OPEN` (docs-only C2 scope-open pass); C2 implementation LOCKED until that pass; C3-C8 LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

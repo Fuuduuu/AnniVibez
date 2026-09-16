@@ -25,7 +25,9 @@ Read and follow in this order:
 
 **VISUAL_POLISH_V2**: ACCEPTED / CHECKPOINTED (implementation `67f8ad55345e3a9c41b23e233167a394123e88a5`; independent review PASS; behavior drift NONE FOUND; storage/runtime changes NONE). The visual-polish interlude is CLOSED.
 
-Current gate: **RUNTIME_CUTOVER_C1**. **C1 source scope: OPEN** with the exact files in the Runtime cutover C1 scope section below; implementation happens in a separate pass. Runtime behavior change: NONE (storage foundation stays dormant). C2-C8 remain LOCKED.
+**RUNTIME_CUTOVER_C1**: ACCEPTED / CHECKPOINTED (final implementation `704cc7a815d1df1efdbfba979814aceb94886c09`; independent review initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C1 source scope: CLOSED.
+
+Current gate: **RUNTIME_CUTOVER_C2_SCOPE_OPEN**. The next pass is a docs-only scope-open for runtime cutover phase C2 exactly as listed in the plan. C2 implementation stays LOCKED until that pass is committed; C3-C8 remain LOCKED.
 
 The accepted plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
 - the neutral saved-place module prerequisite (A);
@@ -43,53 +45,20 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 - legacy localStorage remains the runtime authority; the running application uses its existing accepted localStorage/runtime paths
 - the Phase A migration remains DORMANT; nothing outside `src/storage/` imports the storage foundation and the application bundle excludes `src/storage/`
 
-## Runtime cutover C1 scope (OPEN; implementation in a separate pass)
+## Runtime cutover C1 (ACCEPTED / CHECKPOINTED)
 
-Opened at baseline `022b8b72cfec44b5b3e0433489f1ac5d67e7d356`, following the accepted plan `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Section 5 items 4 and 4a; Section 7 row C1; Section 8 C1). Purpose: Phase A amendments only — the `localReplica` close/open race and the IndexedDB connection-event contract. Runtime behavior change: NONE; the storage foundation stays dormant.
-
-**Exact write scope (no other source or test file):**
-- `src/storage/localReplica.js`
-- `src/storage/indexedDb.js`
-- `scripts/storage/storage.test.mjs`
-- `scripts/storage/indexeddb-browser.test.mjs`
-
-**Contract: `localReplica` close/open race**
-- the replica keeps a generation counter; `close()` increments it, drops `activeDb`, awaits any in-flight open (ignoring its error) and closes the resulting handle;
-- an open that resolves for a stale generation closes its handle and rejects with `DOMException` name `ReplicaClosedError`;
-- `open()` after an explicit `close()` starts a new generation (reopen stays allowed);
-- `close()` resolves only after no handle of an older generation remains open.
-
-**Contract: IndexedDB connection events**
-- signature `openMajandusDb(indexedDb = globalThis.indexedDB, { onVersionChange, onClose } = {})`; existing default argument and blocked/late-success behavior unchanged;
-- `versionchange`: close the DB handle first, then call `onVersionChange({ oldVersion, newVersion })`;
-- browser-initiated `close`: call `onClose()`;
-- without options, behavior equals the accepted Task 1 contract (close on `versionchange`).
-
-**Contract: replica subscription and lost state**
-- `replica.subscribe(listener)` returns an idempotent `unsubscribe`; events are exactly `{ type: 'versionchange', oldVersion, newVersion }` or `{ type: 'close' }`;
-- for a current-generation connection event: drop `activeDb`, enter the terminal `lost` state, then notify every current listener synchronously in subscription order; a throwing listener does not block later listeners, and the first thrown error is rethrown from a `queueMicrotask` callback after all listeners ran;
-- events from a stale generation are ignored;
-- in `lost`: `open()` and `transact()` reject with `DOMException` name `ReplicaConnectionLostError`, with no additional `indexedDb.open()` call; explicit `close()` on a lost replica resolves; recovery is only a new replica after a reload.
-
-**Acceptance tests (C1)**
-- stub close race: controlled in-flight open; `close()` before success; resulting handle closed; stale caller receives `ReplicaClosedError`; subsequent reopen succeeds;
-- stub connection events: `versionchange` closes the handle before the listener runs; exact `versionchange` payload; active handle dropped; later `open`/`transact` reject `ReplicaConnectionLostError`; zero additional `indexedDb.open` calls; `onclose` delivers exactly `{ type: 'close' }`; listeners run in subscription order; a throwing listener does not block later listeners (error rethrown in a microtask); `unsubscribe` is idempotent and prevents delivery; stale-generation events are ignored; `openMajandusDb()` without options keeps close-on-`versionchange`;
-- Chromium: replica A subscribed; a second connection opens `DB_VERSION + 1`; A receives exactly one `versionchange`; A's handle closes; the upgrade completes without `blocked`; A's `transact` rejects `ReplicaConnectionLostError`; `deleteDatabase` delivers `newVersion: null` and completes;
-- regression: all accepted Phase A Task 1-6 suites stay green.
-
-**Boundaries:** nothing outside `src/storage/` imports the storage foundation; no React/runtime wiring; no startup migration; no cutover; no backend, authentication, sync or outbox work; the Task 6 source and bundle guards stay green.
+Final implementation `704cc7a815d1df1efdbfba979814aceb94886c09`. The accepted contract is recorded in `docs/ACCEPTED_CHECKPOINTS.md` (`RUNTIME_CUTOVER_C1`) and in the plan (Section 5 items 4 and 4a). Evidence: storage `65/65`, IndexedDB/Chromium `18/18`, calendar `19/19`, calendar UI `29/29`, app shell `23/23`, reminders `28/28`, reminder UI `30/30`, native notifications `24/24`, waste `23/23`, waste UI `30/30`, build PASS, diff check PASS.
 
 ## Allowed at this gate
 
-- C1 implementation, limited to the four files and the contract and tests in the Runtime cutover C1 scope section above
-- the C1 review and a docs-only checkpoint recording it
-- after the C1 checkpoint: a separate docs-only scope-open pass for C2 exactly as listed in the plan, if approved
+- a docs-only C2 scope-open pass that locks C2 exactly as listed in the runtime cutover plan (Section 7 row C2 and its C2 scope, characterization and guard rules; Section 8 C2 tests) before any C2 source change
+- docs-only governance updates recording that decision
 
-## Runtime cutover phases (C1 OPEN; C2-C8 LOCKED)
+## Runtime cutover phases (C1 CHECKPOINTED; C2-C8 LOCKED)
 
 | Phase | Files (exact list in plan Section 7) |
 |---|---|
-| C1 (OPEN) | `src/storage/localReplica.js`, `src/storage/indexedDb.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` (close race and connection-event contract) |
+| C1 (ACCEPTED / CHECKPOINTED) | `src/storage/localReplica.js`, `src/storage/indexedDb.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` (close race and connection-event contract) |
 | C2 | new `src/places/savedPlaces.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js`, new `scripts/places/saved-places.test.mjs`, `scripts/storage/storage.test.mjs` (parity oracle), `src/storage/legacyMigration.js` (comment only); behavior-preserving prerequisite for C3 |
 | C3 | new `src/storage/runtimeRecords.js`, new `src/storage/runtimeWrites.js`, storage tests; opens only after C2 is accepted |
 | C4 | new `src/storage/storageAuthority.js`, storage tests |
@@ -100,7 +69,7 @@ Opened at baseline `022b8b72cfec44b5b3e0433489f1ac5d67e7d356`, following the acc
 
 ## Forbidden at this gate
 
-- any `src/**`, `scripts/**`, package or config change outside the four C1 files
+- any `src/**`, `scripts/**`, package or config change (C1 is closed; C2 implementation is locked until its scope-open pass)
 - opening any phase C2-C8 without its own scope-open pass
 - any import of `src/storage/` from outside `src/storage/`; React/runtime wiring; changing the application runtime behavior
 - further visual-polish source work (the interlude is closed; the 44px dialog header cancel target is a backlog note only)
@@ -119,4 +88,4 @@ Opened at baseline `022b8b72cfec44b5b3e0433489f1ac5d67e7d356`, following the acc
 
 ## Decision gate
 
-NEXT: implement C1 within its opened scope. The runtime cutover plan is ACCEPTED; C2-C8 remain LOCKED.
+NEXT: docs-only C2 scope-open pass. The runtime cutover plan is ACCEPTED and C1 is CHECKPOINTED; C2 implementation stays LOCKED until that pass; C3-C8 remain LOCKED.
