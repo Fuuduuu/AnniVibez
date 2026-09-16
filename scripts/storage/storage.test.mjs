@@ -523,9 +523,9 @@ test('replica verification is pure and rejects non-object arguments', () => {
 
 // ---- module boundary --------------------------------------------------------------------
 
-test('legacy migration module exports exactly the six Task 3 interfaces', () => {
+test('legacy migration module exports exactly the six Task 3 interfaces plus the Task 4 executor', () => {
   assert.deepEqual(Object.keys(legacyMigration).sort(), [
-    'LEGACY_SHARED_KEYS', 'prepareLegacyMigration', 'readLegacySources', 'sourceDigest', 'validateLegacySources', 'verifyReplica',
+    'LEGACY_SHARED_KEYS', 'prepareLegacyMigration', 'readLegacySources', 'runLegacyMigration', 'sourceDigest', 'validateLegacySources', 'verifyReplica',
   ]);
 });
 
@@ -535,8 +535,10 @@ test('legacy migration production source names no private keys and no storage, n
   for (const key of privateKeys) assert.ok(!source.includes(key), `private key ${key}`);
   const keyLiterals = [...source.matchAll(/['"`]((?:majamajandus|sade|annivibe)_[A-Za-z0-9_]+)['"`]/g)].map(match => match[1]);
   assert.deepEqual([...new Set(keyLiterals)].sort(), [...LEGACY_SHARED_KEYS].sort());
-  const forbidden = /\bsetItem\b|\bremoveItem\b|\blocalStorage\b|\bindexedDB\b|\bcreateLocalReplica\b|\btransact\b|runLegacyMigration|navigator\.locks|\bfetch\s*\(|\bopenMajandusDb\b|\brunTransaction\b/;
-  assert.doesNotMatch(source, forbidden);
+  // Task 4 may use replica.transact and requestResult; legacy mutation, global storage handles,
+  // store-wide clears, network and runtime coupling stay forbidden.
+  const forbidden = ["setItem", "removeItem", "localStorage", "indexedDB", "createLocalReplica", ".clear(", "navigator.locks", "fetch(", "openMajandusDb"];
+  for (const token of forbidden) assert.ok(!source.includes(token), token);
 });
 
 test('validation generates no IDs and does not mutate its input', t => {
@@ -548,4 +550,43 @@ test('validation generates no IDs and does not mutate its input', t => {
   assert.equal(randomUUID.mock.callCount(), 0);
   assert.deepEqual(sources, before);
   assert.ok(result.data.sharedPlaces.every(place => !Object.hasOwn(place, 'id')));
+});
+
+// ---- migration executor: pre-replica paths ------------------------------------------------
+
+const neverReplica = new Proxy({}, { get(_target, property) { throw new Error(`replica must not be used: ${String(property)}`); } });
+const migrationArguments = (overrides = {}) => ({
+  replica: neverReplica,
+  storage: null,
+  cryptoApi: globalThis.crypto,
+  newId: () => { throw new Error('newId must not be called'); },
+  newPreparationId: () => { throw new Error('newPreparationId must not be called'); },
+  now: () => { throw new Error('now must not be called'); },
+  ...overrides,
+});
+
+test('migration returns unreadable-source without touching the replica for null and undefined storage', async () => {
+  for (const storage of [null, undefined]) {
+    const result = await legacyMigration.runLegacyMigration(migrationArguments({ storage }));
+    assert.deepEqual(result, { status: 'unreadable-source', legacyMutated: false });
+    assert.deepEqual(Object.keys(result).sort(), ['legacyMutated', 'status']);
+  }
+});
+
+test('migration returns unreadable-source when an approved read throws, using only getItem', async () => {
+  const { storage, accessed, requests } = spyStorage({}, { throwOn: HOUSEHOLD_PROFILE_KEY });
+  const result = await legacyMigration.runLegacyMigration(migrationArguments({ storage }));
+  assert.deepEqual(result, { status: 'unreadable-source', legacyMutated: false });
+  assert.deepEqual(requests, LEGACY_SHARED_KEYS.slice(0, 2));
+  assert.ok(accessed.every(property => property === 'getItem'));
+});
+
+test('migration runs inside a supplied lock and works without one', async () => {
+  const calls = [];
+  const locks = { request: (name, callback) => { calls.push(name); return callback(); } };
+  const locked = await legacyMigration.runLegacyMigration(migrationArguments({ locks }));
+  assert.deepEqual(locked, { status: 'unreadable-source', legacyMutated: false });
+  assert.deepEqual(calls, ['majandus:legacy-migration']);
+  const unlocked = await legacyMigration.runLegacyMigration(migrationArguments());
+  assert.deepEqual(unlocked, { status: 'unreadable-source', legacyMutated: false });
 });

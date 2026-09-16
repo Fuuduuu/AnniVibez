@@ -1,5 +1,6 @@
 import { createEventRepository } from '../calendar/eventRepository.js';
 import { createHouseholdRepository } from '../waste/householdRepository.js';
+import { requestResult } from './indexedDb.js';
 import {
   validateCalendarEventRecord,
   validateHouseholdProfileRecord,
@@ -301,4 +302,274 @@ export function validateLegacySources(sources) {
       sharedPlaces: places.sharedPlaces,
     },
   };
+}
+
+// ---- Task 4: migration state machine ------------------------------------------------------
+
+const MARKER_KEY = 'legacyMigrationV1';
+const LOCK_NAME = 'majandus:legacy-migration';
+const ENTITY_STORES = Object.freeze(['householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState']);
+const MIGRATION_STORES = Object.freeze(['meta', ...ENTITY_STORES]);
+const EXTRAS_KEYS = Object.freeze([CALENDAR_EXTRAS_KEY, HOUSEHOLD_EXTRAS_KEY]);
+const SINGLETON_STORES = Object.freeze({ household: 'householdProfile', waste: 'wasteState' });
+const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
+
+// A guard decided the run cannot continue; it carries the public status.
+class MigrationStop extends Error {
+  constructor(status) {
+    super(status);
+    this.name = 'MigrationStop';
+    this.migrationStatus = status;
+  }
+}
+
+// An IndexedDB boundary failure; never a contract violation of our own code.
+class MigrationStorageFailure extends Error {
+  constructor(cause) {
+    super('Local replica operation failed');
+    this.name = 'MigrationStorageFailure';
+    this.cause = cause;
+  }
+}
+
+const stop = status => { throw new MigrationStop(status); };
+const outcome = status => ({ status, legacyMutated: false });
+
+// Every replica interaction passes through here so only real storage failures become write-failed.
+async function replicaWork(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof MigrationStop) throw error;
+    throw new MigrationStorageFailure(error);
+  }
+}
+
+const isUniqueStringList = value => Array.isArray(value) && value.every(isNonEmptyString) && new Set(value).size === value.length;
+
+// Marker timestamps are accepted exactly where Task 2 record timestamps are.
+function isAcceptedTimestamp(value) {
+  try {
+    validateCalendarEventRecord({ id: 'marker-timestamp-probe', payload: {}, revision: 0, updatedAt: value, deletedAt: null, syncStatus: 'local' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const MARKER_FIELDS = Object.freeze([
+  'generatedIds', 'key', 'migratedCalendarIds', 'migratedMetaKeys', 'migratedSingletonKeys',
+  'preparationId', 'preparedAt', 'sourceDigest', 'status',
+]);
+
+function isMigrationMarker(record) {
+  if (!isRecordObject(record)) return false;
+  const keys = Object.keys(record).sort();
+  if (keys.length !== MARKER_FIELDS.length || keys.some((key, index) => key !== MARKER_FIELDS[index])) return false;
+  if (record.key !== MARKER_KEY) return false;
+  if (record.status !== 'prepared' && record.status !== 'complete') return false;
+  if (!isNonEmptyString(record.preparationId)) return false;
+  if (typeof record.sourceDigest !== 'string' || !DIGEST_PATTERN.test(record.sourceDigest)) return false;
+  if (!isAcceptedTimestamp(record.preparedAt)) return false;
+  if (!isRecordObject(record.generatedIds) || Object.keys(record.generatedIds).length !== 1) return false;
+  if (!isUniqueStringList(record.generatedIds.sharedPlaces)) return false;
+  if (!isUniqueStringList(record.migratedCalendarIds)) return false;
+  if (!isUniqueStringList(record.migratedMetaKeys) || !record.migratedMetaKeys.every(key => EXTRAS_KEYS.includes(key))) return false;
+  if (!isUniqueStringList(record.migratedSingletonKeys) || !record.migratedSingletonKeys.every(key => Object.hasOwn(SINGLETON_STORES, key))) return false;
+  return true;
+}
+
+function markerFor(prepared, sourceDigest, preparedAt) {
+  const { householdProfile, calendarEvents, sharedPlaces, wasteState, meta } = prepared.replica;
+  const marker = {
+    key: MARKER_KEY,
+    status: 'prepared',
+    preparationId: prepared.preparationId,
+    sourceDigest,
+    preparedAt,
+    generatedIds: { sharedPlaces: [...prepared.generatedIds.sharedPlaces] },
+    migratedCalendarIds: calendarEvents.map(record => record.id),
+    migratedMetaKeys: meta.map(record => record.key),
+    migratedSingletonKeys: [...(householdProfile ? ['household'] : []), ...(wasteState ? ['waste'] : [])],
+  };
+  // Validates preparedAt itself, including a clean install that writes no domain records.
+  if (!isMigrationMarker(marker)) throw new TypeError('Migration marker is invalid; check the injected now() timestamp');
+  return marker;
+}
+
+const sameOwnership = (left, right) => left.preparationId === right.preparationId
+  && left.sourceDigest === right.sourceDigest
+  && strictEqual(left.generatedIds.sharedPlaces, right.generatedIds.sharedPlaces)
+  && strictEqual(left.migratedCalendarIds, right.migratedCalendarIds)
+  && strictEqual(left.migratedMetaKeys, right.migratedMetaKeys)
+  && strictEqual(left.migratedSingletonKeys, right.migratedSingletonKeys);
+
+const expectedReplica = prepared => {
+  const { outbox, ...expected } = prepared.replica;
+  return expected;
+};
+
+async function assertTargetSpaceFree(stores) {
+  for (const name of ENTITY_STORES) {
+    if (await requestResult(stores[name].count()) > 0) stop('replica-not-empty');
+  }
+  for (const key of EXTRAS_KEYS) {
+    if (await requestResult(stores.meta.get(key)) !== undefined) stop('replica-not-empty');
+  }
+}
+
+function writePrepared(stores, prepared, marker) {
+  const { householdProfile, calendarEvents, sharedPlaces, wasteState, meta } = prepared.replica;
+  if (householdProfile) stores.householdProfile.put(householdProfile);
+  if (wasteState) stores.wasteState.put(wasteState);
+  for (const record of calendarEvents) stores.calendarEvents.put(record);
+  for (const record of sharedPlaces) stores.sharedPlaces.put(record);
+  for (const record of meta) stores.meta.put(record);
+  stores.meta.put(marker);
+}
+
+const readMarker = replica => replicaWork(async () => {
+  const record = await replica.transact(MIGRATION_STORES, 'readonly', ({ stores }) => requestResult(stores.meta.get(MARKER_KEY)));
+  return record ?? null;
+});
+
+// Transaction A: the whole prepared state and its marker commit together, or nothing does.
+const transactionA = (replica, prepared, marker) => replicaWork(() => replica.transact(MIGRATION_STORES, 'readwrite', async ({ stores }) => {
+  if (await requestResult(stores.meta.get(MARKER_KEY)) !== undefined) stop('concurrent-migration');
+  await assertTargetSpaceFree(stores);
+  writePrepared(stores, prepared, marker);
+}));
+
+// C+A: guarded deletion of marker-owned records and the rebuild share one transaction, so an
+// aborted rebuild leaves the old preparation and unrelated records intact.
+const cleanupAndRebuild = (replica, observed, prepared, marker) => replicaWork(() => replica.transact(MIGRATION_STORES, 'readwrite', async ({ stores }) => {
+  const current = await requestResult(stores.meta.get(MARKER_KEY));
+  if (!isMigrationMarker(current) || current.status !== 'prepared'
+    || current.preparationId !== observed.preparationId || current.sourceDigest !== observed.sourceDigest) stop('concurrent-migration');
+  const deletions = [
+    ...current.migratedCalendarIds.map(id => stores.calendarEvents.delete(id)),
+    ...current.generatedIds.sharedPlaces.map(id => stores.sharedPlaces.delete(id)),
+    ...current.migratedMetaKeys.map(key => stores.meta.delete(key)),
+    ...current.migratedSingletonKeys.map(key => stores[SINGLETON_STORES[key]].delete(key)),
+    stores.meta.delete(MARKER_KEY),
+  ];
+  for (const request of deletions) await requestResult(request);
+  await assertTargetSpaceFree(stores);
+  writePrepared(stores, prepared, marker);
+}));
+
+// Transaction B: only a marker that still matches this execution becomes complete.
+const transactionB = (replica, marker) => replicaWork(() => replica.transact(['meta'], 'readwrite', async ({ stores }) => {
+  const current = await requestResult(stores.meta.get(MARKER_KEY));
+  if (!isMigrationMarker(current) || current.status !== 'prepared' || !sameOwnership(current, marker)) stop('concurrent-migration');
+  stores.meta.put({ ...current, status: 'complete' });
+}));
+
+// Verification reads only marker-owned keys; unrelated records never fail it.
+const readOwnedReplica = (replica, marker) => replicaWork(() => replica.transact(MIGRATION_STORES, 'readonly', async ({ stores }) => {
+  const singleton = async key => (marker.migratedSingletonKeys.includes(key)
+    ? (await requestResult(stores[SINGLETON_STORES[key]].get(key))) ?? null
+    : null);
+  const householdProfile = await singleton('household');
+  const wasteState = await singleton('waste');
+  const calendarEvents = [];
+  for (const id of marker.migratedCalendarIds) calendarEvents.push((await requestResult(stores.calendarEvents.get(id))) ?? null);
+  const sharedPlaces = [];
+  for (const id of marker.generatedIds.sharedPlaces) sharedPlaces.push((await requestResult(stores.sharedPlaces.get(id))) ?? null);
+  const meta = [];
+  for (const key of marker.migratedMetaKeys) meta.push((await requestResult(stores.meta.get(key))) ?? null);
+  return { householdProfile, calendarEvents, sharedPlaces, wasteState, meta };
+}));
+
+async function verifyOwnedReplica(replica, marker, prepared) {
+  const actual = await readOwnedReplica(replica, marker);
+  if (!verifyReplica({ expected: expectedReplica(prepared), actual })) stop('verification-failed');
+}
+
+function prepareCurrentSource(validated, { newId, newPreparationId, now }) {
+  const preparedAt = now();
+  const prepared = prepareLegacyMigration({
+    validated, newId, now: () => preparedAt, preparationId: newPreparationId(),
+  });
+  return { prepared, preparedAt };
+}
+
+async function migrateFreshSource({ replica, sources, digest, newId, newPreparationId, now }) {
+  const validated = validateLegacySources(sources);
+  if (validated.status !== 'valid') return outcome('invalid-source');
+  const { prepared, preparedAt } = prepareCurrentSource(validated, { newId, newPreparationId, now });
+  const marker = markerFor(prepared, digest, preparedAt);
+  await transactionA(replica, prepared, marker);
+  await verifyOwnedReplica(replica, marker, prepared);
+  await transactionB(replica, marker);
+  return outcome('completed');
+}
+
+async function recoverPreparedMigration({ replica, sources, marker }) {
+  const validated = validateLegacySources(sources);
+  if (validated.status !== 'valid') return outcome('invalid-source');
+  let prepared;
+  try {
+    prepared = prepareLegacyMigration({
+      validated,
+      now: () => marker.preparedAt,
+      preparationId: marker.preparationId,
+      savedIds: { sharedPlaces: marker.generatedIds.sharedPlaces },
+    });
+  } catch (error) {
+    // Saved identities cannot be reused for this same-digest source: treat the marker as unusable.
+    if (error instanceof TypeError) return outcome('replica-not-empty');
+    throw error;
+  }
+  const actual = await readOwnedReplica(replica, marker);
+  if (verifyReplica({ expected: expectedReplica(prepared), actual })) {
+    await transactionB(replica, marker);
+    return outcome('prepared-recovered');
+  }
+  const rebuilt = markerFor(prepared, marker.sourceDigest, marker.preparedAt);
+  await cleanupAndRebuild(replica, marker, prepared, rebuilt);
+  await verifyOwnedReplica(replica, rebuilt, prepared);
+  await transactionB(replica, rebuilt);
+  return outcome('prepared-recovered');
+}
+
+async function repreparePreparedMigration({ replica, sources, digest, marker, newId, newPreparationId, now }) {
+  const validated = validateLegacySources(sources);
+  if (validated.status !== 'valid') return outcome('invalid-source');
+  const { prepared, preparedAt } = prepareCurrentSource(validated, { newId, newPreparationId, now });
+  const next = markerFor(prepared, digest, preparedAt);
+  await cleanupAndRebuild(replica, marker, prepared, next);
+  await verifyOwnedReplica(replica, next, prepared);
+  await transactionB(replica, next);
+  return outcome('reprepared');
+}
+
+async function executeMigration({ replica, storage, cryptoApi, newId, newPreparationId, now }) {
+  const sources = readLegacySources(storage);
+  if (sources.status !== 'readable') return outcome('unreadable-source');
+  const digest = await sourceDigest(sources, cryptoApi);
+  const marker = await readMarker(replica);
+  if (marker === null) return migrateFreshSource({ replica, sources, digest, newId, newPreparationId, now });
+  if (!isMigrationMarker(marker)) return outcome('replica-not-empty');
+  if (marker.status === 'complete') {
+    return outcome(marker.sourceDigest === digest ? 'already-complete' : 'source-changed-after-complete');
+  }
+  return marker.sourceDigest === digest
+    ? recoverPreparedMigration({ replica, sources, marker })
+    : repreparePreparedMigration({ replica, sources, digest, marker, newId, newPreparationId, now });
+}
+
+// Legacy storage is only ever read. Correctness comes from the marker re-checks inside
+// transactions A, B and C+A; an injected lock is supplemental serialization only.
+export async function runLegacyMigration({ replica, storage, cryptoApi, newId, newPreparationId, now, locks } = {}) {
+  const run = async () => {
+    try {
+      return await executeMigration({ replica, storage, cryptoApi, newId, newPreparationId, now });
+    } catch (error) {
+      if (error instanceof MigrationStop) return outcome(error.migrationStatus);
+      if (error instanceof MigrationStorageFailure) return outcome('write-failed');
+      throw error;
+    }
+  };
+  return locks ? locks.request(LOCK_NAME, run) : run();
 }
