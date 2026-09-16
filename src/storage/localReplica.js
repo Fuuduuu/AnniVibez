@@ -99,6 +99,7 @@ export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = (
   let generation = 0;
   let lost = false;
   let listeners = [];
+  const pendingOpens = new Set();
 
   const notify = event => {
     let failure;
@@ -153,22 +154,25 @@ export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = (
         activeDb = db;
         return db;
       }).finally(() => {
+        pendingOpens.delete(pending);
         if (opening === pending) opening = undefined;
       });
+      pendingOpens.add(pending);
       opening = pending;
     }
     return opening;
   };
 
-  // Resolves only after no handle of an older generation can remain open.
+  // Resolves only after no handle of an older generation can remain open. Every close waits for every
+  // open still in flight when it was called; opens started afterwards belong to a newer generation.
   const close = async () => {
     generation += 1;
     const db = activeDb;
     activeDb = undefined;
     closeDb(db);
-    const pending = opening;
     opening = undefined;
-    if (pending) await pending.catch(() => undefined);
+    const older = [...pendingOpens];
+    await Promise.all(older.map(pending => pending.catch(() => undefined)));
   };
 
   const transact = async (storeNames, mode, body) => runTransaction(await open(), storeNames, mode, body);

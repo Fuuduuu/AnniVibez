@@ -760,6 +760,67 @@ test('C1 close during an in-flight open closes the late handle, rejects stale ca
   assert.equal(indexedDb.requests.length, 2);
 });
 
+test('C1 repeated close calls during one pending open all wait until the late handle is closed', async () => {
+  const indexedDb = stubIndexedDb();
+  const replica = createLocalReplica({ indexedDb });
+  const staleOpen = replica.open();
+  let closeAResolved = false;
+  let closeBResolved = false;
+  const closeA = replica.close().then(() => { closeAResolved = true; });
+  const closeB = replica.close().then(() => { closeBResolved = true; });
+  await settleTicks();
+  assert.equal(closeAResolved, false, 'close A waits for the pending open');
+  assert.equal(closeBResolved, false, 'close B waits for the same pending open');
+  const late = stubDb('late');
+  succeedOpen(indexedDb.requests[0], late);
+  await assert.rejects(staleOpen, isNamed('ReplicaClosedError'));
+  await Promise.all([closeA, closeB]);
+  assert.equal(late.closed, true);
+  assert.equal(closeAResolved && closeBResolved, true);
+
+  const reopening = replica.open();
+  assert.equal(indexedDb.requests.length, 2);
+  const fresh = stubDb('fresh');
+  succeedOpen(indexedDb.requests[1], fresh);
+  assert.equal(await reopening, fresh);
+  assert.equal(fresh.closed, false);
+});
+
+test('C1 a fresh reopen overlapping an older close survives while the stale handle is closed', async () => {
+  for (const order of ['fresh-first', 'stale-first']) {
+    const indexedDb = stubIndexedDb();
+    const replica = createLocalReplica({ indexedDb });
+    const staleOpen = replica.open();
+    const staleTransact = replica.transact('meta', 'readonly', () => assert.fail('stale body must not run'));
+    await settleTicks();
+    let closeResolved = false;
+    const closing = replica.close().then(() => { closeResolved = true; });
+    const freshOpen = replica.open();
+    await settleTicks();
+    assert.equal(indexedDb.requests.length, 2, `${order}: the fresh generation starts its own open`);
+    const late = stubDb('late');
+    const fresh = stubDb('fresh');
+    if (order === 'fresh-first') {
+      succeedOpen(indexedDb.requests[1], fresh);
+      assert.equal(await freshOpen, fresh);
+      await settleTicks();
+      assert.equal(closeResolved, false, `${order}: close still waits for the stale open`);
+      succeedOpen(indexedDb.requests[0], late);
+    } else {
+      succeedOpen(indexedDb.requests[0], late);
+      succeedOpen(indexedDb.requests[1], fresh);
+      assert.equal(await freshOpen, fresh);
+    }
+    await assert.rejects(staleOpen, isNamed('ReplicaClosedError'));
+    await assert.rejects(staleTransact, isNamed('ReplicaClosedError'));
+    await closing;
+    assert.equal(late.closed, true, `${order}: stale late handle closed`);
+    assert.equal(fresh.closed, false, `${order}: the older close never closes the fresh handle`);
+    assert.equal(await replica.open(), fresh, `${order}: the fresh handle stays active`);
+    assert.equal(indexedDb.requests.length, 2);
+  }
+});
+
 test('C1 close resolves even when the in-flight open fails, and a failed open is retryable', async () => {
   const indexedDb = stubIndexedDb();
   const replica = createLocalReplica({ indexedDb });
