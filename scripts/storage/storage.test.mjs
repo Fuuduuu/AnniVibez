@@ -541,6 +541,51 @@ test('legacy migration production source names no private keys and no storage, n
   for (const token of forbidden) assert.ok(!source.includes(token), token);
 });
 
+// Test-only private/device-local keys with sentinel values; production code never names them.
+const PRIVATE_SENTINEL_VALUES = Object.freeze({
+  sade_diary_pin: 'PRIVATE-SENTINEL-diary-pin-4821',
+  sade_diary_entries: JSON.stringify([{ text: 'PRIVATE-SENTINEL-diary-entry-9153' }]),
+  majamajandus_reminder_preferences_v1: JSON.stringify({ label: 'PRIVATE-SENTINEL-reminder-preferences-3307' }),
+  majamajandus_reminder_delivery_v1: JSON.stringify(['PRIVATE-SENTINEL-reminder-delivery-6612']),
+  annivibe_saved_ideas: JSON.stringify(['PRIVATE-SENTINEL-saved-idea-2048']),
+  sade_saved_tips: JSON.stringify(['PRIVATE-SENTINEL-saved-tip-7719']),
+  sade_profile: JSON.stringify({ name: 'PRIVATE-SENTINEL-profile-name-5580' }),
+});
+
+test('private device-local sentinels never reach source reads, digest input or prepared records', async () => {
+  const household = JSON.stringify({ version: 1, profile: { name: 'Kodu', address: 'Tamme 5' }, note: 'shared household note' });
+  const shared = { [CALENDAR_KEY]: VALID_CALENDAR, [HOUSEHOLD_PROFILE_KEY]: household, [PLACES_KEY]: VALID_PLACES };
+  const withPrivate = spyStorage({ ...shared, ...PRIVATE_SENTINEL_VALUES });
+  const sources = readLegacySources(withPrivate.storage);
+  assert.equal(sources.status, 'readable');
+  assert.deepEqual(withPrivate.requests, LEGACY_SHARED_KEYS);
+  assert.ok(withPrivate.accessed.every(property => property === 'getItem'));
+
+  const digestInputs = [];
+  const cryptoApi = { subtle: { digest: async (algorithm, bytes) => {
+    digestInputs.push(new TextDecoder().decode(bytes));
+    return globalThis.crypto.subtle.digest(algorithm, bytes);
+  } } };
+  const digest = await legacyMigration.sourceDigest(sources, cryptoApi);
+  const sharedOnly = readLegacySources(spyStorage(shared).storage);
+  assert.equal(digest, await legacyMigration.sourceDigest(sharedOnly, globalThis.crypto), 'private keys do not affect the digest');
+
+  const validated = legacyMigration.validateLegacySources(sources);
+  assert.equal(validated.status, 'valid');
+  const prepared = legacyMigration.prepareLegacyMigration({
+    validated, newId: (() => { let next = 0; return () => `place-${++next}`; })(), now: () => '2026-09-16T10:00:00.000Z', preparationId: 'prep-1',
+  });
+  const targets = { digestInput: digestInputs.join('\n'), prepared, validated };
+  assert.equal(digestInputs.length, 1);
+  const sentinels = Object.values(PRIVATE_SENTINEL_VALUES).map(value => value.match(/PRIVATE-SENTINEL-[a-z-]+-\d{4}/)[0]);
+  assert.equal(sentinels.length, 7);
+  for (const [name, target] of Object.entries(targets)) {
+    const text = typeof target === 'string' ? target : JSON.stringify(target);
+    for (const sentinel of sentinels) assert.ok(!text.includes(sentinel), `${name} must not contain ${sentinel}`);
+    for (const key of Object.keys(PRIVATE_SENTINEL_VALUES)) assert.ok(!text.includes(key), `${name} must not name ${key}`);
+  }
+});
+
 test('validation generates no IDs and does not mutate its input', t => {
   const randomUUID = t.mock.method(globalThis.crypto, 'randomUUID', () => { throw new Error('validation must not mint IDs'); });
   const sources = readable({ calendar: VALID_CALENDAR, household: VALID_HOUSEHOLD, places: VALID_PLACES });

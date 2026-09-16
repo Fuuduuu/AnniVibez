@@ -946,3 +946,166 @@ test('verification ignores records outside marker ownership', { concurrency: fal
     await harness.cleanup();
   }
 });
+
+// ---- Task 5: full-path integration breadth ------------------------------------------------
+
+// Test-only private/device-local keys and sentinel values; production migration never names them.
+const PRIVATE_SENTINELS = Object.freeze({
+  sade_diary_pin: 'PRIVATE-SENTINEL-diary-pin-4821',
+  sade_diary_entries: 'PRIVATE-SENTINEL-diary-entry-9153',
+  majamajandus_reminder_preferences_v1: 'PRIVATE-SENTINEL-reminder-preferences-3307',
+  majamajandus_reminder_delivery_v1: 'PRIVATE-SENTINEL-reminder-delivery-6612',
+  annivibe_saved_ideas: 'PRIVATE-SENTINEL-saved-idea-2048',
+  sade_saved_tips: 'PRIVATE-SENTINEL-saved-tip-7719',
+  sade_profile: 'PRIVATE-SENTINEL-profile-name-5580',
+});
+const PRIVATE_VALUES = Object.freeze({
+  sade_diary_pin: PRIVATE_SENTINELS.sade_diary_pin,
+  sade_diary_entries: JSON.stringify([{ date: '2026-09-15', text: PRIVATE_SENTINELS.sade_diary_entries }]),
+  majamajandus_reminder_preferences_v1: JSON.stringify({ version: 1, enabled: true, label: PRIVATE_SENTINELS.majamajandus_reminder_preferences_v1 }),
+  majamajandus_reminder_delivery_v1: JSON.stringify({ version: 1, delivered: [PRIVATE_SENTINELS.majamajandus_reminder_delivery_v1] }),
+  annivibe_saved_ideas: JSON.stringify([PRIVATE_SENTINELS.annivibe_saved_ideas]),
+  sade_saved_tips: JSON.stringify([PRIVATE_SENTINELS.sade_saved_tips]),
+  sade_profile: JSON.stringify({ name: PRIVATE_SENTINELS.sade_profile }),
+});
+const FULL_WASTE_BATCH = {
+  key: JSON.stringify(['rakvere', 'tamme 5 rakvere']), provider: 'rakvere', providerName: 'Rakvere jäätmevedu',
+  address: 'Tamme 5, Rakvere', addressKey: 'tamme 5 rakvere', lastSuccess: '2026-09-01T08:00:00.000Z', returnedCount: 1,
+  range: { from: '2026-09-01', to: '2026-09-30', authoritative: true },
+};
+const FULL_MANUAL_EVENT = {
+  id: 'event-manual', title: 'Küttearve', category: 'payment', subtype: null, date: '2026-09-18', time: '09:30',
+  recurrence: { frequency: 'monthly', interval: 1 }, reminder: { daysBefore: 3 }, source: 'manual', householdId: null,
+  notes: 'ühine märge', seriesId: 'series:event-manual', excludedDates: [], overrides: {},
+};
+const FULL_WASTE_EVENT = {
+  id: 'event-waste', title: 'Biojäätmed', category: 'waste', subtype: 'bio', date: '2026-09-22', time: null,
+  recurrence: { frequency: 'none', interval: 1 }, reminder: { daysBefore: 1 }, source: 'imported', householdId: null,
+  notes: '', seriesId: null, excludedDates: [], overrides: {},
+  importMeta: {
+    provider: 'rakvere', providerName: 'Rakvere jäätmevedu', addressKey: 'tamme 5 rakvere', address: 'Tamme 5, Rakvere',
+    externalId: 'bio-2026-09-22', importedAt: '2026-09-01T08:00:00.000Z',
+  },
+};
+const FULL_PLACES = [
+  { name: 'Kodu', address: 'Tamme 5', lat: 59.3463, lon: 26.3553 },
+  { name: 'Kool', address: 'Vabaduse 1', lat: 59.3501, lon: 26.3612 },
+  { name: 'Trenn', address: 'Kastani 12', lat: 59.3389, lon: 26.3478 },
+];
+const FULL_SOURCES = Object.freeze({
+  calendar: JSON.stringify({ version: 1, events: [FULL_MANUAL_EVENT, FULL_WASTE_EVENT], wasteImports: [FULL_WASTE_BATCH], theme: 'dark' }),
+  household: JSON.stringify({ version: 1, profile: { name: 'Kodu', address: 'Tamme 5' }, note: 'shared household note' }),
+  places: JSON.stringify(FULL_PLACES),
+});
+
+test('full legacy migration persists across reload, excludes private data and leaves legacy storage byte-identical', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await createBrowserHarness();
+  try {
+    const migrated = await harness.evaluate(`(async () => {
+      const sources = ${JSON.stringify(FULL_SOURCES)};
+      const privateValues = ${JSON.stringify(PRIVATE_VALUES)};
+      await __t.reset();
+      __t.seed(sources);
+      for (const [key, value] of Object.entries(privateValues)) localStorage.setItem(key, value);
+      const before = __t.snapshot();
+      // Test-only storage view: records every key migration requests and any non-getItem access.
+      const requested = [];
+      const otherAccess = [];
+      const recordingStorage = new Proxy({}, {
+        get(_target, property) {
+          if (property !== 'getItem') { otherAccess.push(String(property)); return undefined; }
+          return key => { requested.push(key); return localStorage.getItem(key); };
+        },
+      });
+      const run = await __t.run({ storage: recordingStorage, ids: ['place-1', 'place-2', 'place-3'] });
+      return {
+        before, beforeText: JSON.stringify(before),
+        result: run.result, thrown: run.thrown, newIdCalls: run.newIdCalls, preparationIdCalls: run.preparationIdCalls,
+        requested, otherAccess,
+      };
+    })()`);
+    assert.deepEqual(migrated.result, { status: 'completed', legacyMutated: false });
+    assert.equal(migrated.thrown, null);
+    assert.equal(migrated.newIdCalls, 3);
+    assert.equal(migrated.preparationIdCalls, 1);
+    assert.deepEqual(migrated.requested, ['majamajandus_household_events_v1', 'majamajandus_household_profile_v1', 'sade_saved_places']);
+    assert.deepEqual(migrated.otherAccess, []);
+    assert.deepEqual(migrated.before.map(([key]) => key), [
+      'annivibe_saved_ideas', 'majamajandus_household_events_v1', 'majamajandus_household_profile_v1',
+      'majamajandus_reminder_delivery_v1', 'majamajandus_reminder_preferences_v1', 'sade_diary_entries',
+      'sade_diary_pin', 'sade_profile', 'sade_saved_places', 'sade_saved_tips',
+    ]);
+    for (const sentinel of Object.values(PRIVATE_SENTINELS)) assert.ok(migrated.beforeText.includes(sentinel), `seeded ${sentinel}`);
+
+    // The run helper closed its replica; reload the page context and reopen the database from disk.
+    await harness.pageReload();
+    const reopened = await harness.evaluate(`(async () => {
+      const data = await __t.dump();
+      const meta = key => data.meta.find(record => record.key === key) || null;
+      const sharedKeys = [...__t.legacy.LEGACY_SHARED_KEYS];
+      const digestInput = JSON.stringify(sharedKeys.map(key => localStorage.getItem(key)));
+      const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(digestInput));
+      const after = __t.snapshot();
+      return {
+        after, afterText: JSON.stringify(after), sharedKeys, data, digestInput,
+        recomputedDigest: [...new Uint8Array(hash)].map(byte => byte.toString(16).padStart(2, '0')).join(''),
+        marker: meta(__t.MARKER_KEY),
+        calendarExtras: meta('calendarLegacyEnvelopeExtras'),
+        householdExtras: meta('householdLegacyEnvelopeExtras'),
+      };
+    })()`);
+    const { data, marker } = reopened;
+    const local = { revision: 0, updatedAt: '2026-09-16T10:00:00.000Z', deletedAt: null, syncStatus: 'local' };
+
+    assert.equal(reopened.afterText, migrated.beforeText, 'complete localStorage snapshot is byte-for-byte unchanged');
+    assert.deepEqual(reopened.after, migrated.before);
+
+    assert.equal(marker.status, 'complete');
+    assert.equal(marker.preparationId, 'prep-1');
+    assert.equal(marker.preparedAt, local.updatedAt);
+    assert.deepEqual(marker.generatedIds, { sharedPlaces: ['place-1', 'place-2', 'place-3'] });
+    assert.deepEqual(marker.migratedCalendarIds, ['event-manual', 'event-waste']);
+    assert.deepEqual([...marker.migratedSingletonKeys].sort(), ['household', 'waste']);
+    assert.deepEqual([...marker.migratedMetaKeys].sort(), ['calendarLegacyEnvelopeExtras', 'householdLegacyEnvelopeExtras']);
+    assert.deepEqual(reopened.sharedKeys, ['majamajandus_household_events_v1', 'majamajandus_household_profile_v1', 'sade_saved_places']);
+    assert.equal(marker.sourceDigest, reopened.recomputedDigest, 'marker digest covers exactly the approved raw tuple');
+
+    assert.deepEqual(data.householdProfile, [{ key: 'household', payload: { name: 'Kodu', address: 'Tamme 5', serverHouseholdId: null }, ...local }]);
+    assert.deepEqual(data.calendarEvents.map(record => record.id).sort(), ['event-manual', 'event-waste']);
+    for (const expected of [FULL_MANUAL_EVENT, FULL_WASTE_EVENT]) {
+      assert.deepEqual(data.calendarEvents.find(record => record.id === expected.id), { id: expected.id, payload: expected, ...local });
+    }
+    const places = data.sharedPlaces.slice().sort((left, right) => left.order - right.order);
+    assert.equal(places.length, 3);
+    assert.deepEqual(places.map(record => record.order), [0, 1, 2]);
+    assert.deepEqual(places.map(record => record.id), ['place-1', 'place-2', 'place-3']);
+    assert.deepEqual(places.map(record => record.payload), FULL_PLACES);
+    for (const { id, order, payload, ...envelope } of places) assert.deepEqual(envelope, local, id);
+    assert.deepEqual(data.wasteState, [{ key: 'waste', payload: { wasteImports: [FULL_WASTE_BATCH] }, ...local }]);
+    assert.equal(data.outbox.length, 0);
+    assert.deepEqual(reopened.calendarExtras, { key: 'calendarLegacyEnvelopeExtras', value: { sourceVersion: 1, fields: { theme: 'dark' } } });
+    assert.deepEqual(reopened.householdExtras, { key: 'householdLegacyEnvelopeExtras', value: { sourceVersion: 1, fields: { note: 'shared household note' } } });
+
+    const targets = {
+      householdProfile: data.householdProfile,
+      calendarEvents: data.calendarEvents,
+      sharedPlaces: data.sharedPlaces,
+      wasteState: data.wasteState,
+      legacyMigrationV1: marker,
+      calendarLegacyEnvelopeExtras: reopened.calendarExtras,
+      householdLegacyEnvelopeExtras: reopened.householdExtras,
+      sourceDigestInput: reopened.digestInput,
+      allStores: data,
+    };
+    for (const [name, target] of Object.entries(targets)) {
+      assert.ok(target !== null && target !== undefined, `${name} exists`);
+      const text = typeof target === 'string' ? target : JSON.stringify(target);
+      for (const [key, sentinel] of Object.entries(PRIVATE_SENTINELS)) {
+        assert.ok(!text.includes(sentinel), `${name} must not contain the ${key} sentinel`);
+        assert.ok(!text.includes(key), `${name} must not name the private key ${key}`);
+      }
+    }
+  } finally {
+    await harness.cleanup();
+  }
+});
