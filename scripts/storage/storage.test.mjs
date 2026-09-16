@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
 import * as legacyMigration from '../../src/storage/legacyMigration.js';
 import { LEGACY_SHARED_KEYS, readLegacySources } from '../../src/storage/legacyMigration.js';
 import { EVENT_STORAGE_KEY, createEventRepository } from '../../src/calendar/eventRepository.js';
@@ -634,4 +637,176 @@ test('migration runs inside a supplied lock and works without one', async () => 
   assert.deepEqual(calls, ['majandus:legacy-migration']);
   const unlocked = await legacyMigration.runLegacyMigration(migrationArguments());
   assert.deepEqual(unlocked, { status: 'unreadable-source', legacyMutated: false });
+});
+
+// ---- Task 6: dormant guard -----------------------------------------------------------------
+
+const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
+const toRepositoryPath = absolute => relative(repositoryRoot, absolute).split('\\').join('/');
+const STORAGE_DIRECTORY = 'src/storage';
+const CODE_FILE = /\.(?:[cm]?jsx?|tsx?)$/;
+const NON_CODE_FILE = /\.css$/;
+
+// Deterministic, sorted walk of every file under src/ outside src/storage/.
+function runtimeSourceFiles() {
+  const files = [];
+  const walk = directory => {
+    const entries = readdirSync(directory, { withFileTypes: true })
+      .sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0));
+    for (const entry of entries) {
+      const absolute = join(directory, entry.name);
+      const path = toRepositoryPath(absolute);
+      if (path === STORAGE_DIRECTORY) continue;
+      if (entry.isDirectory()) walk(absolute);
+      else files.push(path);
+    }
+  };
+  walk(join(repositoryRoot, 'src'));
+  return files;
+}
+
+const insideStorage = path => path === STORAGE_DIRECTORY || path.startsWith(`${STORAGE_DIRECTORY}/`);
+
+// Resolves a module specifier written in repository file `file` to a repository path, or null for packages.
+function resolveSpecifier(file, specifier) {
+  if (specifier.startsWith('.')) return toRepositoryPath(resolve(repositoryRoot, dirname(file), specifier));
+  if (specifier.startsWith('/')) return toRepositoryPath(resolve(repositoryRoot, `.${specifier}`));
+  return /(?:^|\/)src\/storage(?:\/|$)/.test(specifier) ? STORAGE_DIRECTORY : null;
+}
+
+// Returns every way `source` (at repository path `file`) could load the storage foundation: static
+// default/named/namespace imports, side-effect imports, re-exports, require() and dynamic import().
+// A dynamic import or require whose target is not a plain string is flagged when its static prefix
+// could reach src/storage, or when it has no static prefix at all.
+function storageImportFindings(source, file) {
+  const findings = [];
+  const staticForm = /\b(?:import|export)\s+(?:[^'"`;]*?\bfrom\s*)?(['"])([^'"]+)\1/g;
+  for (const match of source.matchAll(staticForm)) {
+    const target = resolveSpecifier(file, match[2]);
+    if (target !== null && insideStorage(target)) findings.push(match[0]);
+  }
+  const callForm = /\b(?:import|require)\s*\(\s*(?:(['"])([^'"]*)\1|`([^`$]*)(\$\{)?[^`]*`|([^)\s]))/g;
+  for (const match of source.matchAll(callForm)) {
+    if (match[2] !== undefined) {
+      const target = resolveSpecifier(file, match[2]);
+      if (target !== null && insideStorage(target)) findings.push(match[0]);
+    } else if (match[3] !== undefined && match[4] === undefined) {
+      const target = resolveSpecifier(file, match[3]);
+      if (target !== null && insideStorage(target)) findings.push(match[0]);
+    } else if (match[3] !== undefined) {
+      const prefix = match[3];
+      if (!prefix.startsWith('.') && !prefix.startsWith('/')) findings.push(match[0]);
+      else {
+        const target = resolveSpecifier(file, prefix);
+        if (insideStorage(target) || `${STORAGE_DIRECTORY}/`.startsWith(prefix.endsWith('/') ? `${target}/` : target)) findings.push(match[0]);
+      }
+    } else {
+      findings.push(match[0]);
+    }
+  }
+  return findings;
+}
+
+test('storage import guard detects every equivalent static, side-effect, re-export and dynamic form', () => {
+  const component = 'src/components/Example.jsx';
+  const violating = [
+    [component, "import { openMajandusDb } from '../storage/indexedDb.js';"],
+    [component, 'import legacy from "../storage/legacyMigration.js";'],
+    [component, "import * as schema from '../storage/schema.js';"],
+    [component, "import '../storage/schema.js';"],
+    [component, "import {\n  runLegacyMigration,\n} from\n  '../storage/legacyMigration.js';"],
+    [component, "export { createLocalReplica } from '../storage/localReplica.js';"],
+    [component, "export * from '../storage/schema.js';"],
+    [component, "const replica = await import('../storage/localReplica.js');"],
+    [component, 'const module = await import(`../storage/${name}.js`);'],
+    [component, 'const module = await import(`../${folder}/schema.js`);'],
+    [component, 'const module = await import(specifier);'],
+    [component, "const schema = require('../storage/schema.js');"],
+    ['src/App.jsx', "import storage from './storage';"],
+    ['src/App.jsx', "import('./storage/index');"],
+    ['src/hooks/useExample.js', "import schema from '/src/storage/schema.js';"],
+  ];
+  for (const [file, source] of violating) assert.ok(storageImportFindings(source, file).length > 0, `${file}: ${source}`);
+  const safe = [
+    "import React, { useState } from 'react';",
+    "import { useSavedPlaces } from '../hooks/useSavedPlaces.js';",
+    "import helper from './storageless.js';",
+    "import tools from '../storage-tools/index.js';",
+    "const icon = await import('./icons/home.js');",
+    'const icon = await import(`./icons/${name}.js`);',
+    "localStorage.setItem('sade_saved_places', JSON.stringify(storage));",
+    'const meta = import.meta.env;',
+  ];
+  for (const source of safe) assert.deepEqual(storageImportFindings(source, 'src/components/Example.jsx'), [], source);
+});
+
+test('no runtime source outside src/storage imports the storage foundation', () => {
+  const files = runtimeSourceFiles();
+  assert.ok(files.includes('src/main.jsx') && files.includes('src/App.jsx'), 'the walk reaches the application entry points');
+  assert.ok(files.every(path => !path.startsWith(`${STORAGE_DIRECTORY}/`)));
+  const unknown = files.filter(path => !CODE_FILE.test(path) && !NON_CODE_FILE.test(path));
+  assert.deepEqual(unknown, [], 'every src file is either scanned code or known non-code');
+  const scanned = files.filter(path => CODE_FILE.test(path));
+  assert.ok(scanned.length >= 40, `scanned ${scanned.length} runtime source files`);
+  const violations = scanned.flatMap(path => storageImportFindings(readFileSync(join(repositoryRoot, path), 'utf8'), path)
+    .map(finding => `${path}: ${finding}`));
+  assert.deepEqual(violations, []);
+});
+
+// Same entry/build shape as scripts/shell/app-shell.test.mjs, with its optional test fixtures off.
+function buildAppShellBundle(extraContents = '') {
+  return build({
+    absWorkingDir: repositoryRoot, bundle: true, write: false, outfile: 'shell.js', metafile: true,
+    jsx: 'automatic', loader: { '.png': 'dataurl' },
+    define: { 'import.meta.env': '{}' },
+    stdin: { resolveDir: repositoryRoot, contents: `
+      import React from 'react';
+      import {createRoot} from 'react-dom/client';
+      import App from './src/App.jsx';
+      ${extraContents}
+      const wasteLookup=undefined;
+      const notificationService=undefined;
+      createRoot(document.getElementById('root')).render(<React.StrictMode><App wasteLookup={wasteLookup} notificationService={notificationService} /></React.StrictMode>);
+    `, loader: 'jsx' },
+  });
+}
+
+const bundleInputs = bundle => Object.keys(bundle.metafile.inputs).map(path => path.split('\\').join('/'));
+const bundleStorageInputs = bundle => bundleInputs(bundle)
+  .filter(path => path === STORAGE_DIRECTORY || path.startsWith(`${STORAGE_DIRECTORY}/`)).sort();
+const bundleJavaScript = bundle => bundle.outputFiles.find(file => file.path.endsWith('.js')).text;
+
+test('the application bundle contains no storage foundation module, directly or transitively', { timeout: 120000 }, async () => {
+  // schema.js and indexedDb.js are reached only transitively from these two modules.
+  const control = await buildAppShellBundle(`
+    import * as migrationControl from './src/storage/legacyMigration.js';
+    import * as replicaControl from './src/storage/localReplica.js';
+    window.storageControl = { migrationControl, replicaControl };
+  `);
+  assert.deepEqual(bundleStorageInputs(control), ['src/storage/indexedDb.js', 'src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/schema.js'],
+    'control: the metafile check sees direct and transitive storage modules');
+  assert.ok(bundleJavaScript(control).includes('majandus_local_v1') && bundleJavaScript(control).includes('legacyMigrationV1'),
+    'control: storage tokens are detectable in bundle output');
+
+  const app = await buildAppShellBundle();
+  const inputs = bundleInputs(app);
+  assert.ok(inputs.includes('src/App.jsx') && inputs.filter(path => path.startsWith('src/')).length >= 40, 'the real application graph was bundled');
+  assert.deepEqual(bundleStorageInputs(app), []);
+  const js = bundleJavaScript(app);
+  assert.ok(!js.includes('majandus_local_v1'), 'no IndexedDB database name in the app bundle');
+  assert.ok(!js.includes('legacyMigrationV1'), 'no migration marker in the app bundle');
+});
+
+test('storage foundation modules stay dormant: no network, global storage, UI or unexpected imports', () => {
+  const modules = readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).sort();
+  assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'schema.js']);
+  const allowedImports = ['../calendar/eventRepository.js', '../waste/householdRepository.js', './indexedDb.js', './localReplica.js', './schema.js'];
+  const forbidden = ['fetch(', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'navigator', 'localStorage', 'sessionStorage', 'window.', 'document.', 'serviceWorker', 'react'];
+  for (const name of modules) {
+    const source = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, name), 'utf8');
+    for (const token of forbidden) assert.ok(!source.includes(token), `${name} must not use ${token}`);
+    const specifiers = [...source.matchAll(/\bfrom\s*(['"])([^'"]+)\1|\bimport\s*(['"])([^'"]+)\3|\b(?:import|require)\s*\(/g)]
+      .map(match => match[2] ?? match[4] ?? 'dynamic import');
+    for (const specifier of specifiers) assert.ok(allowedImports.includes(specifier), `${name} imports ${specifier}`);
+  }
 });
