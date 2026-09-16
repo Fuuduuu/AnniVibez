@@ -1,15 +1,35 @@
-.mm-household-form { padding: 4px 16px 18px; }
-.mm-household-form .mm-footnote { margin-bottom: 14px; }
+.mm-household-form { padding: 4px 0 6px; }
+.mm-household-form .mm-footnote { margin: -4px 0 14px; line-height: 1.5; }
+.mm-household-form .mm-button { width: 100%; justify-content: center; }
+.mm-household-form [role=status] { margin-top: 10px; padding: 9px 12px; border-radius: var(--mm-radius-sm); background: var(--mm-bus-tint); color: var(--mm-bus); font-size: 13px; font-weight: 500; }
+
+/* Prügivedu: source, imported and manual cards */
 .mm-waste .mm-card { margin-bottom: 12px; }
-.mm-waste h3 { font-size: 17px; margin-bottom: 8px; }
+.mm-waste h3 { font: 650 17px/1.35 var(--mm-display); letter-spacing: -.01em; color: var(--mm-ink); margin-bottom: 6px; }
 .mm-waste-source, .mm-waste-manual { padding: 18px; }
-.mm-waste p { overflow-wrap: anywhere; }
-.mm-waste .mm-button { margin-top: 10px; min-height: 48px; }
-.mm-waste .mm-footnote { margin-top: 10px; }
+.mm-waste p { overflow-wrap: anywhere; font-size: 14px; line-height: 1.5; color: var(--mm-soft); }
+.mm-waste .mm-button { width: 100%; justify-content: center; margin-top: 12px; min-height: 48px; }
+.mm-waste .mm-footnote { margin-top: 8px; font-size: 12.5px; }
+.mm-waste [role=status] > p { margin-top: 12px; padding: 10px 12px; border-radius: var(--mm-radius-sm); background: var(--mm-tint); color: var(--mm-strong); font-size: 13.5px; font-weight: 500; }
+.mm-waste .mm-calendar-error { margin: 12px 0 0; }
 .mm-waste-source > .mm-event-list { margin-top: 16px; }
-.mm-waste-preview { padding-top: 10px; }
-.mm-waste-schedule { border-top: 1px solid var(--mm-border); margin-top: 18px; padding-top: 16px; }
-.mm-waste-schedule strong { overflow-wrap: anywhere; }
-.mm-waste button:disabled, .mm-household-form button:disabled { opacity: .6; cursor: not-allowed; }
+.mm-waste-source > div:not([role]):not(.mm-waste-preview):not(.mm-event-list) { padding: 12px 0 0; }
+.mm-waste-source > div:not([role]):not(.mm-waste-preview):not(.mm-event-list) > p:first-child { color: var(--mm-ink); font-weight: 600; }
+.mm-waste-preview { margin-top: 14px; padding: 14px; border-radius: var(--mm-radius-sm); background: var(--mm-tint); }
+.mm-waste-preview > p:first-child { color: var(--mm-strong); font-weight: 600; }
+.mm-waste-schedule { margin-top: 12px; padding: 14px; border: 1px solid var(--mm-border); border-radius: var(--mm-radius-sm); background: var(--mm-secondary); }
+.mm-waste-manual .mm-footnote + .mm-waste-schedule, .mm-waste-manual .mm-button + .mm-waste-schedule { margin-top: 16px; }
+.mm-waste-schedule strong { display: block; overflow-wrap: anywhere; color: var(--mm-ink); font-size: 15px; font-weight: 600; }
+.mm-waste-schedule p { margin-top: 2px; }
+.mm-waste-schedule .mm-button { margin-top: 10px; background: var(--mm-surface); }
+.mm-waste > .mm-notice { margin: 0 0 12px; border-radius: var(--mm-radius-sm); }
+.mm-waste button:disabled, .mm-household-form button:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
 .mm-source-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
-.mm-source-fields:disabled input, .mm-source-fields:disabled select { opacity: 1; color: var(--mm-soft); cursor: default; }
+
+/* Notifications card */
+.mm-notification-settings { padding: 18px; }
+.mm-notification-settings h3 { font: 650 17px/1.35 var(--mm-display); letter-spacing: -.01em; margin-bottom: 8px; }
+.mm-notification-settings > p { margin-bottom: 10px; line-height: 1.5; }
+.mm-notification-settings > p[role=status] { padding: 9px 12px; border-radius: var(--mm-radius-sm); background: var(--mm-secondary); border: 1px solid var(--mm-border); color: var(--mm-ink); font-weight: 500; }
+.mm-notification-settings .mm-field { margin-top: 20px; }
+.mm-notification-settings button { min-height: 48px; width: 100%; justify-content: center; }

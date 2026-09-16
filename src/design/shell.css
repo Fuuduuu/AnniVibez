@@ -5,6 +5,9 @@ body { margin: 0; }
   --mm-motion-normal: 180ms;
   --mm-motion-slow: 220ms;
   --mm-motion-ease: cubic-bezier(.2,.8,.2,1);
+  --mm-danger: #9E3B2F;
+  --mm-danger-tint: #F7E7E3;
+  --mm-field-bg: #FAF8F4;
   min-height: 100vh;
   padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
   color-scheme: light;
@@ -106,6 +109,59 @@ body { margin: 0; }
   border-right: 1.7px solid currentColor; border-bottom: 1.7px solid currentColor; transform: rotate(-45deg); }
 .mm-settings-group details[open] > summary::after { transform: rotate(45deg); }
 .mm-settings-group details details, .mm-notification-settings details { border-top: 1px solid var(--mm-border); }
+.mm-settings-group h3 { font: 650 17px/1.35 var(--mm-display); letter-spacing: -.01em; color: var(--mm-ink); }
+.mm-settings-group details[open] > summary { margin-bottom: 4px; }
+
+/* Field language shared by dialogs and settings */
+.mm-field { display: flex; flex-direction: column; gap: 7px; margin: 0 0 16px; font-size: 13px; font-weight: 600; color: var(--mm-soft); letter-spacing: .005em; }
+:is(.mm-field input, .mm-field select, .mm-field textarea, .mm-input) {
+  display: block; width: 100%; min-width: 0; min-height: 48px; padding: 11px 14px; margin: 0;
+  border: 1px solid var(--mm-border-strong); border-radius: var(--mm-radius-sm); background: var(--mm-field-bg);
+  color: var(--mm-ink); font-size: 16px; font-weight: 400; line-height: 1.35; outline-offset: 2px; }
+:is(.mm-field select) { appearance: none; -webkit-appearance: none; padding-right: 40px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234B5358' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; background-size: 14px; }
+:is(.mm-field textarea) { min-height: 96px; resize: vertical; }
+:is(.mm-field input, .mm-field select, .mm-field textarea, .mm-input)::placeholder { color: var(--mm-muted); opacity: 1; }
+[data-app-shell] :is(.mm-field input, .mm-field select, .mm-field textarea, .mm-input):focus { border-color: var(--mm-primary); background-color: var(--mm-surface); box-shadow: 0 0 0 3px var(--mm-tint); }
+/* Disabled: not available now. Read-only (source-managed fieldset): visible but owned elsewhere. */
+:is(.mm-field input, .mm-field select, .mm-field textarea, .mm-input):disabled {
+  background-color: var(--mm-quiet); border-color: transparent; color: var(--mm-muted); cursor: not-allowed; -webkit-text-fill-color: var(--mm-muted); }
+.mm-source-fields:disabled :is(input, select, textarea) {
+  background-color: var(--mm-surface); border: 1px dashed var(--mm-border-strong); color: var(--mm-soft); -webkit-text-fill-color: var(--mm-soft); cursor: default; }
+.mm-field-error { margin: 8px 0 0; font-size: 13px; font-weight: 500; color: var(--mm-danger); }
+
+/* Status surfaces */
+.mm-status { margin-top: 10px; padding: 9px 12px; border-radius: var(--mm-radius-sm); font-size: 13px; font-weight: 500; line-height: 1.45; }
+.mm-status-success { background: var(--mm-bus-tint); color: var(--mm-bus); }
+.mm-status-info { background: var(--mm-tint); color: var(--mm-strong); }
+.mm-status-quiet { background: var(--mm-secondary); color: var(--mm-soft); border: 1px solid var(--mm-border); }
+
+/* Destructive actions */
+.mm-button-danger { justify-content: center; background: var(--mm-danger); color: white; border: 1px solid var(--mm-danger); font-weight: 600; }
+.mm-button-danger-text { justify-content: center; background: transparent; color: var(--mm-danger); border: 1px solid transparent; font-weight: 600; }
+
+/* Settings panels (Seaded) */
+.mm-settings-subtitle { margin: 14px 0 8px; font-size: 11.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--mm-soft); }
+.mm-settings-panel { margin-bottom: 10px; padding: 14px; border: 1px solid var(--mm-border); border-radius: var(--mm-radius-sm); background: var(--mm-secondary); }
+.mm-settings-panel:last-child { margin-bottom: 4px; }
+.mm-settings-label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 600; color: var(--mm-soft); }
+.mm-settings-intro { margin-bottom: 12px; font-size: 13.5px; line-height: 1.5; color: var(--mm-soft); }
+.mm-settings-panel > .mm-settings-intro { margin-bottom: 10px; }
+.mm-settings-empty { font-size: 14px; color: var(--mm-soft); }
+.mm-settings-wide { width: 100%; justify-content: center; margin-top: 10px; }
+.mm-settings-panel > .mm-settings-wide:first-child, .mm-settings-intro + .mm-settings-wide { margin-top: 0; }
+.mm-settings-save { width: 100%; margin-top: 12px; min-height: 48px; font-size: 15px; }
+.mm-settings-save.mm-is-saved { background: var(--mm-bus); border-color: var(--mm-bus); }
+.mm-place-card .mm-place-name { margin-bottom: 8px; font-weight: 500; }
+.mm-place-card .mm-input { background-color: var(--mm-surface); }
+.mm-input.mm-pin-input { text-align: center; letter-spacing: 8px; font-size: 20px; font-variant-numeric: tabular-nums; }
+.mm-settings-actions { display: flex; gap: 8px; margin-top: 12px; }
+.mm-settings-actions > .mm-button { flex: 1; justify-content: center; }
+.mm-settings-actions > .mm-settings-grow { flex: 2; }
+.mm-pin-ok { margin: 0 0 10px; }
+.mm-danger-panel { background: var(--mm-danger-tint); border-color: #E8C4BC; }
+.mm-danger-copy { margin: 0 0 4px; font-size: 14px; line-height: 1.5; color: var(--mm-danger); }
 
 /* Home bus card */
 .mm-bus-card { padding: 0; margin-bottom: 18px; overflow: hidden; }
@@ -160,6 +216,8 @@ body { margin: 0; }
 }
 :is(.mm-button-primary):not(:disabled):not([aria-disabled=true]):active { background: var(--mm-strong); }
 :is(.mm-button-secondary, .mm-text-button):not(:disabled):not([aria-disabled=true]):active { background: var(--mm-secondary); }
+.mm-button-danger:not(:disabled):active { background: #85301F; }
+.mm-button-danger-text:not(:disabled):active { background: var(--mm-danger-tint); }
 .mm-bus-open:active { background: #D3E3E7; }
 :is(.mm-button, .mm-text-button, .mm-utility-row, .mm-nav button, .mm-bus-open,
     .mm-month-heading button, .mm-day, .mm-event-row, .mm-agenda-row):is(:disabled, [aria-disabled=true]) {
@@ -174,6 +232,8 @@ body { margin: 0; }
   .mm-button-primary:not(:disabled):not([aria-disabled=true]):hover { background: var(--mm-strong); }
   :is(.mm-button-secondary, .mm-utility-row, .mm-event-row, .mm-agenda-row):not(:disabled):not([aria-disabled=true]):hover { background: var(--mm-secondary); }
   .mm-text-button:not(:disabled):hover { background: var(--mm-tint); }
+  .mm-button-danger:not(:disabled):hover { background: #85301F; }
+  .mm-button-danger-text:not(:disabled):hover { background: var(--mm-danger-tint); }
   .mm-bus-open:hover { background: #D3E3E7; }
   .mm-nav button:not([aria-current=page]):hover .mm-nav-icon { background: var(--mm-secondary); }
   .mm-utility-row:not(:disabled):not([aria-disabled=true]):hover > svg:last-child { transform: translateX(2px); }

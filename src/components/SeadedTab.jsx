@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { readPin } from '../hooks/useDiary';
-import { AV, FONT, card, labelStyle, inp } from '../design/tokens';
 import { PageHeader } from './ShellViews';
 import { HouseholdSettings } from './HouseholdSettings';
 import { WasteSettings } from './WasteSettings';
@@ -15,11 +14,7 @@ function clrAll() { try { localStorage.removeItem(PIN_KEY); localStorage.removeI
 
 function SaveBtn({ saved, onClick, label = 'Salvesta' }) {
   return (
-    <button onClick={onClick} style={{
-      width: '100%', marginTop: 10, padding: '10px 0', borderRadius: 12, border: 'none',
-      background: saved ? AV.sage : AV.purple,
-      color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background .2s',
-    }}>
+    <button onClick={onClick} className={`mm-button mm-button-primary mm-settings-save${saved ? ' mm-is-saved' : ''}`}>
       {saved ? '✓ Salvestatud' : label}
     </button>
   );
@@ -27,7 +22,7 @@ function SaveBtn({ saved, onClick, label = 'Salvesta' }) {
 
 function SectionTitle({ children }) {
   return (
-    <div style={{ fontSize: 10, ...labelStyle, marginTop: 24, marginBottom: 10 }}>
+    <div className="mm-settings-subtitle">
       {children}
     </div>
   );
@@ -42,14 +37,14 @@ function ProfileSection({ profile, saveName }) {
   return (
     <>
       <SectionTitle>Profiil</SectionTitle>
-      <div style={{ ...card, background: AV.bgWarm }}>
-        <label htmlFor="profile-name" style={labelStyle}>Nimi</label>
+      <div className="mm-settings-panel">
+        <label htmlFor="profile-name" className="mm-settings-label">Nimi</label>
         <input
           id="profile-name"
           value={val}
           onChange={e => { setVal(e.target.value); setSaved(false); }}
           placeholder="Kuidas sind kutsuda?"
-          style={inp}
+          className="mm-input"
         />
         <SaveBtn saved={saved} onClick={save} />
       </div>
@@ -114,12 +109,12 @@ function PlaceRow({ place, idx, onUpdate, onResolve }) {
   }
 
   return (
-    <div style={{ ...card, marginBottom: 8 }}>
+    <div className="mm-settings-panel mm-place-card">
       <input
         value={name}
         onChange={e => { setName(e.target.value); setSaved(false); }}
         placeholder="Koha nimi (nt Kodu)"
-        style={{ ...inp, marginBottom: 8 }}
+        className="mm-input mm-place-name"
       />
       <input
         value={address}
@@ -130,32 +125,22 @@ function PlaceRow({ place, idx, onUpdate, onResolve }) {
           setResolveMsg('');
         }}
         placeholder="Aadress (nt Tallinna 12, Rakvere)"
-        style={inp}
+        className="mm-input"
       />
       <button
         onClick={resolveAddress}
         disabled={resolving}
-        style={{
-          width: '100%',
-          marginTop: 8,
-          padding: '10px 0',
-          borderRadius: 12,
-          border: `1px solid ${AV.border}`,
-          background: AV.card,
-          fontSize: 13,
-          color: AV.textSoft,
-          cursor: resolving ? 'default' : 'pointer',
-        }}
+        className="mm-button mm-button-secondary mm-settings-wide"
       >
         {resolving ? 'Otsin aadressi…' : 'Leia asukoht'}
       </button>
       {resolveState === 'found' && (
-        <div style={{ marginTop: 8, fontSize: 12, color: AV.sage, background: AV.sageL, borderRadius: 10, padding: '7px 10px' }}>
+        <div className="mm-status mm-status-success">
           Asukoht leitud ✓
         </div>
       )}
       {resolveState === 'error' && (
-        <div style={{ marginTop: 8, fontSize: 12, color: AV.muted, background: AV.bgWarm, borderRadius: 10, padding: '7px 10px' }}>
+        <div className="mm-status mm-status-quiet">
           {resolveMsg}
         </div>
       )}
@@ -168,7 +153,7 @@ function PlacesSection({ places, updatePlace, resolvePlaceAddress }) {
   return (
     <>
       <SectionTitle>Salvestatud kohad</SectionTitle>
-      <p style={{ fontSize: 13, color: AV.muted, marginBottom: 12, lineHeight: 1.5 }}>
+      <p className="mm-settings-intro">
         Salvestatud nimed ja aadressid jäävad alles. Aadressiotsing pole veel ühendatud.
       </p>
       {places.map((p, i) => (
@@ -213,7 +198,7 @@ function PinSection() {
   if (!hasPinSet) return (
     <>
       <SectionTitle>Päeviku lukk</SectionTitle>
-      <div style={{ ...card, color: AV.muted, fontSize: 14 }}>
+      <div className="mm-settings-panel mm-settings-empty">
         PIN pole veel peal. Ava Päevik ja pane PIN seal.
       </div>
     </>
@@ -223,29 +208,22 @@ function PinSection() {
     <>
       <SectionTitle>Päeviku lukk</SectionTitle>
       {ok && (
-        <div style={{ ...card, background: AV.purpleL, color: AV.purple, fontSize: 14, fontWeight: 500, boxShadow: 'none', marginBottom: 10 }}>
+        <div className="mm-status mm-status-info mm-pin-ok">
           {ok}
         </div>
       )}
 
       {view === 'idle' && (
-        <div style={{ ...card, background: AV.bgWarm }}>
-          <p style={{ fontSize: 13, color: AV.muted, lineHeight: 1.5, marginBottom: 10 }}>Muuda PIN-i ainult siis, kui sul on seda päriselt vaja.</p>
-          <button onClick={() => { setView('change'); reset(); }} style={{
-            display: 'block', width: '100%', padding: '11px 0', borderRadius: 12,
-            border: `1px solid ${AV.border}`, background: AV.card,
-            fontSize: 14, color: AV.text, cursor: 'pointer', marginBottom: 10,
-          }}>Muuda PIN-i</button>
-          <button onClick={() => setView('reset-confirm')} style={{
-            display: 'block', width: '100%', padding: '11px 0', borderRadius: 12,
-            border: 'none', background: 'none', fontSize: 13, color: AV.danger, cursor: 'pointer',
-          }}>Kustuta PIN ja päevik</button>
+        <div className="mm-settings-panel">
+          <p className="mm-settings-intro">Muuda PIN-i ainult siis, kui sul on seda päriselt vaja.</p>
+          <button onClick={() => { setView('change'); reset(); }} className="mm-button mm-button-secondary mm-settings-wide">Muuda PIN-i</button>
+          <button onClick={() => setView('reset-confirm')} className="mm-button mm-button-danger-text mm-settings-wide">Kustuta PIN ja päevik</button>
         </div>
       )}
 
       {view === 'change' && (
-        <div style={card}>
-          <label style={labelStyle}>
+        <div className="mm-settings-panel">
+          <label className="mm-settings-label">
             {step === 1 ? 'Praegune PIN' : step === 2 ? 'Uus PIN' : 'Korda uut PIN-i'}
           </label>
           <input
@@ -258,38 +236,24 @@ function PinSection() {
             }}
             onKeyDown={e => e.key === 'Enter' && doChange()}
             placeholder="• • • •"
-            style={{ ...inp, textAlign: 'center', letterSpacing: 8, fontSize: 20, marginBottom: 6 }}
+            className="mm-input mm-pin-input"
           />
-          {err && <div style={{ fontSize: 13, color: AV.danger, marginBottom: 6 }}>{err}</div>}
-          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button onClick={() => { setView('idle'); reset(); }} style={{
-              flex: 1, padding: '10px 0', borderRadius: 12,
-              border: `1px solid ${AV.border}`, background: AV.card,
-              fontSize: 13, color: AV.muted, cursor: 'pointer',
-            }}>Tühista</button>
-            <button onClick={doChange} style={{
-              flex: 2, padding: '10px 0', borderRadius: 12, border: 'none',
-              background: AV.purple, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>{step < 3 ? 'Edasi →' : 'Salvesta PIN-i'}</button>
+          {err && <div className="mm-field-error">{err}</div>}
+          <div className="mm-settings-actions">
+            <button onClick={() => { setView('idle'); reset(); }} className="mm-button mm-button-secondary">Tühista</button>
+            <button onClick={doChange} className="mm-button mm-button-primary mm-settings-grow">{step < 3 ? 'Edasi →' : 'Salvesta PIN-i'}</button>
           </div>
         </div>
       )}
 
       {view === 'reset-confirm' && (
-        <div style={{ ...card, borderColor: '#fca5a5', background: '#fff5f5' }}>
-          <p style={{ fontSize: 14, color: AV.danger, margin: '0 0 12px' }}>
+        <div className="mm-settings-panel mm-danger-panel">
+          <p className="mm-danger-copy">
             See kustutab PIN-i ja <strong>kõik päeviku kirjed</strong> jäädavalt.
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setView('idle')} style={{
-              flex: 1, padding: '10px 0', borderRadius: 12,
-              border: `1px solid ${AV.border}`, background: AV.card,
-              fontSize: 13, color: AV.muted, cursor: 'pointer',
-            }}>Tühista</button>
-            <button onClick={doReset} style={{
-              flex: 1, padding: '10px 0', borderRadius: 12, border: 'none',
-              background: AV.danger, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>Kustuta kõik</button>
+          <div className="mm-settings-actions">
+            <button onClick={() => setView('idle')} className="mm-button mm-button-secondary">Tühista</button>
+            <button onClick={doReset} className="mm-button mm-button-danger">Kustuta kõik</button>
           </div>
         </div>
       )}
@@ -313,7 +277,7 @@ export function SeadedTab(props = {}) {
   }, [props.initialSection]);
 
   return (
-    <div className="mm-page" style={{ fontFamily: FONT.body }}>
+    <div className="mm-page mm-settings-page">
       <PageHeader title="Seaded" subtitle="Lihtsad valikud, mida saad igal ajal muuta" />
       <section className="mm-settings-group" aria-labelledby="household-heading">
         <h2 className="mm-section-label" id="household-heading">Majapidamine</h2>
