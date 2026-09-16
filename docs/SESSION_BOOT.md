@@ -37,7 +37,10 @@ https://annivibe.pages.dev
 - `PHASE_A_TASK_6_DORMANT_GUARD_AND_FAIL_FAST = ACCEPTED / COMPLETE` at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS (storage `53/53`, IndexedDB `16/16`, build and diff check PASS; full list in `docs/ACCEPTED_CHECKPOINTS.md`) and runtime diff NONE.
 - `PHASE_A_INDEXEDDB_FOUNDATION = IMPLEMENTATION COMPLETE` (Phase A range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
 - `PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`: the Phase A foundation is ACCEPTED by the human, based on the Phase A review package recorded at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`.
-- `RUNTIME_CUTOVER_PLAN = LOCKED / AMENDED` in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`: an independent fresh review returned AMEND; amendments A-D applied (saved-place module prerequisite, unknown authority never `LEGACY`, hint write as `READY` gate, exact `versionchange` propagation); post-amendment falsification review PASS.
+- `RUNTIME_CUTOVER_PLAN = LOCKED / AMENDED` in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`: two independent fresh reviews returned AMEND.
+  - Amendment 1 applied: saved-place module prerequisite, unknown authority never `LEGACY`, hint write as `READY` gate, exact `versionchange` propagation.
+  - Amendment 2 applied: exact authority and hint record contracts, authoritative empty-state revert export, write-once backups with byte-for-byte compensation.
+  - Post-amendment falsification review PASS.
 - Current gate: `RUNTIME_CUTOVER_PLAN_FRESH_REVIEW`.
 
 No implementation pass is open. The amended plan needs a fresh independent review and human acceptance; then phase C1 opens only through its own separate scope-open commit. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.

@@ -94,6 +94,16 @@
 - post-amendment falsification review: PASS (plan author); fresh independent review pending
 - runtime implementation: LOCKED
 
+### RUNTIME_CUTOVER_PLAN_AMENDMENT_2
+- status: AMENDED (plan remains LOCKED; not yet accepted)
+- baseline: `d7a5bbbc7d5870a92a7e2a954c7aca0cd23ff4e8`
+- origin: fresh independent review verdict AMEND
+- A: exact `meta/storageAuthorityV1` contract (9 fields, explicit fresh-switch values, immutable fields, guarded single-field mutations, `persist()` lifecycle with per-boot retry only while `null`); malformed authority is `STORAGE_UNAVAILABLE`/`authority-malformed` with no repair and a STOP; exact hint schema, classification and matrix (malformed hint without authority is the undated `STORAGE_LOST`, never `LEGACY`; `LEGACY` write guard refuses on any non-null hint)
+- B: revert export always writes all three shared keys from the current semantic state (calendar `events` may be `[]`, default household profile when absent, default places view for zero records); canonical calendar id order; deleted-event resurrection test
+- C: write-once attempt-scoped backups `{ version: 1, legacyKey, raw: string|null }` plus a verified current-attempt pointer before any shared-key change; byte-for-byte compensation with `removeItem` only to restore an originally absent key; compensation failure is never `LEGACY` (`active`, `legacyUntrusted: true`, backups retained, `REVERT_FAILED`, STOP)
+- post-amendment falsification review: PASS (plan author); fresh independent review pending
+- runtime implementation: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
