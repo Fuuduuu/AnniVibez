@@ -149,6 +149,17 @@
 - V2 excluded: dark mode, skeleton loaders, bus countdown, dynamic theme-color, new behavior, new data logic
 - runtime cutover C1-C8: LOCKED
 
+### VISUAL_POLISH_V2_SCOPE_OPEN
+- status: OPEN (docs-only scope open; implementation in a separate pass)
+- baseline: `142e7fb105d09c46ad810b00c9475b32a7088436`
+- production write scope: `src/design/shell.css`, `src/design/calendar.css`, `src/design/waste.css`, `src/components/SeadedTab.jsx`, `src/components/EventDialog.jsx`
+- test write scope (only for legitimate visual/class expectations): `scripts/shell/app-shell.test.mjs`, `scripts/shell/visual-cases.mjs`, `scripts/shell/visual-polish.test.mjs`, `scripts/calendar/browser-cases.mjs`, `scripts/calendar/calendar-ui.test.mjs`, `scripts/waste/browser-cases.mjs`, `scripts/waste/waste-ui.test.mjs`
+- not writable: `KalenderTab.jsx`, `WasteSettings.jsx`, `HouseholdSettings.jsx`, `NotificationSettings.jsx` (CSS-only styling of their markup)
+- `EventDialog.jsx`: presentation only (lifecycle, handlers, state, save/delete unchanged; no gestures); `SeadedTab.jsx`: inline styles to classes only, behavior byte-for-byte equivalent
+- goals: EventDialog bottom-sheet refinement, forms/fields unification, Seaded, Kalender (CSS), Prügivedu (CSS), V1+V2 consistency
+- authorized behavior changes: NONE; authorized storage/runtime changes: NONE
+- runtime cutover C1-C8: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

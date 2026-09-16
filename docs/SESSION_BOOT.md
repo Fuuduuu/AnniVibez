@@ -45,12 +45,15 @@ https://annivibe.pages.dev
   - Post-amendment falsification review PASS; final fresh independent review PASS.
   - Implementation phases C1-C8: LOCKED.
 - `VISUAL_POLISH_V1 = ACCEPTED / CHECKPOINTED` at implementation `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` (review PASS; behavior and storage/runtime changes NONE).
-- Current gate: `VISUAL_POLISH_V2` (final visual-only interlude before C1; opens only through its own scope-open pass).
+- Current gate: `VISUAL_POLISH_V2` (final visual-only interlude before C1). V2 source scope: OPEN at `142e7fb105d09c46ad810b00c9475b32a7088436`.
+  - Production files: `src/design/shell.css`, `src/design/calendar.css`, `src/design/waste.css`, `src/components/SeadedTab.jsx`, `src/components/EventDialog.jsx`.
+  - Test files (only for legitimate visual/class expectations): `scripts/shell/app-shell.test.mjs`, `scripts/shell/visual-cases.mjs`, `scripts/shell/visual-polish.test.mjs`, `scripts/calendar/browser-cases.mjs`, `scripts/calendar/calendar-ui.test.mjs`, `scripts/waste/browser-cases.mjs`, `scripts/waste/waste-ui.test.mjs`.
+  - Authorized behavior changes: NONE; storage/runtime changes: NONE. Full scope in `docs/ACTIVE_SCOPE_LOCK.md`.
   - Direction: B-lite; modern native Android; calm warm utility; Material-3 influenced; no dark mode; no storage/runtime changes.
   - Expected focus: EventDialog mobile bottom-sheet presentation; forms/fields consistency; Kalender, Prügivedu and Seaded visual consistency; final spacing, typography and microinteraction polish.
   - Still excluded: dark mode, skeleton loaders, bus countdown, dynamic theme-color, new behavior, new data logic.
 
-No implementation pass is open. Visual Polish V2 is next and needs its own scope-open pass. Runtime/storage implementation stays closed until Visual Polish V2 is checkpointed and a separate C1 scope-open pass is approved. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
+The only open implementation scope is the visual-only Visual Polish V2 scope; implementation happens in a separate pass. Runtime/storage implementation stays closed until Visual Polish V2 is checkpointed and a separate C1 scope-open pass is approved. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 

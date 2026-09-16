@@ -23,7 +23,7 @@ Read and follow in this order:
 
 **VISUAL_POLISH_V1**: ACCEPTED / CHECKPOINTED (implementation `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee`; review PASS; behavior and storage/runtime changes NONE).
 
-Current gate: **VISUAL_POLISH_V2**, the final visual-only interlude before C1. V2 planning or implementation starts only after its own explicit scope-open pass. Runtime/storage implementation stays closed until Visual Polish V2 is checkpointed and a separate C1 scope-open pass is approved.
+Current gate: **VISUAL_POLISH_V2**, the final visual-only interlude before C1. **V2 source scope: OPEN** with the exact files in the Visual Polish V2 scope section below; implementation happens in a separate pass after the scope-open commit. Runtime/storage implementation stays closed until Visual Polish V2 is checkpointed and a separate C1 scope-open pass is approved.
 
 V2 direction (recorded): B-lite; modern native Android; calm warm utility; Material-3 influenced; no dark mode; no storage/runtime changes.
 - expected focus: EventDialog mobile bottom-sheet presentation; forms/fields consistency; Kalender, Prügivedu and Seaded visual consistency; final spacing, typography and microinteraction polish;
@@ -45,10 +45,45 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 - legacy localStorage remains the runtime authority; the running application uses its existing accepted localStorage/runtime paths
 - the Phase A migration remains DORMANT; nothing outside `src/storage/` imports the storage foundation and the application bundle excludes `src/storage/`
 
+## Visual Polish V2 scope (OPEN; implementation in a separate pass)
+
+Opened at baseline `142e7fb105d09c46ad810b00c9475b32a7088436`. Direction: B-lite; modern native Android; calm warm utility; Material-3 influenced. Primary target 360-430px Android; the 520px centered desktop layout, no horizontal overflow, safe areas, reduced motion and 48px+ primary touch targets are preserved.
+
+**Production write scope (exact; no other production file):**
+- `src/design/shell.css`
+- `src/design/calendar.css`
+- `src/design/waste.css`
+- `src/components/SeadedTab.jsx`
+- `src/components/EventDialog.jsx`
+
+- `EventDialog.jsx` already uses native `<dialog>` as a mobile bottom sheet and a centered desktop dialog. V2 refines presentation only; its lifecycle, handlers, state and save/delete behavior are unchanged. No swipe-to-dismiss or new JS gestures.
+- `SeadedTab.jsx` may replace inline visual styles with CSS classes; all current state, timers, localStorage calls, address resolution and handlers stay byte-for-byte equivalent in behavior.
+- Not writable in V2: `KalenderTab.jsx`, `WasteSettings.jsx`, `HouseholdSettings.jsx`, `NotificationSettings.jsx`. Their existing markup is styled through CSS only.
+
+**Test write scope (only for legitimate visual/class expectation changes):**
+- `scripts/shell/app-shell.test.mjs`
+- `scripts/shell/visual-cases.mjs`
+- `scripts/shell/visual-polish.test.mjs`
+- `scripts/calendar/browser-cases.mjs`
+- `scripts/calendar/calendar-ui.test.mjs`
+- `scripts/waste/browser-cases.mjs`
+- `scripts/waste/waste-ui.test.mjs`
+
+**Goals:**
+1. EventDialog: polished mobile bottom-sheet surface, clear top hierarchy, optional CSS-only grab handle, improved spacing, stronger sticky footer/actions, finger-friendly native forms, safe area preserved; desktop stays a centered modal with balanced width and spacing.
+2. Forms and fields: unified input, select, textarea, labels, disabled states, validation/error surfaces and save/cancel actions; 48px+ controls, V1 16px card language, tonal surfaces, strong focus-visible, clear disabled vs read-only distinction.
+3. Seaded: remove inline-style inconsistency; section hierarchy, profile card, saved-place cards, address lookup states, diary PIN cards/actions, destructive action presentation, status/success messages. Behavior unchanged.
+4. Kalender (CSS only): month card, selected/today states, event rows, agenda rows, legend chips, empty/error states, spacing and typography. No calendar semantics or ordering changes.
+5. Prügivedu (CSS only): source card hierarchy, imported and manual schedule cards, notices/statuses, buttons, schedule separation. No provider, search or import behavior change.
+6. Final consistency: V1 and V2 read as one system (radii, button hierarchy, card depth, spacing rhythm, typography hierarchy, pressed/focus language).
+
+**Excluded:** dark mode, skeleton loaders, bus countdown, dynamic theme-color, new dependencies, new data, new business logic, new timers, new async behavior, new dialog gestures, storage/runtime cutover, C1-C8.
+
+**Authorized behavior changes:** NONE. **Authorized storage/runtime changes:** NONE.
+
 ## Allowed at this gate
 
-- a docs-only Visual Polish V2 scope-open pass that locks the exact V2 surfaces, tests and acceptance before any V2 source change
-- after that scope opens: only the visual-only V2 work it names (planning and implementation), within the recorded V2 direction
+- Visual Polish V2 implementation, limited to the production and test write scope above and the recorded goals
 - the V2 human visual review and a docs-only checkpoint recording it
 - after the V2 checkpoint: a separate docs-only scope-open pass for phase C1 exactly as listed in the runtime cutover plan, if approved
 
@@ -67,9 +102,9 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 
 ## Forbidden at this gate
 
-- any `src/**`, test, package or config change before the Visual Polish V2 scope-open pass, or outside the surfaces that pass names
+- any `src/**`, `scripts/**`, package or config change outside the Visual Polish V2 write scope above (including `KalenderTab.jsx`, `WasteSettings.jsx`, `HouseholdSettings.jsx`, `NotificationSettings.jsx`)
 - any behavior, data, storage, hook, data-contract, bus-logic or calendar/waste semantic change during Visual Polish V2
-- dark mode, skeleton loaders, bus live countdown, dynamic theme-color behavior, new dependencies
+- dark mode, skeleton loaders, bus live countdown, dynamic theme-color behavior, new dependencies, new data, new business logic, new timers, new async behavior, new dialog gestures (including swipe-to-dismiss)
 - opening any phase C1-C8 without its own scope-open pass (C1 cannot open before the V2 checkpoint)
 - runtime cutover: importing storage into App/React or any production component, switching reads from localStorage to IndexedDB, startup migration or any user data migration
 - writes to legacy keys by any forward cutover path (only the revert export defined in the plan may write them)
@@ -86,4 +121,4 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 
 ## Decision gate
 
-NEXT: open Visual Polish V2 through its own scope-open pass. The runtime cutover plan is ACCEPTED and Visual Polish V1 is CHECKPOINTED; runtime implementation remains LOCKED until the V2 checkpoint and a separate approved C1 scope-open pass.
+NEXT: implement Visual Polish V2 within its opened scope. The runtime cutover plan is ACCEPTED and Visual Polish V1 is CHECKPOINTED; runtime implementation remains LOCKED until the V2 checkpoint and a separate approved C1 scope-open pass.
