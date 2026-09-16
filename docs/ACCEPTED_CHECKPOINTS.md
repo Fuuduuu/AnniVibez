@@ -160,6 +160,19 @@
 - authorized behavior changes: NONE; authorized storage/runtime changes: NONE
 - runtime cutover C1-C8: LOCKED
 
+### VISUAL_POLISH_V2
+- status: ACCEPTED / CHECKPOINTED
+- implementation: `67f8ad55345e3a9c41b23e233167a394123e88a5` (`feat: visual polish v2 for dialogs forms and settings`)
+- independent review: PASS; behavior drift: NONE FOUND; storage/runtime changes: NONE
+- changed production files (four of the five approved): `src/design/shell.css`, `src/design/calendar.css`, `src/design/waste.css`, `src/components/SeadedTab.jsx`; no test, package or config change
+- `src/components/EventDialog.jsx` untouched: dialog JSX, `<dialog>` lifecycle, cancel, mode/scope state and save/update/remove logic unchanged (bottom-sheet refinement is CSS only)
+- `SeadedTab.jsx` behavior preserved: with `style`/`className` attributes stripped, zero token differences; localStorage calls, timers, handlers, state and copy identical
+- regression evidence: app shell `23/23`, visual `35/35`, calendar UI `29/29`, calendar domain `19/19`, waste UI `30/30`, waste domain `23/23`, reminder UI `30/30`, reminders domain `28/28`, native notifications `24/24`, storage `53/53`, build PASS, diff check PASS
+- smoke: mobile 360/390/430px PASS (no overflow, Seaded buttons >=44px, dialog add/edit/view/recurring-choice/delete, sticky footer clear of fields, profile save, PIN change/error/reset-confirm, Prügivedu); desktop 1280/768px PASS (centered 520px dialog, no overflow)
+- backlog (not a blocker): dialog header cancel target is 44px; consider 48px in a later visual polish
+- visual-polish interlude: CLOSED
+- next project gate: `RUNTIME_CUTOVER_C1_SCOPE_OPEN` (docs-only C1 scope-open pass); C1 implementation CLOSED until that pass; C2-C8 LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

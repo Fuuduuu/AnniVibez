@@ -223,6 +223,13 @@ Implemented:
 - documented Cloudflare Pages/Wrangler build+deploy+recovery workflow
 - documented provider env var names from `functions/api/ullata.js`
 
+### LOW - Visual polish - dialog header cancel target 44px
+
+Status: pending (not a blocker)
+Source: Visual Polish V2 checkpoint (`67f8ad55345e3a9c41b23e233167a394123e88a5`)
+Future action:
+- consider raising the EventDialog header "Tühista" button from 44px to 48px in a later visual polish pass
+
 ## Completed in this backlog line
 
 1. `PASS 17 — BUS_DISPLAYCODES_AND_DESTINATION_RESET`
