@@ -44,6 +44,15 @@
 - the Task 4 production source guard intentionally permits `transact` and `requestResult`
 - approved next action: `TASK_5_INTEGRATION_BREADTH_ONLY` (test-only); Task 6+ locked
 
+### PHASE_A_TASK_5_INTEGRATION_BREADTH_ONLY
+- status: ACCEPTED / COMPLETE
+- implementation commit: `fa7f7b79dbdbac300ca1e7e2069091bbc9c474cf` (`test: cover IndexedDB migration safety`)
+- surfaces: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`; production files changed: NONE
+- evidence: storage tests `49/49 PASS`, IndexedDB tests `16/16 PASS`, `npm run build` PASS, `git diff --check` PASS
+- proven: complete migration path; page reload plus database reopen persistence; 3 shared places in order `[0,1,2]`; marker `complete` after reopen; outbox `0`; all localStorage values unchanged; private sentinels absent from migrated records, marker, envelope extras and digest input; only the 3 approved legacy keys read
+- migration remains DORMANT; no live runtime migration has occurred
+- approved next action: `TASK_6_DORMANT_GUARD_AND_FAIL_FAST` (final Phase A dormant-foundation pass, test/guard-only); runtime cutover locked
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

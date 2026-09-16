@@ -226,7 +226,7 @@ Commit: `feat: harden IndexedDB migration recovery`
 
 ## Task 5: Integration breadth only
 
-**Status:** CURRENT (`TASK_5_INTEGRATION_BREADTH_ONLY`). Task 6+ remains locked.
+**Status:** ACCEPTED / COMPLETE at `fa7f7b79dbdbac300ca1e7e2069091bbc9c474cf` with storage tests `49/49 PASS`, IndexedDB tests `16/16 PASS`, `npm run build` PASS, `git diff --check` PASS and no production file changes. Migration remains dormant; no live runtime migration has occurred.
 
 **Files:** Modify both storage tests (`scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`) only. Test-only: no production file changes; a Task 4 production defect found here means STOP and report.
 
@@ -234,7 +234,7 @@ Commit: `feat: harden IndexedDB migration recovery`
 
 Task 5 uses Task 1 harness and Task 4 helpers unchanged; it introduces no harness, helper, alternative API, or duplicate atomicity test.
 
-- [ ] **Step 1: Write new integration RED test**
+- [x] **Step 1: Write new integration RED test**
 
 ```js
 await pageSeedValidCalendarHouseholdPlacesAndPrivateSentinels();
@@ -246,13 +246,13 @@ assert.equal(await pageCount('outbox'),0);
 assert.deepEqual((await pageList('sharedPlaces')).map(x=>x.order),[0,1,2]);
 ```
 
-- [ ] **Step 2: RED command**
+- [x] **Step 2: RED command**
 
 Run: `node --test scripts/storage/indexeddb-browser.test.mjs`
 
 Expected: FAIL until the complete integration assertion exists.
 
-- [ ] **Step 3: GREEN and checkpoint**
+- [x] **Step 3: GREEN and checkpoint**
 
 Run: `node --test scripts/storage/storage.test.mjs`
 
@@ -264,7 +264,9 @@ Commit: `test: cover IndexedDB migration safety`
 
 ## Task 6: Dormant guard and fail-fast regression
 
-**Files:** Modify storage tests; storage modules only after proven contract failure.
+**Status:** CURRENT (`TASK_6_DORMANT_GUARD_AND_FAIL_FAST`), the final Phase A dormant-foundation pass. Runtime cutover remains locked.
+
+**Files:** Modify storage tests; storage modules only after proven contract failure. Initial allowlist: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`. A proven contract failure requiring a `src/storage/**` change is a STOP and report (exact failing contract, exact file, why tests alone cannot fix it) for a separately approved amendment; it never broadens Task 6 automatically.
 
 Guard all `src/` outside storage against static default/named imports, side-effect imports, and `import('./storage/...')`; bundle metafile uses the same entry/build shape as `scripts/shell/app-shell.test.mjs` and must exclude `src/storage/`.
 
