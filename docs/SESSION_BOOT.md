@@ -32,9 +32,10 @@ https://annivibe.pages.dev
 - `PHASE_A_TASK_1_INDEXEDDB_SCHEMA_PRIMITIVES = ACCEPTED / COMPLETE` at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium IndexedDB tests `5/5 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime cutover.
 - `PHASE_A_TASK_2_LOCAL_REPLICA_CONTRACTS = ACCEPTED / COMPLETE` at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime cutover.
 - `PHASE_A_TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST = ACCEPTED / COMPLETE` at `7ace02444fc3783898a14251c62ebe032113e0ea` with storage tests `45/45 PASS`, IndexedDB regressions `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime migration.
-- Current implementation task: `TASK_4_MIGRATION_STATE_MACHINE`.
+- `PHASE_A_TASK_4_MIGRATION_STATE_MACHINE = ACCEPTED / COMPLETE` at `e651a6edb2f19bf850e5e67ceac462551f2fd37a` with storage tests `48/48 PASS`, IndexedDB tests `15/15 PASS`, `npm run build` PASS and final adversarial audit PASS. Migration remains dormant: no runtime migration has occurred, legacy storage remains non-destructive and migration generates zero outbox mutations.
+- Current implementation task: `TASK_5_INTEGRATION_BREADTH_ONLY`.
 
-Task 4 may modify only `src/storage/legacyMigration.js`, `scripts/storage/storage.test.mjs` and `scripts/storage/indexeddb-browser.test.mjs` to add the dormant, legacy-non-destructive `runLegacyMigration` state machine (transaction A, verify, B, guarded C). Before production code, Claude Opus 5 must independently review the plan, Task 1–3 contracts and `docs/ACTIVE_SCOPE_LOCK.md`, and stop with a narrow contract amendment if durable-state ambiguity remains. Task 5+ remains locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
+Task 5 is test-only and may modify only `scripts/storage/storage.test.mjs` and `scripts/storage/indexeddb-browser.test.mjs` to add full-path migration integration breadth (reload/reopen persistence, unchanged legacy snapshot, zero outbox, shared-place order and private-sentinel exclusion). No production file may change; a Task 4 production defect found under Task 5 means STOP and report. Task 6+ remains locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 

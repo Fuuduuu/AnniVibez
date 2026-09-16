@@ -32,9 +32,10 @@ Status: compact operational snapshot for future Majandus passes.
 
 ## Next action
 
-- **PHASE_A_INDEXEDDB_FOUNDATION** / `TASK_4_MIGRATION_STATE_MACHINE`.
+- **PHASE_A_INDEXEDDB_FOUNDATION** / `TASK_5_INTEGRATION_BREADTH_ONLY`.
 - Common Backend Architecture v1 is accepted; Cloudflare Pages Functions + D1 is selected for the v1 backend; the Phase A implementation plan is accepted.
 - Task 1's native IndexedDB schema/primitives are accepted at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium tests `5/5 PASS`, build PASS and no runtime cutover.
 - Task 2's local-replica contracts and exported record validators are accepted at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, build PASS and no runtime cutover.
 - Task 3's legacy validation, transformation and digest are accepted at `7ace02444fc3783898a14251c62ebe032113e0ea` with storage tests `45/45 PASS`, IndexedDB regressions `6/6 PASS`, build PASS and no runtime migration.
-- Current implementation authority is only Task 4's dormant migration state machine in `src/storage/legacyMigration.js`, `scripts/storage/storage.test.mjs` and `scripts/storage/indexeddb-browser.test.mjs`, behind a Claude Opus 5 pre-implementation contract review. Legacy storage must never be mutated. Task 5+ remains locked; no runtime cutover, startup migration, backend, D1, authentication, sync, dependency, or deployment work is authorized.
+- Task 4's dormant migration state machine is accepted at `e651a6edb2f19bf850e5e67ceac462551f2fd37a` with storage tests `48/48 PASS`, IndexedDB tests `15/15 PASS`, build PASS and final adversarial audit PASS; no runtime migration has occurred, legacy storage remains non-destructive and migration generates zero outbox mutations.
+- Current implementation authority is only Task 5's test-only integration breadth in `scripts/storage/storage.test.mjs` and `scripts/storage/indexeddb-browser.test.mjs`; no production file may change. Legacy storage must never be mutated. Task 6+ remains locked; no runtime cutover, startup migration, backend, D1, authentication, sync, dependency, or deployment work is authorized.

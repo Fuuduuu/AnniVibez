@@ -35,6 +35,15 @@
 - scope: durable marker, prepared recovery, atomic C+A cleanup/rebuild, changed-source ID policy, verification ownership, locks semantics and exact status mapping; defined in Plan Task 4 "Task 4 migration contracts"
 - satisfies the Claude Opus 5 gate; Task 4 implementation is not started and Task 5+ remains locked
 
+### PHASE_A_TASK_4_MIGRATION_STATE_MACHINE
+- status: ACCEPTED / COMPLETE
+- commit: `e651a6edb2f19bf850e5e67ceac462551f2fd37a` (`feat: harden IndexedDB migration recovery`)
+- surfaces: `src/storage/legacyMigration.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`
+- evidence: storage tests `48/48 PASS`, IndexedDB tests `15/15 PASS`, `npm run build` PASS, final adversarial audit PASS
+- migration remains dormant; runtime migration NO; legacy storage non-destructive; migration outbox generation `0`
+- the Task 4 production source guard intentionally permits `transact` and `requestResult`
+- approved next action: `TASK_5_INTEGRATION_BREADTH_ONLY` (test-only); Task 6+ locked
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

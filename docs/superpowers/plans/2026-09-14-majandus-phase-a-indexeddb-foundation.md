@@ -222,9 +222,15 @@ Commit: `feat: harden IndexedDB migration recovery`
 
 **STOP:** Each corrupt browser source case seeds other shared sources valid and proves zero records/marker; outbox count is zero after success.
 
+**Task 4 status:** ACCEPTED / COMPLETE at `e651a6edb2f19bf850e5e67ceac462551f2fd37a` with storage tests `48/48 PASS`, IndexedDB tests `15/15 PASS`, `npm run build` PASS and final adversarial audit PASS. Migration remains dormant (no runtime migration, legacy storage non-destructive, zero outbox mutations from migration). The Task 4 production source guard intentionally permits `transact` and `requestResult`.
+
 ## Task 5: Integration breadth only
 
-**Files:** Modify both storage tests.
+**Status:** CURRENT (`TASK_5_INTEGRATION_BREADTH_ONLY`). Task 6+ remains locked.
+
+**Files:** Modify both storage tests (`scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`) only. Test-only: no production file changes; a Task 4 production defect found here means STOP and report.
+
+**Required proof:** seed a valid calendar, valid household, 3 saved places, waste data where applicable and private/device-local sentinels; capture the complete localStorage snapshot; migration returns `completed`; close the database, reload/reopen the browser context and reopen the database; then marker `complete`, household, calendar events, 3 shared places (order `[0,1,2]`) and seeded waste persisted, outbox count `0`, localStorage snapshot byte-for-byte unchanged. Private sentinel values occur in none of `householdProfile`, `calendarEvents`, `sharedPlaces`, `wasteState`, the `legacyMigrationV1` marker, `calendarLegacyEnvelopeExtras`, `householdLegacyEnvelopeExtras` or the `sourceDigest` input. Private key names stay test-only.
 
 Task 5 uses Task 1 harness and Task 4 helpers unchanged; it introduces no harness, helper, alternative API, or duplicate atomicity test.
 
