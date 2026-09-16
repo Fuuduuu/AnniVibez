@@ -173,6 +173,17 @@
 - visual-polish interlude: CLOSED
 - next project gate: `RUNTIME_CUTOVER_C1_SCOPE_OPEN` (docs-only C1 scope-open pass); C1 implementation CLOSED until that pass; C2-C8 LOCKED
 
+### RUNTIME_CUTOVER_C1_SCOPE_OPEN
+- status: OPEN (docs-only scope open; implementation in a separate pass)
+- baseline: `022b8b72cfec44b5b3e0433489f1ac5d67e7d356`
+- plan: `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Section 5 items 4 and 4a; Section 7 row C1; Section 8 C1)
+- purpose: Phase A amendments only — `localReplica` close/open race (generation counter, `ReplicaClosedError`, reopen allowed) and IndexedDB connection-event contract (`openMajandusDb(indexedDb, { onVersionChange, onClose })`, `replica.subscribe`, terminal `lost` state with `ReplicaConnectionLostError`)
+- source scope: `src/storage/localReplica.js`, `src/storage/indexedDb.js`
+- test scope: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`
+- acceptance: stub close race, stub connection events, Chromium `DB_VERSION + 1` upgrade and `deleteDatabase` cases, Phase A Task 1-6 regression (full list in `docs/ACTIVE_SCOPE_LOCK.md`)
+- runtime behavior change: NONE (storage foundation dormant; nothing outside `src/storage/` imports it)
+- C2-C8: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

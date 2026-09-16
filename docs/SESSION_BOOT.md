@@ -46,9 +46,13 @@ https://annivibe.pages.dev
   - Implementation phases C1-C8: LOCKED.
 - `VISUAL_POLISH_V1 = ACCEPTED / CHECKPOINTED` at implementation `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` (review PASS; behavior and storage/runtime changes NONE).
 - `VISUAL_POLISH_V2 = ACCEPTED / CHECKPOINTED` at implementation `67f8ad55345e3a9c41b23e233167a394123e88a5` (independent review PASS; behavior drift NONE FOUND; storage/runtime changes NONE). Visual-polish interlude CLOSED.
-- Current gate: `RUNTIME_CUTOVER_C1_SCOPE_OPEN` (docs-only C1 scope-open next). C1 implementation: CLOSED. C2-C8: LOCKED.
+- Current gate: `RUNTIME_CUTOVER_C1`. C1 source scope: OPEN at `022b8b72cfec44b5b3e0433489f1ac5d67e7d356`.
+  - Source files: `src/storage/localReplica.js`, `src/storage/indexedDb.js`.
+  - Test files: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`.
+  - Purpose: Phase A amendments only (close/open race; connection-event contract). Runtime behavior change: NONE.
+  - C2-C8: LOCKED. Full contract and tests in `docs/ACTIVE_SCOPE_LOCK.md`.
 
-No implementation pass is open. The next pass is the docs-only C1 scope-open; C1 implementation stays closed until it is committed, and C2-C8 remain locked. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
+The only open implementation scope is runtime cutover C1 (four storage files; dormant, no runtime behavior change); implementation happens in a separate pass, and C2-C8 remain locked. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 
