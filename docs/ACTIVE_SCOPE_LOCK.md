@@ -27,7 +27,7 @@ Read and follow in this order:
 
 **RUNTIME_CUTOVER_C1**: ACCEPTED / CHECKPOINTED (final implementation `704cc7a815d1df1efdbfba979814aceb94886c09`; independent review initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C1 source scope: CLOSED.
 
-Current gate: **RUNTIME_CUTOVER_C2_SCOPE_OPEN**. The next pass is a docs-only scope-open for runtime cutover phase C2 exactly as listed in the plan. C2 implementation stays LOCKED until that pass is committed; C3-C8 remain LOCKED.
+Current gate: **RUNTIME_CUTOVER_C2**. **C2 source scope: OPEN** with the exact files in the Runtime cutover C2 scope section below; implementation happens in a separate pass. Runtime behavior change: NONE. `legacyMigration.js` code change: FORBIDDEN (comment only). C3-C8 remain LOCKED.
 
 The accepted plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
 - the neutral saved-place module prerequisite (A);
@@ -49,17 +49,62 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 
 Final implementation `704cc7a815d1df1efdbfba979814aceb94886c09`. The accepted contract is recorded in `docs/ACCEPTED_CHECKPOINTS.md` (`RUNTIME_CUTOVER_C1`) and in the plan (Section 5 items 4 and 4a). Evidence: storage `65/65`, IndexedDB/Chromium `18/18`, calendar `19/19`, calendar UI `29/29`, app shell `23/23`, reminders `28/28`, reminder UI `30/30`, native notifications `24/24`, waste `23/23`, waste UI `30/30`, build PASS, diff check PASS.
 
+## Runtime cutover C2 scope (OPEN; implementation in a separate pass)
+
+Opened at baseline `552ea1b6838200d79e51cb09b082004851efe2d1`, following the accepted plan `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Section 7 row C2 and its C2 scope, characterization and guard rules; Section 8 C2). Purpose: behavior-preserving extraction of saved-place defaults and normalization into one neutral pure module. Runtime behavior change: NONE.
+
+**Exact production scope (no other production file):**
+- new `src/places/savedPlaces.js`
+- `src/hooks/useSavedPlaces.js`
+- `src/hooks/useSettings.js`
+- `src/storage/legacyMigration.js` — COMMENT ONLY: update the existing mirror/reference comment to point to `src/places/savedPlaces.js`; no code change, no import of the new module, accepted Task 3 behavior unchanged
+
+**Exact test scope (no other test file):**
+- new `scripts/places/saved-places.test.mjs`
+- `scripts/storage/storage.test.mjs`
+
+**Contract: neutral module**
+- `src/places/savedPlaces.js` exports `SAVED_PLACE_DEFAULTS`, `normalizePlace` and `normalizePlaces`, containing exactly the current behavior of the duplicated implementations in `src/hooks/useSavedPlaces.js` and `src/hooks/useSettings.js` (byte-for-byte equivalent behavior).
+
+**Contract: `useSavedPlaces.js`**
+- replace local `DEFAULTS`, `normalizePlace` and `normalizePlaces` with imports from the neutral module;
+- unchanged: `KEY`, load, save, error swallowing, padding, `update`, `add`, `remove`, `resolveAddress`, localStorage semantics.
+
+**Contract: `useSettings.js`**
+- replace local defaults and normalizers with the neutral module;
+- keep public compatibility: `DEFAULT_PLACES` stays exported (for example `export const DEFAULT_PLACES = SAVED_PLACE_DEFAULTS`, or an equivalent re-export preserving the existing export contract);
+- unchanged: profile behavior, places load/save, error swallowing, padding, `saveName`, `updatePlace`, `resolvePlaceAddress`, localStorage semantics.
+
+**Characterization first (before extraction)**
+- golden tables captured from both current hook implementations;
+- `normalizePlace` classes, at minimum: valid place; missing/null place; blank name; trimmed name; non-string name; missing address; non-string address; valid numeric lat/lon; numeric-string lat/lon; invalid lat; invalid lon; Infinity/NaN-like values; index within defaults; index beyond defaults (`Koht`); extra input properties ignored;
+- `normalizePlaces`: non-array; empty array; 1, 3 and 5 items; padding to 3 defaults; no truncation above 3; fresh default objects with no shared mutation;
+- both current hooks must agree in every case before extraction. On any difference: STOP (do not pick one behavior).
+
+**Tests**
+- `scripts/places/saved-places.test.mjs` proves the golden tables against the neutral module;
+- the Task 3 parity oracle in `scripts/storage/storage.test.mjs` imports and uses the neutral module instead of slicing normalization source from a React hook; Task 3 migration output stays identical.
+
+**Guards (after extraction)**
+- `useSavedPlaces.js` imports the neutral module and defines no local defaults, `normalizePlace` or `normalizePlaces`;
+- `useSettings.js` imports the neutral module, defines no local `normalizePlace`, `normalizePlaces` or default implementation, and keeps the `DEFAULT_PLACES` export;
+- `savedPlaces.js` imports nothing from React or `src/storage/` and has no browser, global, storage or network side effects;
+- the storage foundation stays dormant: nothing outside `src/storage/` imports it; Task 6 source and bundle guards, the fail-fast sweep and the app-shell suite stay green.
+
+C3 cannot open until C2 is implemented, independently reviewed and checkpointed.
+
 ## Allowed at this gate
 
-- a docs-only C2 scope-open pass that locks C2 exactly as listed in the runtime cutover plan (Section 7 row C2 and its C2 scope, characterization and guard rules; Section 8 C2 tests) before any C2 source change
-- docs-only governance updates recording that decision
+- C2 implementation, limited to the production and test scope and the contract, characterization and guards above
+- the C2 independent review and a docs-only checkpoint recording it
+- after the C2 checkpoint: a separate docs-only scope-open pass for C3 exactly as listed in the plan, if approved
 
-## Runtime cutover phases (C1 CHECKPOINTED; C2-C8 LOCKED)
+## Runtime cutover phases (C1 CHECKPOINTED; C2 OPEN; C3-C8 LOCKED)
 
 | Phase | Files (exact list in plan Section 7) |
 |---|---|
 | C1 (ACCEPTED / CHECKPOINTED) | `src/storage/localReplica.js`, `src/storage/indexedDb.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` (close race and connection-event contract) |
-| C2 | new `src/places/savedPlaces.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js`, new `scripts/places/saved-places.test.mjs`, `scripts/storage/storage.test.mjs` (parity oracle), `src/storage/legacyMigration.js` (comment only); behavior-preserving prerequisite for C3 |
+| C2 (OPEN) | new `src/places/savedPlaces.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js`, new `scripts/places/saved-places.test.mjs`, `scripts/storage/storage.test.mjs` (parity oracle), `src/storage/legacyMigration.js` (comment only); behavior-preserving prerequisite for C3 |
 | C3 | new `src/storage/runtimeRecords.js`, new `src/storage/runtimeWrites.js`, storage tests; opens only after C2 is accepted |
 | C4 | new `src/storage/storageAuthority.js`, storage tests |
 | C5 | new `src/storage/replicaRepositories.js`, storage tests |
@@ -69,8 +114,9 @@ Final implementation `704cc7a815d1df1efdbfba979814aceb94886c09`. The accepted co
 
 ## Forbidden at this gate
 
-- any `src/**`, `scripts/**`, package or config change (C1 is closed; C2 implementation is locked until its scope-open pass)
-- opening any phase C2-C8 without its own scope-open pass
+- any `src/**`, `scripts/**`, package or config change outside the six C2 files
+- any code change in `src/storage/legacyMigration.js` (comment only), or importing the neutral module into it during C2
+- opening any phase C3-C8 without its own scope-open pass (C3 not before the C2 checkpoint)
 - any import of `src/storage/` from outside `src/storage/`; React/runtime wiring; changing the application runtime behavior
 - further visual-polish source work (the interlude is closed; the 44px dialog header cancel target is a backlog note only)
 - runtime cutover: importing storage into App/React or any production component, switching reads from localStorage to IndexedDB, startup migration or any user data migration
@@ -88,4 +134,4 @@ Final implementation `704cc7a815d1df1efdbfba979814aceb94886c09`. The accepted co
 
 ## Decision gate
 
-NEXT: docs-only C2 scope-open pass. The runtime cutover plan is ACCEPTED and C1 is CHECKPOINTED; C2 implementation stays LOCKED until that pass; C3-C8 remain LOCKED.
+NEXT: implement C2 within its opened scope (characterization first). The runtime cutover plan is ACCEPTED and C1 is CHECKPOINTED; C3-C8 remain LOCKED.

@@ -206,6 +206,19 @@
 - C1 source scope: CLOSED
 - next project gate: `RUNTIME_CUTOVER_C2_SCOPE_OPEN` (docs-only C2 scope-open pass); C2 implementation LOCKED until that pass; C3-C8 LOCKED
 
+### RUNTIME_CUTOVER_C2_SCOPE_OPEN
+- status: OPEN (docs-only scope open; implementation in a separate pass)
+- baseline: `552ea1b6838200d79e51cb09b082004851efe2d1`
+- plan: `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Section 7 row C2 and C2 rules; Section 8 C2)
+- purpose: behavior-preserving extraction of saved-place defaults and normalization into the neutral pure module `src/places/savedPlaces.js` (`SAVED_PLACE_DEFAULTS`, `normalizePlace`, `normalizePlaces`)
+- production scope: `src/places/savedPlaces.js` (new), `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js`, `src/storage/legacyMigration.js` (comment only)
+- test scope: `scripts/places/saved-places.test.mjs` (new), `scripts/storage/storage.test.mjs`
+- characterization first: golden tables from both current hooks; any disagreement between the hooks is a STOP
+- guards: hooks import the module and keep no local implementations; `DEFAULT_PLACES` export compatibility; module free of React, `src/storage/` and side effects; storage stays dormant
+- `legacyMigration.js` code change: FORBIDDEN (comment only; no import of the module)
+- runtime behavior change: NONE
+- C3-C8: LOCKED (C3 not before C2 is implemented, independently reviewed and checkpointed)
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
