@@ -19,7 +19,7 @@ Read and follow in this order:
 
 **PHASE_A_INDEXEDDB_FOUNDATION**: ACCEPTED (`PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`; range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
 
-**RUNTIME_CUTOVER_PLAN**: LOCKED and AMENDED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`. Three independent fresh reviews returned AMEND; amendments 1 (A-D), 2 (A-C) and 3 (A-C) are applied (plan Section 12); the post-amendment falsification review is PASS.
+**RUNTIME_CUTOVER_PLAN**: LOCKED and AMENDED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`. Four independent fresh reviews returned AMEND; amendments 1 (A-D), 2 (A-C), 3 (A-C) and 4 (A-B) are applied (plan Section 12); the post-amendment falsification review is PASS.
 
 Current gate: **RUNTIME_CUTOVER_PLAN_FRESH_REVIEW** (a fresh independent review of the amended plan, then human acceptance).
 
@@ -29,7 +29,8 @@ The locked plan is authoritative for cutover design. It resolves the six accepta
 - the hint write as a `READY` gate (C);
 - the exact `versionchange` propagation contract (D);
 - exact authority-record and hint contracts, authoritative empty-state revert export, and write-once backups with byte-for-byte compensation (amendment 2);
-- no automatic re-adopt after the switch (divergence is `LEGACY_DIVERGED` plus STOP), a durable IndexedDB revert-attempt record gating export and resume, and the corrected calendar order note (amendment 3).
+- no automatic re-adopt after the switch (divergence is `LEGACY_DIVERGED` plus STOP), a durable IndexedDB revert-attempt record gating export and resume, and the corrected calendar order note (amendment 3);
+- a confirm-only `REVERT_STORAGE_LOST` state for the revert build with authority absent and a non-null hint, and collision-safe revert `attemptId` selection that never overwrites an existing backup key (amendment 4).
 
 All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 and C2 amendments named in that plan, which take effect only when those phases are opened.
 

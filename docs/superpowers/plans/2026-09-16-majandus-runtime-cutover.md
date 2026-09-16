@@ -1,6 +1,6 @@
 # Majandus Runtime Cutover Plan (localStorage -> IndexedDB)
 
-Status: LOCKED PLAN, AMENDED three times after independent fresh reviews returned AMEND (amendment record in Section 12). The plan author's post-amendment falsification review returned PASS. A fresh independent review of this amended plan is still required. It authorizes no runtime code. Each implementation phase below opens only through its own separate scope-open commit after human acceptance of this plan.
+Status: LOCKED PLAN, AMENDED four times after independent fresh reviews returned AMEND (amendment record in Section 12). The plan author's post-amendment falsification review returned PASS. A fresh independent review of this amended plan is still required. It authorizes no runtime code. Each implementation phase below opens only through its own separate scope-open commit after human acceptance of this plan.
 
 **Goal:** Make the accepted Phase A IndexedDB replica the runtime authority for the three shared household domains without data loss, split authority or an unrecoverable rollback.
 
@@ -98,7 +98,7 @@ A valid hint *matches* an authority record when `switchId`, `legacyDigestAtSwitc
 
 **Hint removal:** `removeItem(key)`, then `getItem(key) === null`. A throw or non-null value is a failure.
 
-**Behavior matrix** (authority already read successfully and valid, unless stated):
+**Behavior matrix** (forward build; authority already read successfully and valid, unless stated). The revert build does not use the `absent` rows of this matrix; it uses the revert-build authority-absent contract in Section 6d:
 
 | Authority | Hint | Result |
 |---|---|---|
@@ -142,7 +142,7 @@ Revert progress is durable in IndexedDB. It is never inferred from localStorage 
 
 | Transition | Guard | Change |
 |---|---|---|
-| begin revert | authority valid `active`; no value under `storageRevertAttemptV1` | authority `status: 'reverting'`; `put` `{ key, switchId, attemptId: newId(), commitCountAtStart: commitCount, phase: 'started' }` |
+| begin revert | authority valid `active`; no value under `storageRevertAttemptV1` | authority `status: 'reverting'`; `put` `{ key, switchId, attemptId, commitCountAtStart: commitCount, phase: 'started' }` where `attemptId` is a collision-checked candidate (Section 6b) |
 | backups verified | attempt valid, `phase === 'started'`, same `attemptId` | `phase: 'backups-verified'` (no other field changes) |
 | abort before export, compensation verified, compensation failed, forward build finds `reverting`, revert complete | as in Section 1a | authority change per Section 1a, and delete the attempt record in the same transaction |
 
@@ -216,8 +216,10 @@ All steps run in the boot controller before any domain hook mounts, inside `lock
 | `STORAGE_LOST` | open and `meta` read succeed, no authority record, hint valid (dated variant) or malformed (undated variant) | recovery screen: "Kohalik andmebaas puudub. Taasta andmed seisuga <switchedAt> varukoopiast?" (undated: "Taasta andmed seadme varukoopiast?"). On confirm, run steps 2.3-2.10 with a new `switchId`; the hint gate overwrites the hint. Leftover non-owned records produce `replica-not-empty`: stay on this screen and STOP condition. The malformed variant is itself a STOP condition |
 | `RELOAD_REQUIRED` | replica connection event `versionchange` or `close` (Section 5 item 4a), `VersionError` (database newer than build), authority record changed under a mounted tab, or hint appears in a `LEGACY` tab | writes disabled; banner "Majandus uuenes teises aknas. Laadi leht uuesti." with reload button |
 | `REVERTING` | revert build only (Section 6) | splash until the revert completes, then `LEGACY` |
-| `REVERT_FAILED` | revert build only: any revert failure (Section 6) | blocking screen for shared domains: "Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti."; retry re-enters `BOOTING`; IndexedDB stays authoritative and unmounted; STOP condition. The compensation-failure variant additionally has `legacyUntrusted: true` and retained backups. The `revert-backups-lost` and `revert-attempt-invalid` variants leave the status `reverting` with the attempt record untouched, write nothing, and never create a new backup set |
+| `REVERT_STORAGE_LOST` | revert build only: open and `meta` read succeed, no authority record, no attempt value, hint classified `valid` (dated variant) or `malformed` (undated variant) (Section 6d) | blocking screen for shared domains; Buss and device-local tabs stay usable. Dated: "Kohalik andmebaas puudub. Kas kasutada vana salvestust seisuga <switchedAt>? Hilisemad muudatused võivad puududa." Undated: "Kohalik andmebaas puudub. Kas kasutada seadme vana salvestust? Hilisemad muudatused võivad puududa." One confirm button ("Kasuta vana salvestust"); no automatic transition, no timer, no default. Before confirmation: zero writes to localStorage and IndexedDB, no legacy repository mounted. Confirmation is per boot and never persisted. STOP condition (both variants) |
+| `REVERT_FAILED` | revert build only: any revert failure (Section 6) | blocking screen for shared domains: "Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti."; retry re-enters `BOOTING`; IndexedDB stays authoritative and unmounted; STOP condition. The compensation-failure variant additionally has `legacyUntrusted: true` and retained backups. The `revert-attempt-id-collision` and `revert-backup-key-unreadable` variants (Section 6b) write no backup, pointer or shared key, and leave the status `active` (collision found before begin revert) or return it to `active` through "revert aborted before export". The `revert-backups-lost` and `revert-attempt-invalid` variants leave the status `reverting` with the attempt record untouched, write nothing, and never create a new backup set |
 
+- `REVERT_STORAGE_LOST` leaves only through user confirmation (Section 6d) or a reload that re-enters `BOOTING`.
 - Transitions out of `BLOCKED`, `STORAGE_UNAVAILABLE`, `AUTHORITY_HINT_PENDING`, `REVERT_FAILED` and `RELOAD_REQUIRED` happen only through a reload or retry that re-enters `BOOTING` (or, for `AUTHORITY_HINT_PENDING`, a successful hint gate). No state ever writes legacy keys after the switch, except the revert export and compensation of Section 6.
 - **Availability trade-off (accepted):** a device whose IndexedDB cannot be opened or read is shown `BLOCKED` or `STORAGE_UNAVAILABLE` for shared domains, even if it never switched. Legacy authority cannot be proven there, so split authority is prevented at the cost of availability. Observing this state in smoke or the field is a STOP condition.
 
@@ -315,35 +317,43 @@ Rollback is only through a revert build: the same forward code built with `VITE_
 
 Backups are write-once once their attempt reaches `backups-verified`, so no attempt can overwrite or replace the originals of an attempt whose export may have begun. Revert progress comes from the IndexedDB attempt record (Section 1c), never from localStorage alone.
 
-- **Attempt id:** the `attemptId` of the durable attempt record. One attempt record owns exactly one backup set and one pointer value.
+- **Attempt id:** the `attemptId` of the durable attempt record. One attempt record owns exactly one backup set and one pointer value. No backup key that already exists is ever overwritten, by any attempt, in any phase.
+- **Target-key probe** for a `switchId` and candidate `attemptId`: `getItem` on exactly the three backup keys of that pair. The result is `free` when all three return `null`, `taken` when any returns non-null (whatever its content, valid or not), and `unreadable` when any `getItem` throws. The probe writes nothing.
+- **Candidate selection** (revert build, authority valid `active`, before the "begin revert" transaction):
+  1. Take `candidate = newId()`; it must be a non-empty string (otherwise it counts as `taken`).
+  2. Probe. `free`: use the candidate for "begin revert". `taken`: discard it, and take a new candidate. `unreadable`: stop with `REVERT_FAILED` reason `revert-backup-key-unreadable`.
+  3. At most 3 candidates per boot. If all 3 are `taken`: `REVERT_FAILED` reason `revert-attempt-id-collision`.
+  - On either failure nothing has been written: no backup key, no pointer, no shared key, no IndexedDB mutation; the status stays `active`; STOP condition.
+  - An existing backup set, including a verified set from an earlier attempt, and the existing pointer stay byte-identical.
 - **Backup keys:** `majandus_legacy_backup_v1_<switchId>_<attemptId>_calendar`, `..._household`, `..._places`.
 - **Value** of each: `JSON.stringify({ version: 1, legacyKey, raw })`, where `legacyKey` is the exact shared legacy key and `raw` is the exact previous `getItem` result, preserved as a string or `null` (absent).
 - **A backup is valid** when it parses to exactly these three keys, `version === 1`, `legacyKey` matches its slot, and `raw` is a string or `null`.
 - **Current-attempt pointer:** key `majandus_legacy_backup_v1_<switchId>_current` holds `JSON.stringify({ version: 1, switchId, attemptId })` (exact key set). It is valid only when it matches that shape, its `switchId` and `attemptId` equal the durable attempt record, and all three backups it names exist and are valid. A pointer naming another `attemptId` is invalid for this attempt; it is overwritten only while the attempt is `started`.
 - **Preparation** (only while the durable phase is `started`):
+  0. Probe the attempt's three target keys again, immediately before any backup write. `free`: continue. `taken`: "revert aborted before export" with `REVERT_FAILED` reason `revert-attempt-id-collision`. `unreadable`: "revert aborted before export" with `REVERT_FAILED` reason `revert-backup-key-unreadable`. Neither writes a backup key or the pointer.
   1. Read the three current shared values. A throw aborts preparation.
-  2. Write all three backups under the attempt's `attemptId`.
+  2. Write all three backups under the attempt's `attemptId` (all three were proven absent in step 0 of this session).
   3. Read each back: the stored string must equal the written string exactly, and the parsed `raw` must be `===` the value read in step 1.
-  4. Write the pointer, then read it back for exact equality.
+  4. Write the pointer, then read it back for exact equality. The pointer is the only pre-existing key preparation may overwrite, and only after step 0 proved the attempt's own set collision-free and steps 2-3 verified it.
   5. Guarded IndexedDB transition `started` to `backups-verified` (Section 1c), confirmed by `oncomplete`.
   6. Only now may the first shared legacy `setItem` happen.
-- **Preparation failure** (any throw or mismatch in steps 1-4): no shared legacy key has been touched. Guarded "revert aborted before export" (Section 1a: `active`, `legacyUntrusted` unchanged, attempt record deleted in the same transaction), then `REVERT_FAILED`. Backup keys of this attempt stay in place. If that transaction fails, the status stays `reverting` with phase `started`, and the next boot resumes safely.
-- **Step-5 failure** (throw, abort or no `oncomplete`): no export in this session, `REVERT_FAILED`, nothing else changed. The next boot reads the durable phase: `started` restarts preparation; `backups-verified` (the transition committed after all) resumes with the verified set.
+- **Preparation failure** (any throw or mismatch in steps 1-4, or a step-0 `taken`/`unreadable` result): no shared legacy key has been touched. Guarded "revert aborted before export" (Section 1a: `active`, `legacyUntrusted` unchanged, attempt record deleted in the same transaction), then `REVERT_FAILED`. Backup keys already written by this attempt stay in place and are never reused (the next attempt gets a new candidate). If that transaction fails, the status stays `reverting` with phase `started`, and the next boot resumes safely.
+- **Step-5 failure** (throw, abort or no `oncomplete`): no export in this session, `REVERT_FAILED`, nothing else changed. The next boot reads the durable phase: `started` follows the phase-`started` resume rule; `backups-verified` (the transition committed after all) resumes with the verified set.
 - **Resume** (the revert build boots and finds authority `reverting`):
   - **Attempt record missing or malformed:** `REVERT_FAILED` reason `revert-attempt-invalid`; no writes of any kind, no new attempt (Section 1c).
-  - **Phase `started`:** export provably never began, because export requires a committed `backups-verified` phase. The shared keys hold only values written by other tabs or builds, never by this attempt. Preparation restarts from step 1 under the same `attemptId`, rewriting this attempt's backup keys and pointer from the current values. This is the only case where backup keys are rewritten.
+  - **Phase `started`:** export provably never began, because export requires a committed `backups-verified` phase. The shared keys hold only values written by other tabs or builds, never by this attempt. Preparation runs from step 0 under the same `attemptId`: if all three target keys are absent it continues; if any exists (a partial set from the interrupted session) or a probe throws, the attempt is aborted before export (`active`, trust unchanged, attempt record deleted), nothing is overwritten, and the state is `REVERT_FAILED` (`revert-attempt-id-collision` or `revert-backup-key-unreadable`). A retry starts a fresh attempt with a new collision-checked candidate. Existing backup keys are never rewritten.
   - **Phase `backups-verified`:** export may have begun, and shared keys may hold partially exported values. The pointer and all three backups of the exact `attemptId` must be valid.
     - If valid: they are the originals; nothing is rewritten; continue at Section 6c step 3.
     - If the pointer is absent, malformed or names another `attemptId`, or any backup of the attempt is absent, unparsable or invalid: `REVERT_FAILED` reason `revert-backups-lost`. No shared-key write, no compensation, no backup or pointer write, no new `attemptId`, and no IndexedDB mutation. Authority stays `reverting` (IndexedDB authoritative). STOP condition; recovery needs an explicit decision (deploying the forward build converges to `active` with `legacyUntrusted: true`).
-- **Retention:** backup sets and pointers are never deleted by this plan. They stay until a separate cleanup plan. Each attempt adds at most one set; the quota cost is three copies of the shared data per attempt.
+- **Retention:** backup sets (including partial sets of aborted attempts) and pointers are never deleted by this plan. They stay until a separate cleanup plan. Each attempt adds at most one set; the quota cost is three copies of the shared data per attempt.
 
 ### 6c. Revert procedure and compensation
 
 For each device at boot, in the revert build, under the lock:
 
 1. Open and read authority and the attempt record as in Section 2 step 1 and Section 1c. Unknown or malformed authority is `BLOCKED`/`STORAGE_UNAVAILABLE`; an orphan attempt record is `STORAGE_UNAVAILABLE`/`revert-attempt-orphan`.
-   - If there is no record, or a valid record `reverted`: handle the hint per Section 1b (verified removal of any non-null hint; removal failure is `STORAGE_UNAVAILABLE`), then `LEGACY`.
-   - A record absent while the hint is non-null means IndexedDB was lost; the revert build deliberately uses the frozen legacy snapshot, because no IndexedDB data remains to export.
+   - A valid record `reverted`: verified removal of any non-null hint (a throwing hint read or removal failure is `STORAGE_UNAVAILABLE`), then `LEGACY`. This is the normal end of a completed revert.
+   - No record: the revert-build authority-absent contract (Section 6d). The revert build never silently removes a non-null hint and never runs migration or a switch.
 2. If the record is `active`: the "begin revert" transaction (Sections 1a, 1c) sets `reverting` and writes the attempt record with phase `started` atomically. Forward tabs' writes now abort. If it is already `reverting`: resume per Section 6b.
 3. Read and validate all three domain snapshots. On failure:
    - phase `started`: "revert aborted before export" (`active`, trust unchanged, attempt record deleted), `REVERT_FAILED`;
@@ -361,6 +371,26 @@ For each device at boot, in the revert build, under the lock:
    - **Compensation failed** (any throw or mismatch): never `LEGACY`. Guarded "compensation failed" transaction (`active`, `legacyUntrusted: true`, attempt record deleted), keep the backups, `REVERT_FAILED` (compensation-failure variant), rollout STOP.
    - If that final transaction itself fails, the status stays `reverting` with phase `backups-verified`, and the next boot resumes with the same backup set as originals.
 9. A forward build that finds `reverting` applies the Section 1a forward row in one transaction (`active`; `legacyUntrusted: true` unless the attempt record is valid with phase `started`; attempt value deleted) and never touches legacy keys, backups or the pointer.
+
+### 6d. Revert build with authority absent
+
+Applies when the revert build opens IndexedDB, the `meta` read succeeds, there is no authority record and no attempt value (an attempt value here is `revert-attempt-orphan`). The hint is classified per Section 1b:
+
+| Hint | Result |
+|---|---|
+| `absent` | `LEGACY`; no write |
+| `valid` | `REVERT_STORAGE_LOST`, dated variant (`switchedAt` from the hint) |
+| `malformed` | `REVERT_STORAGE_LOST`, undated variant |
+| `unreadable` | `STORAGE_UNAVAILABLE` (retry); no write |
+
+**Confirmation** (from `REVERT_STORAGE_LOST` only, under the lock):
+1. Re-open and re-read authority, the attempt key and the hint. Continue only if authority and the attempt key are still absent and the hint still classifies as the same variant with the identical raw string. Anything else re-enters `BOOTING` with no write (unknown authority is `BLOCKED`/`STORAGE_UNAVAILABLE` as usual).
+2. Verified hint removal (`removeItem`, then `getItem === null`). A throw or a non-null read-back is `STORAGE_UNAVAILABLE`, with no other write; the next boot shows `REVERT_STORAGE_LOST` again if the hint survived.
+3. `LEGACY` with the frozen legacy snapshot. Shared legacy keys, backups and IndexedDB are not written by this flow.
+
+- Before confirmation nothing is written, and legacy repositories are not mounted, so a user who does not confirm keeps the evidence (hint, legacy bytes, retained backups) intact.
+- A forward build seeing the same state still uses the Section 1b matrix (`STORAGE_LOST`, restore by migration).
+- Both variants are STOP conditions.
 
 - The IndexedDB data is never deleted by a revert. Re-forward after a revert uses the reverted reset (Section 2 step 2.1).
 - **Forbidden:** deploying any pre-cutover build (without the controller) to an origin where any device may have switched.
@@ -463,6 +493,15 @@ For each device at boot, in the revert build, under the lock:
     - each backup preserves a string raw and an absent `null` raw exactly;
     - a failure on the first, second or third backup write, a read-back mismatch, or a pointer write or read-back failure, each leaves all three shared keys byte-identical and gives `REVERT_FAILED` with `legacyUntrusted` unchanged;
     - a second attempt after a compensated first attempt gets a new `attemptId`, creates a new set, and leaves the first attempt's set byte-identical.
+  - **Attempt-id collision (6b).** Deterministic injected `newId()`; spy storage records every `setItem`/`removeItem`; each case also asserts shared legacy keys byte-identical and no shared-key `setItem` issued:
+    - an earlier attempt's verified set and pointer exist (left by a compensated revert); the new revert's `newId()` returns that earlier `attemptId` first, then a fresh id: the old set and pointer are byte-identical until the fresh candidate's set is verified, the fresh id is used, and the export compensates or completes using only the fresh set as originals;
+    - `newId()` returns the earlier `attemptId` 3 times: `REVERT_FAILED`/`revert-attempt-id-collision`, status `active`, no attempt record, zero `setItem`/`removeItem` calls of any kind, old set and pointer byte-identical;
+    - only one of the three target keys exists (for example only `..._places`, with arbitrary or invalid content): counts as `taken`, never overwritten;
+    - `newId()` returns an empty string: counts as `taken`;
+    - a throwing `getItem` on one target backup key during candidate selection: `REVERT_FAILED`/`revert-backup-key-unreadable`, status `active`, zero writes;
+    - a target key created between candidate selection and preparation (injected after the "begin revert" commit): step 0 finds `taken`, aborts before export to `active`, the injected bytes are unchanged, no backup or pointer write;
+    - a throwing target-key `getItem` at step 0: abort before export, `revert-backup-key-unreadable`, zero backup or pointer writes;
+    - ordering proof: no backup key or pointer `setItem` precedes a `free` probe of the attempt's own three keys in the same session.
   - **Revert attempt record (1c):**
     - begin revert writes `reverting` and the exact 5-field attempt record (`phase: 'started'`, `commitCountAtStart === commitCount`) in one transaction; an injected abort leaves `active` with no attempt record;
     - each malformed class (extra or missing key, empty `switchId`/`attemptId`, bad `commitCountAtStart`, unknown `phase`) and a missing record under `reverting` give `revert-attempt-invalid` in the revert build with zero writes;
@@ -471,8 +510,20 @@ For each device at boot, in the revert build, under the lock:
     - no shared-key `setItem` is issued before the `backups-verified` transaction completes (spy storage ordering); an injected failure of that transaction gives `REVERT_FAILED`, zero shared-key writes, status `reverting`;
     - cleanup deletes the attempt record in the same transaction for: successful revert (`reverted`), verified compensation, failed compensation, preparation abort (`started`), and a forward build finding `reverting` (with `legacyUntrusted` unchanged for phase `started` and `true` for phase `backups-verified`, a malformed value or a missing value);
     - reverted reset refuses while any attempt value exists.
+  - **Revert build with authority absent (6d).** Each case starts from an opened database with no authority record and no attempt value; spy storage and spy replica:
+    - hint absent: `LEGACY`, zero writes;
+    - valid hint: `REVERT_STORAGE_LOST` dated variant showing the hint's `switchedAt`; before confirmation zero localStorage and IndexedDB writes, no legacy repository mounted, shared-domain controls absent, Buss and device-local tabs usable; a reload shows the same screen again;
+    - malformed hint (non-JSON, extra key, `version: 2`): the undated variant, with the same zero-write assertions;
+    - confirmation: verified hint removal then `LEGACY`; the only write is the hint `removeItem`; shared keys and backups byte-identical;
+    - confirmation when the hint was changed or an authority record appeared since the screen was shown: re-enters `BOOTING`, zero writes;
+    - hint removal throws, and separately read-back stays non-null: `STORAGE_UNAVAILABLE`, no `LEGACY`, no other write;
+    - unreadable hint: `STORAGE_UNAVAILABLE`, zero writes;
+    - an attempt value with authority absent: `revert-attempt-orphan`, zero writes;
+    - source guard: no revert-build path removes a non-null hint with authority absent except the confirmation handler;
+    - the valid `reverted` record path still removes the hint without confirmation.
   - **Revert resume and crash (1c, 6b, 6c).** Every case asserts IndexedDB domain records unchanged, and "no new originals": no backup key or pointer write for any other `attemptId`, and no rewrite of the exact attempt's backup keys once `backups-verified`:
-    - crash in phase `started` after one backup write: resume rewrites the same `attemptId` set from current values, shared keys untouched until the phase commits, then completes;
+    - crash in phase `started` after one backup write: resume finds that key `taken`, aborts before export (`active`, trust unchanged, attempt record deleted), leaves the partial backup byte-identical, and a retry completes under a new `attemptId`;
+    - crash in phase `started` before any backup write: resume finds all three absent and completes under the same `attemptId`;
     - crash after `backups-verified` committed but before export: resume uses the exact set without rewriting it, exports, verifies, `reverted`;
     - crash after the first export `setItem`, then the pointer removed: `REVERT_FAILED`/`revert-backups-lost`, status `reverting`, attempt record unchanged, zero shared-key, backup and pointer writes;
     - pointer corrupted (malformed JSON, and separately a valid shape naming another `attemptId`) after export started: same result;
@@ -520,7 +571,7 @@ STOP the rollout (no further phase or deploy, and investigate) on any of:
 - any shared legacy key deletion outside failed-revert compensation;
 - any mismatch between a migrated and a legacy view;
 - `LEGACY_DIVERGED` observed in smoke or reported from the field (any cause, including localStorage-only key loss), or any code path deleting authority or migrated records because of divergence;
-- `revert-attempt-orphan`, `revert-attempt-invalid` or `revert-backups-lost` observed anywhere, or any revert creating a new backup set or rewriting backups after its attempt reached `backups-verified`;
+- `REVERT_STORAGE_LOST` (either variant), `revert-attempt-orphan`, `revert-attempt-invalid`, `revert-backups-lost`, `revert-attempt-id-collision` or `revert-backup-key-unreadable` observed anywhere; any overwrite of an existing backup key; or any revert creating a new backup set or rewriting backups after its attempt reached `backups-verified`;
 - `replica-not-empty`, `DOMAIN_INVALID`, `STORAGE_LOST` (either variant), `STORAGE_UNAVAILABLE` (any reason, `authority-malformed` always), `BLOCKED`, `AUTHORITY_HINT_PENDING` or `REVERT_FAILED` observed without a deliberate trigger;
 - a quota or eviction test losing previously saved data;
 - revert verification failure or any revert resurrecting deleted data;
@@ -531,14 +582,20 @@ Deploy the revert build (never a pre-cutover build) when production shows data l
 
 ## 11. Falsification review (post-amendment result: PASS)
 
-Each attack was traced against Sections 1-10 and the unchanged Task 1-6 contracts. The first seven rows were added and re-run for amendment 3; the rest were re-checked against the amendment 3 changes.
+Each attack was traced against Sections 1-10 and the unchanged Task 1-6 contracts. The first six rows were added and re-run for amendment 4; the next seven were added for amendment 3 (the pointer-loss row is updated for amendment 4); the rest were re-checked against amendments 3 and 4.
 
 | Attack | Result |
 |---|---|
+| Authority absent + valid hint (revert build) | Section 6d replaces the forward matrix row: `REVERT_STORAGE_LOST` dated, zero writes until confirmation; confirmation re-reads state, performs verified hint removal, then `LEGACY` on the frozen snapshot. No silent removal; unconfirmed boots keep hint, legacy bytes and backups. STOP |
+| Authority absent + malformed hint | Revert build: undated `REVERT_STORAGE_LOST` with the same zero-write and confirm-only rules. Forward build: unchanged undated `STORAGE_LOST`. Never `LEGACY` without confirmation |
+| Authority absent + unreadable hint | Both builds: `STORAGE_UNAVAILABLE`, zero writes, retry. A throwing removal or re-read during confirmation is also `STORAGE_UNAVAILABLE` |
+| Repeated `attemptId` | Each candidate's three target keys are probed before "begin revert"; any existing key discards the candidate; at most 3 candidates, then `revert-attempt-id-collision` with status `active` and zero writes. Step 0 re-probes after the commit, before any backup write |
+| Existing retained backup collision | An existing key (valid, partial or invalid) is `taken` and never overwritten, in candidate selection, at step 0 and on `started` resume (which now aborts instead of rewriting). The pointer is overwritten only after the attempt's own set is proven free and verified, and export uses only that set as originals |
+| Backup-key read failure | A throwing target-key `getItem` is `unreadable`: before "begin revert" `REVERT_FAILED`/`revert-backup-key-unreadable` with status `active`; at step 0 abort before export to `active`. No backup, pointer or shared-key write in either case |
 | localStorage-only shared-key loss | Phase A reads an absent key as valid empty data, so loss changes the digest. After the switch, any divergence keeps IndexedDB authoritative: no deletion of authority, marker, extras or migrated records, no re-migration, no legacy write, `LEGACY_DIVERGED` plus STOP. Whole-localStorage loss also loses the hint, which is rewritten through the gate while authority stays `active`. Tested for all three keys, one key and full clear |
 | `commitCount === 0` divergence | `commitCount` is diagnostic only. No branch deletes or resets on it. `commitCount` 0 with cleared keys, one lost key, or an old-build edit all give `READY` + `LEGACY_DIVERGED` with IndexedDB records deep-equal and zero migration or reset writes |
 | Crash-window divergence | A crash between 2.7 and 2.8 leaves `active`; the next boot rewrites the hint and reports window legacy writes as `LEGACY_DIVERGED`. Those bytes stay in place (not adopted, not deleted); recovery is an explicit decision. No automatic re-adopt path exists anywhere |
-| Revert pointer loss | Progress is the IndexedDB attempt phase, not the pointer. In `started` export provably never began, so preparation restarts under the same `attemptId`. In `backups-verified` a missing pointer is `revert-backups-lost`: zero shared-key, backup, pointer or IndexedDB writes, status stays `reverting`, STOP |
+| Revert pointer loss | Progress is the IndexedDB attempt phase, not the pointer. In `started` export provably never began, so preparation continues under the same `attemptId` only if its target keys are all absent, otherwise it aborts before export without overwriting. In `backups-verified` a missing pointer is `revert-backups-lost`: zero shared-key, backup, pointer or IndexedDB writes, status stays `reverting`, STOP |
 | Revert pointer corruption | A malformed pointer, or one naming another `attemptId`, is invalid. `started`: overwritten during preparation (no export yet). `backups-verified`: `revert-backups-lost`, no new originals |
 | Backup loss after export began | Phase `backups-verified` requires all three backups of the exact `attemptId`. Any absent or invalid backup gives `revert-backups-lost`; compensation never runs from a partial set and no set is rebuilt from partially exported shared values |
 | Durable revert-attempt resume | Begin revert writes `reverting` and the attempt record atomically. The first export `setItem` requires a confirmed `backups-verified` commit. A failed phase commit prevents export in-session and resumes from the durable phase. An ambiguous `revert complete` failure is re-read before compensating, so a committed `reverted` is never followed by restoring old bytes. Every exit (`reverted`, compensation verified, compensation failed, abort in `started`, forward build) deletes the attempt record in the same transaction; orphans and malformed records STOP with no writes |
@@ -568,6 +625,8 @@ Residual and accepted:
   - If IndexedDB alone is also lost inside that window, the next boot sees authority absent with no hint and migrates the current legacy state. No IndexedDB edits can be lost, because none were possible.
 - **Legacy edits after the switch** (pre-cutover tab, propagation delay) are preserved but not adopted (notice plus STOP condition), whatever `commitCount` holds.
 - **`revert-backups-lost`** leaves a device on `REVERT_FAILED` with IndexedDB authoritative until an explicit recovery decision (a forward redeploy converges to `active` with `legacyUntrusted: true`).
+- **`REVERT_STORAGE_LOST`** keeps shared domains blocked on a device that lost IndexedDB until the user confirms using the frozen legacy snapshot, which may lack later edits.
+- **Interrupted `started` attempts** leave a retained partial backup set and need one retry, which uses a new `attemptId`.
 - **Availability trade-off:** devices whose IndexedDB cannot be opened or read cannot use shared domains (Section 3; STOP condition if observed).
 - **Cosmetic:** the `WasteSettings` imported subtype label order may differ after the switch, because canonical event order replaces insertion order. Calendar views and the `KalenderTab` legend are not affected (Section 1).
 
@@ -604,3 +663,14 @@ Residual and accepted:
   - the pre-attempt pointer removal is replaced by `attemptId` matching; an ambiguous `revert complete` failure is re-read before compensating;
   - crash tests: after backups verified before export, after the first export write with the pointer removed, pointer corrupted after export started, backup missing after export started.
 - **C. Calendar order note corrected (Sections 1, 9, 11):** the `KalenderTab` legend is static and `expandOccurrences` already sorts by date, time and `occurrenceId`; the only stored-order display found by the source audit is the `WasteSettings` subtype label list; C6 visual and smoke parity are retained.
+
+**Amendment 4** (baseline `5fb0f48dec567a933838991531837934258d2365`, independent fresh review AMEND):
+- **A. Revert build with authority absent (Sections 1b, 3, 6c, 6d, 8, 10, 11):**
+  - the forward hint matrix `absent` rows no longer apply to the revert build;
+  - hint absent gives `LEGACY`; a valid or malformed hint gives the new blocking state `REVERT_STORAGE_LOST` (dated or undated), with zero writes until the user confirms; confirmation re-reads state, does a verified hint removal, then `LEGACY`; an unreadable hint or failed removal gives `STORAGE_UNAVAILABLE`;
+  - replaces the amendment 3 wording that silently removed a non-null hint and entered `LEGACY`.
+- **B. Attempt-id collision (Sections 1c, 3, 6b, 8, 10, 11):**
+  - the three target backup keys are probed before "begin revert" and again before the first backup write; they must all be absent;
+  - option 1 locked: bounded regeneration of at most 3 candidates, then `REVERT_FAILED`/`revert-attempt-id-collision` with status `active` and zero writes; an unreadable key gives `revert-backup-key-unreadable`;
+  - no existing backup key is ever overwritten; `started` resume with any existing target key aborts before export instead of rewriting (replaces the amendment 3 same-`attemptId` rewrite);
+  - deterministic `newId()` collision tests against an earlier verified set, partial-key, empty-id, read-failure and ordering cases.

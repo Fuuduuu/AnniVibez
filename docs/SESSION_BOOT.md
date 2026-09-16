@@ -37,10 +37,11 @@ https://annivibe.pages.dev
 - `PHASE_A_TASK_6_DORMANT_GUARD_AND_FAIL_FAST = ACCEPTED / COMPLETE` at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS (storage `53/53`, IndexedDB `16/16`, build and diff check PASS; full list in `docs/ACCEPTED_CHECKPOINTS.md`) and runtime diff NONE.
 - `PHASE_A_INDEXEDDB_FOUNDATION = IMPLEMENTATION COMPLETE` (Phase A range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
 - `PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`: the Phase A foundation is ACCEPTED by the human, based on the Phase A review package recorded at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`.
-- `RUNTIME_CUTOVER_PLAN = LOCKED / AMENDED` in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`: three independent fresh reviews returned AMEND.
+- `RUNTIME_CUTOVER_PLAN = LOCKED / AMENDED` in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`: four independent fresh reviews returned AMEND.
   - Amendment 1 applied: saved-place module prerequisite, unknown authority never `LEGACY`, hint write as `READY` gate, exact `versionchange` propagation.
   - Amendment 2 applied: exact authority and hint record contracts, authoritative empty-state revert export, write-once backups with byte-for-byte compensation.
   - Amendment 3 applied: no automatic re-adopt after the switch (divergence keeps IndexedDB authoritative, `LEGACY_DIVERGED` plus STOP), durable IndexedDB revert-attempt record for export gating and resume, corrected calendar order note.
+  - Amendment 4 applied: confirm-only `REVERT_STORAGE_LOST` for the revert build with authority absent and a non-null hint; collision-safe revert `attemptId` that never overwrites an existing backup key.
   - Post-amendment falsification review PASS.
 - Current gate: `RUNTIME_CUTOVER_PLAN_FRESH_REVIEW`.
 
