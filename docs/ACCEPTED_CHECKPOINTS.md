@@ -219,6 +219,24 @@
 - runtime behavior change: NONE
 - C3-C8: LOCKED (C3 not before C2 is implemented, independently reviewed and checkpointed)
 
+### RUNTIME_CUTOVER_C2
+- status: ACCEPTED / CHECKPOINTED
+- implementation: `cdacf4ec2f9b9f0767d485708c5a5e9c4c0f379e` (`refactor: centralize saved place normalization`)
+- independent source review: PASS / ACCEPT (exact C2 six-file diff PASS; parent hook normalization parity PASS; neutral extraction equivalence PASS; `legacyMigration.js` code unchanged PASS; behavior drift found NONE)
+- changed files: new `src/places/savedPlaces.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js`, `src/storage/legacyMigration.js` (comment only), new `scripts/places/saved-places.test.mjs`, `scripts/storage/storage.test.mjs`
+- accepted result:
+  - `src/places/savedPlaces.js` is the neutral pure canonical module and exports exactly `SAVED_PLACE_DEFAULTS`, `normalizePlace`, `normalizePlaces`
+  - both pre-extraction hook implementations were equivalent (golden characterization before extraction)
+  - `useSavedPlaces.js` and `useSettings.js` both use the neutral module
+  - `DEFAULT_PLACES` compatibility preserved (`export const DEFAULT_PLACES = SAVED_PLACE_DEFAULTS`)
+  - `legacyMigration.js` production code unchanged (comment-only reference update)
+  - Task 3 legacy normalization remains unpadded and is parity-proven against the neutral per-item normalizer
+  - storage foundation remains dormant
+- evidence: saved places `6/6`, storage `66/66`, IndexedDB `18/18`, calendar `19/19`, calendar UI `29/29`, app shell `23/23`, reminders `28/28`, reminder UI `30/30`, native notifications `24/24`, waste `23/23`, waste UI `30/30`, build PASS, diff check PASS
+- runtime behavior change: NONE; runtime/storage activation: NONE
+- C2 source scope: CLOSED
+- next project gate: `RUNTIME_CUTOVER_C3_SCOPE_OPEN` (docs-only C3 scope-open pass); C3 implementation LOCKED until that pass; C4-C8 LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
