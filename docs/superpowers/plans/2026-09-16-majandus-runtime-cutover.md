@@ -1,6 +1,6 @@
 # Majandus Runtime Cutover Plan (localStorage -> IndexedDB)
 
-Status: LOCKED PLAN, AMENDED twice after independent fresh reviews returned AMEND (amendment record in Section 12). The plan author's post-amendment falsification review returned PASS. A fresh independent review of this amended plan is still required. It authorizes no runtime code. Each implementation phase below opens only through its own separate scope-open commit after human acceptance of this plan.
+Status: LOCKED PLAN, AMENDED three times after independent fresh reviews returned AMEND (amendment record in Section 12). The plan author's post-amendment falsification review returned PASS. A fresh independent review of this amended plan is still required. It authorizes no runtime code. Each implementation phase below opens only through its own separate scope-open commit after human acceptance of this plan.
 
 **Goal:** Make the accepted Phase A IndexedDB replica the runtime authority for the three shared household domains without data loss, split authority or an unrecoverable rollback.
 
@@ -17,7 +17,11 @@ Status: LOCKED PLAN, AMENDED twice after independent fresh reviews returned AMEN
 - **Authority hint:** localStorage key `majandus_storage_authority_v1` (exact contract in Section 1b). The hint never grants authority, and its absence never proves legacy authority. It exists to detect loss of the IndexedDB database (`STORAGE_LOST`) and to stop legacy writes in tabs running the new build. While IndexedDB is authoritative, a verified hint is a precondition for `READY` (Section 2).
 - **Legacy rollback material:** after the switch, the three legacy keys are frozen. No forward build writes them. They are retained until a separate accepted cleanup plan; no phase in this plan deletes them. The only deletions of a shared legacy key allowed anywhere are the failed-revert compensation in Section 6c.
 - **Deletion:** runtime records are `syncStatus: 'local'`, `revision: 0` and never uploaded, so they are hard-deleted. Tombstones belong to the future sync phase.
-- **Calendar event order:** IndexedDB calendar records carry no order. The canonical events order is ascending `id` by UTF-16 code unit, used both when rebuilding the envelope for runtime repositories and for revert export. Calendar views sort by date, time and occurrence id, so this order is not visible there. The only order-dependent display is the `KalenderTab` legend category order (cosmetic; checked in C6 smoke). All parity and verification comparisons treat events as id-keyed sets.
+- **Calendar event order:** IndexedDB calendar records carry no order. The canonical events order is ascending `id` by UTF-16 code unit, used both when rebuilding the envelope for runtime repositories and for revert export. All parity and verification comparisons treat events as id-keyed sets. Verified against the current source:
+  - the `KalenderTab` legend renders the static `CATEGORIES` map, so it does not depend on event order;
+  - `expandOccurrences`, `upcomingOccurrences` and `homeOccurrences` already sort by date, time and `occurrenceId`, so calendar, agenda, home and reminder views do not depend on stored event order;
+  - `WasteSettings` builds its imported subtype label list with `new Set` over `calendar.events` in stored order, so that label order can differ after the switch (cosmetic).
+  C6 keeps visual and smoke parity checks for these views. The plan claims no legend order change.
 
 ## 1a. Authority record contract
 
@@ -52,14 +56,15 @@ The record is validated before `put`.
 |---|---|---|
 | runtime write | `status === 'active'` | `commitCount + 1` (a result above `Number.MAX_SAFE_INTEGER` aborts the write) |
 | persist result | `status === 'active'`, `persistGranted === null` | `persistGranted` becomes the resolved boolean |
-| begin revert | `status === 'active'` | `status: 'reverting'` |
-| revert failed, legacy byte-identical | `status === 'reverting'`, `commitCount` unchanged | `status: 'active'`, `legacyUntrusted` unchanged |
-| revert failed, legacy not proven identical | `status === 'reverting'`, `commitCount` unchanged | `status: 'active'`, `legacyUntrusted: true` |
-| forward build finds `reverting` | `status === 'reverting'` | `status: 'active'`, `legacyUntrusted: true` |
-| revert complete | `status === 'reverting'`, `commitCount` unchanged | `status: 'reverted'` |
+| begin revert | `status === 'active'`, no `storageRevertAttemptV1` value | `status: 'reverting'` and, in the same transaction, `put` of a fresh attempt record (Section 1c) |
+| revert aborted before export | `status === 'reverting'`, attempt record valid with `phase === 'started'` and `commitCountAtStart === commitCount` | `status: 'active'`, `legacyUntrusted` unchanged; delete the attempt record |
+| compensation verified | `status === 'reverting'`, attempt record valid with `phase === 'backups-verified'` and `commitCountAtStart === commitCount` | `status: 'active'`, `legacyUntrusted` unchanged; delete the attempt record |
+| compensation failed | `status === 'reverting'`, attempt record valid with `phase === 'backups-verified'` and `commitCountAtStart === commitCount` | `status: 'active'`, `legacyUntrusted: true`; delete the attempt record |
+| forward build finds `reverting` | `status === 'reverting'` | `status: 'active'`; `legacyUntrusted` unchanged when the attempt record is valid with `phase === 'started'`, otherwise `legacyUntrusted: true` (phase `backups-verified`, or the attempt value absent or malformed); delete any value under the attempt key |
+| revert complete | `status === 'reverting'`, attempt record valid with `phase === 'backups-verified'` and `commitCountAtStart === commitCount` | `status: 'reverted'`; delete the attempt record |
 
 - `legacyUntrusted` only ever changes from `false` to `true`. `persistGranted` only ever changes from `null` to a boolean.
-- **Deletion** of the record happens only in the re-adopt transaction (`active`, `commitCount === 0`, `legacyUntrusted === false`) and the reverted reset (`reverted`).
+- **Deletion** of the authority record happens only in the reverted reset (`reverted`, no attempt record). No path deletes an `active` or `reverting` authority record, and no path deletes authority or migrated records because of legacy divergence (Section 2). `commitCount` is diagnostic only and never authorizes a deletion or reset.
 
 **`persist()` lifecycle.**
 - Attempted at most once per boot, only while the valid record is `active` with `persistGranted === null`.
@@ -69,7 +74,7 @@ The record is validated before `put`.
 - The cutover never waits for, depends on or rolls back because of `persist()`.
 
 **Malformed record.** Any read (boot, runtime write guard, revert, reset) that finds a `storageAuthorityV1` value failing this contract gives `STORAGE_UNAVAILABLE` with reason `authority-malformed`:
-- no legacy writes, no repair, no reset, no re-adopt, no revert;
+- no legacy writes, no repair, no reset, no revert;
 - rollout STOP condition;
 - in a mounted tab, the write transaction aborts with no writes and the tab moves to `STORAGE_UNAVAILABLE`.
 
@@ -99,7 +104,7 @@ A valid hint *matches* an authority record when `switchId`, `legacyDigestAtSwitc
 |---|---|---|
 | `active` | valid and matching | continue |
 | `active` | absent, malformed, unreadable or valid but not matching | rewrite through the hint gate; failure: `AUTHORITY_HINT_PENDING` |
-| `reverting` | any | forward build: set `active` + `legacyUntrusted: true`, then as `active`; revert build: resume revert (Section 6) |
+| `reverting` | any | forward build: Section 1a forward row (`active`, attempt record deleted, `legacyUntrusted` per phase), then as `active`; revert build: resume revert per the durable attempt phase (Sections 1c, 6b) |
 | `reverted` | absent | pre-cutover flow |
 | `reverted` | valid, malformed or not matching | verified hint removal, then pre-cutover flow; removal failure: `STORAGE_UNAVAILABLE` |
 | `reverted` | unreadable | `STORAGE_UNAVAILABLE` |
@@ -110,6 +115,45 @@ A valid hint *matches* an authority record when `switchId`, `legacyDigestAtSwitc
 | malformed or unknown | any | `STORAGE_UNAVAILABLE` (never inspected further) |
 
 **LEGACY write guard:** before every legacy write, a new-build `LEGACY` tab reads the hint synchronously. Any non-null value (valid or malformed), or a throwing `getItem`, refuses the write and enters `RELOAD_REQUIRED`.
+
+## 1c. Revert attempt record contract
+
+Revert progress is durable in IndexedDB. It is never inferred from localStorage alone (pointer or backup keys).
+
+**Exact shape.** Stored in `meta` under key `storageRevertAttemptV1`. The key set is exactly these 5 fields; extra or missing keys are malformed.
+
+```js
+{
+  key: 'storageRevertAttemptV1',
+  switchId: nonEmptyString,                 // equals the authority record switchId
+  attemptId: nonEmptyString,                // from the injected newId(); names the backup set and pointer
+  commitCountAtStart: nonNegativeSafeInteger, // equals the authority commitCount at begin revert
+  phase: 'started' | 'backups-verified'
+}
+```
+
+**Consistency.** An attempt record is *valid* when it matches the shape, the authority record is valid with `status === 'reverting'`, `switchId` is equal, and `commitCountAtStart === commitCount`. Runtime writes require `active`, so `commitCount` cannot change while `reverting`.
+
+**Phase meaning.**
+- `started`: no shared legacy key has been written by this attempt. Export is forbidden in this phase.
+- `backups-verified`: the backup set for `attemptId` and the pointer were written and read back verified, and export may have begun. From this phase on, the backup set of `attemptId` is the only set of originals for this attempt and is never rewritten or replaced.
+
+**Transitions.** Each is one readwrite transaction on `meta` that re-reads and validates both records, requires the expected `switchId` and `attemptId`, and validates the new values before writing:
+
+| Transition | Guard | Change |
+|---|---|---|
+| begin revert | authority valid `active`; no value under `storageRevertAttemptV1` | authority `status: 'reverting'`; `put` `{ key, switchId, attemptId: newId(), commitCountAtStart: commitCount, phase: 'started' }` |
+| backups verified | attempt valid, `phase === 'started'`, same `attemptId` | `phase: 'backups-verified'` (no other field changes) |
+| abort before export, compensation verified, compensation failed, forward build finds `reverting`, revert complete | as in Section 1a | authority change per Section 1a, and delete the attempt record in the same transaction |
+
+- `phase` only ever moves from `started` to `backups-verified`. `key`, `switchId`, `attemptId` and `commitCountAtStart` are immutable.
+- The first shared legacy `setItem` of an export happens only after the `backups verified` transaction reported `oncomplete` in the current session. A failed or unconfirmed phase transaction means no export in this session: `REVERT_FAILED` with the status left `reverting`, and the next boot resumes from the durable phase.
+
+**Invalid attempt states** (checked at every authority read, in both builds):
+- **Orphan:** any value under `storageRevertAttemptV1` while authority is absent, `active` or `reverted`, or with a different `switchId`: `STORAGE_UNAVAILABLE` with reason `revert-attempt-orphan`. No legacy writes, no repair, no reset, no revert; STOP condition.
+- **Missing or malformed under `reverting`:**
+  - revert build: `REVERT_FAILED` with reason `revert-attempt-invalid`. No legacy or backup writes, no IndexedDB mutation, no new attempt; STOP condition;
+  - forward build: the Section 1a forward row (`active`, `legacyUntrusted: true`, delete any attempt value).
 
 ## 2. Authority switch ordering (acceptance item 1)
 
@@ -130,7 +174,7 @@ All steps run in the boot controller before any domain hook mounts, inside `lock
    6. Read the three legacy keys again and compute the digest (outside any transaction).
    7. **Switch transaction** on `meta`: require the marker record to have `status === 'complete'`, a non-empty string `preparationId` and `sourceDigest === ` the step-6 digest, and require no authority record. Write the fresh authority record exactly as in Section 1a. **localStorage stops being authoritative when this transaction commits.** A failed or aborted switch transaction leaves authority proven absent, so the state is `LEGACY`.
    8. **Hint gate:** write the hint for the new record. On failure the state is `AUTHORITY_HINT_PENDING` (Section 3): IndexedDB stays authoritative, nothing mounts, and it retries until the write succeeds. Once written, broadcast `authority-changed`.
-   9. **Post-switch confirmation:** read the legacy keys again and recompute the digest. If it differs from `legacyDigestAtSwitch`, apply the divergence rule immediately, before mounting hooks.
+   9. **Post-switch confirmation:** read the legacy keys again and recompute the digest. If it differs from `legacyDigestAtSwitch`, apply the divergence rule (IndexedDB stays authoritative, `LEGACY_DIVERGED`) before mounting hooks. There is no second switch attempt and no reset.
    10. Run the `persist()` lifecycle (Section 1a). Load initial domain snapshots, then mount `READY` (the connection-event subscription has been active since the replica was created; Section 5 item 4a).
 3. **Valid authority `active`:**
    - Apply the hint matrix.
@@ -142,15 +186,19 @@ All steps run in the boot controller before any domain hook mounts, inside `lock
 **Legacy writes after migration or switch.**
 
 - **Before the switch commits,** legacy is authoritative. Any change makes the step-7 guard fail or migration return `source-changed-after-complete` (stale reset), so the switch always adopts the latest validated legacy state.
-- **After the switch, divergence** means `legacyDigest !== legacyDigestAtSwitch`. Its sources:
-  - a tab running a pre-cutover build;
-  - a new-build `LEGACY` tab whose write guard had not yet seen the hint (cross-tab localStorage propagation delay, or the crash window in Section 11).
-- **Resolution:**
-  - **`commitCount === 0` and `legacyUntrusted === false` (re-adopt):** verified hint removal (a failure means `STORAGE_UNAVAILABLE`, retry). Then one transaction guarded by a valid record with `status === 'active'`, same `switchId`, `commitCount === 0` and `legacyUntrusted === false` deletes marker-owned records, extras, the marker and the authority record. Then rerun steps 2.3-2.10. IndexedDB held no edits, so legacy wins losslessly.
-  - **`commitCount > 0` or `legacyUntrusted` (true divergence):** IndexedDB stays authoritative. The diverged legacy values stay untouched and are never adopted or merged automatically. Show the non-blocking `LEGACY_DIVERGED` notice. Adoption requires a separate design. A field occurrence is a rollout STOP condition.
-- **Detection:** at every boot, on `storage` events for the three legacy keys, and on `focus`/`visibilitychange`. A mounted tab that must re-adopt moves to `RELOAD_REQUIRED`; the next boot re-adopts.
+- **After the switch, divergence** means the current legacy digest `!== legacyDigestAtSwitch`. The digest cannot tell a user edit from data loss, because Phase A treats an absent legacy key as valid empty data. Its sources include:
+  - a tab running a pre-cutover build writing legacy;
+  - a new-build `LEGACY` tab whose write guard had not yet seen the hint (cross-tab localStorage propagation delay, or the crash window in Section 11);
+  - loss of one, two or all three shared legacy keys in localStorage while IndexedDB survives (clearing, eviction or tooling acting on localStorage only).
+- **Resolution (single rule, whatever `commitCount` or `legacyUntrusted` hold):**
+  - IndexedDB stays authoritative. There is no automatic re-adopt, reset, re-migration or second switch after the authority record exists.
+  - No authority, marker, extras or migrated record is deleted or changed because of divergence. `commitCount` is diagnostic only.
+  - The current legacy bytes (including absent keys) are preserved: no `setItem` or `removeItem` on a shared key, and no hint removal.
+  - The state is `READY` with the non-blocking `LEGACY_DIVERGED` notice. Legacy values are never adopted or merged automatically.
+  - Every occurrence is a rollout STOP condition and needs an explicit recovery decision, which requires a separate accepted design.
+- **Legacy read failure during the check:** a throwing `getItem` on a shared key, or a failing digest, is treated as divergence (`LEGACY_DIVERGED`, same rule). It never deletes or writes anything.
+- **Detection:** at every boot, on `storage` events for the three legacy keys or `key === null`, and on `focus`/`visibilitychange`. A mounted tab shows the notice and stays `READY`.
 - **Hint watch in `READY`:** on a `storage` event for the hint key or `key === null` (clear), and on `focus`/`visibilitychange`, the tab re-classifies the hint. Anything other than valid and matching is rewritten through the hint gate. A failure moves the tab to `AUTHORITY_HINT_PENDING` with writes disabled.
-- **Retry bound:** at most 3 switch attempts per boot. If the step-9 confirmation still diverges on the third attempt, perform the re-adopt deletion without switching again. Authority is then proven absent, so the device stays on `LEGACY` for this session, because a pre-cutover tab is actively writing legacy.
 - **New-build tabs on legacy authority:** the Section 1b `LEGACY` write guard applies. They also enter `RELOAD_REQUIRED` on a hint `storage` event or an `authority-changed` broadcast.
 
 ## 3. Startup state machine
@@ -158,9 +206,9 @@ All steps run in the boot controller before any domain hook mounts, inside `lock
 | State | Entered when | App behavior |
 |---|---|---|
 | `BOOTING` | app start | minimal splash; no domain hooks mounted |
-| `LEGACY` | only after IndexedDB opened and the `meta` read succeeded with authority proven absent (or the reverted reset completed with the hint handled per Section 1b), and then: migration status not switchable (including `invalid-source`/`unreadable-source`), switch transaction failed, retry bound reached, or a revert completed | existing accepted localStorage repositories, plus the hint write-guard; retry at next boot |
+| `LEGACY` | only after IndexedDB opened and the `meta` read succeeded with authority proven absent (or the reverted reset completed with the hint handled per Section 1b), and then: migration status not switchable (including `invalid-source`/`unreadable-source`), switch transaction failed, or a revert completed | existing accepted localStorage repositories, plus the hint write-guard; retry at next boot |
 | `READY` | valid authority `active`, hint valid and matching, snapshots loaded and valid, connection subscription active | IndexedDB repositories |
-| `READY` + `LEGACY_DIVERGED` notice | true divergence (Section 2) | fully usable; non-blocking notice |
+| `READY` + `LEGACY_DIVERGED` notice | any post-switch legacy divergence, including localStorage-only key loss and an unreadable legacy key (Section 2) | fully usable on IndexedDB; non-blocking notice; legacy bytes and IndexedDB records unchanged by the notice; STOP condition awaiting an explicit recovery decision |
 | `DOMAIN_INVALID` (per domain) | an IndexedDB record of that domain fails runtime validation on load | that domain `writable: false` with an error message (same pattern as legacy `writable: false`); other domains usable; no auto-repair |
 | `AUTHORITY_HINT_PENDING` | valid authority `active` (just switched, found at boot, or while `READY`) and the hint gate fails | blocking screen for shared domains: "Seadme salvestusruum ei võtnud muudatust vastu. Proovi uuesti."; shared domains not mounted or writes disabled; automatic retry on focus plus a retry button; IndexedDB stays authoritative; never legacy |
 | `BLOCKED` | authority unknown: open rejected with `IndexedDbBlockedError` (any hint) | blocking screen for shared domains: "Sulge Majanduse teised aknad ja proovi uuesti."; retry button and automatic retry on focus; Buss and device-local tabs stay usable |
@@ -168,7 +216,7 @@ All steps run in the boot controller before any domain hook mounts, inside `lock
 | `STORAGE_LOST` | open and `meta` read succeed, no authority record, hint valid (dated variant) or malformed (undated variant) | recovery screen: "Kohalik andmebaas puudub. Taasta andmed seisuga <switchedAt> varukoopiast?" (undated: "Taasta andmed seadme varukoopiast?"). On confirm, run steps 2.3-2.10 with a new `switchId`; the hint gate overwrites the hint. Leftover non-owned records produce `replica-not-empty`: stay on this screen and STOP condition. The malformed variant is itself a STOP condition |
 | `RELOAD_REQUIRED` | replica connection event `versionchange` or `close` (Section 5 item 4a), `VersionError` (database newer than build), authority record changed under a mounted tab, or hint appears in a `LEGACY` tab | writes disabled; banner "Majandus uuenes teises aknas. Laadi leht uuesti." with reload button |
 | `REVERTING` | revert build only (Section 6) | splash until the revert completes, then `LEGACY` |
-| `REVERT_FAILED` | revert build only: any revert failure (Section 6) | blocking screen for shared domains: "Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti."; retry re-enters `BOOTING`; IndexedDB stays authoritative and unmounted; STOP condition. The compensation-failure variant additionally has `legacyUntrusted: true` and retained backups |
+| `REVERT_FAILED` | revert build only: any revert failure (Section 6) | blocking screen for shared domains: "Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti."; retry re-enters `BOOTING`; IndexedDB stays authoritative and unmounted; STOP condition. The compensation-failure variant additionally has `legacyUntrusted: true` and retained backups. The `revert-backups-lost` and `revert-attempt-invalid` variants leave the status `reverting` with the attempt record untouched, write nothing, and never create a new backup set |
 
 - Transitions out of `BLOCKED`, `STORAGE_UNAVAILABLE`, `AUTHORITY_HINT_PENDING`, `REVERT_FAILED` and `RELOAD_REQUIRED` happen only through a reload or retry that re-enters `BOOTING` (or, for `AUTHORITY_HINT_PENDING`, a successful hint gate). No state ever writes legacy keys after the switch, except the revert export and compensation of Section 6.
 - **Availability trade-off (accepted):** a device whose IndexedDB cannot be opened or read is shown `BLOCKED` or `STORAGE_UNAVAILABLE` for shared domains, even if it never switched. Legacy authority cannot be proven there, so split authority is prevented at the cost of availability. Observing this state in smoke or the field is a STOP condition.
@@ -263,48 +311,56 @@ Rollback is only through a revert build: the same forward code built with `VITE_
   - household: `createHouseholdRepository(storage).load()` is `writable`, its profile equals the expected profile (record or default), and extra fields equal;
   - places: `normalizePlaces(JSON.parse(raw))` deep-equals the expected list.
 
-### 6b. Revert backups
+### 6b. Revert backups and durable attempt
 
-Backups are write-once per revert attempt, so no attempt can overwrite the originals captured by an earlier attempt.
+Backups are write-once once their attempt reaches `backups-verified`, so no attempt can overwrite or replace the originals of an attempt whose export may have begun. Revert progress comes from the IndexedDB attempt record (Section 1c), never from localStorage alone.
 
-- **Attempt id:** each backup creation uses a fresh `attemptId` from the injected `newId()`.
+- **Attempt id:** the `attemptId` of the durable attempt record. One attempt record owns exactly one backup set and one pointer value.
 - **Backup keys:** `majandus_legacy_backup_v1_<switchId>_<attemptId>_calendar`, `..._household`, `..._places`.
 - **Value** of each: `JSON.stringify({ version: 1, legacyKey, raw })`, where `legacyKey` is the exact shared legacy key and `raw` is the exact previous `getItem` result, preserved as a string or `null` (absent).
 - **A backup is valid** when it parses to exactly these three keys, `version === 1`, `legacyKey` matches its slot, and `raw` is a string or `null`.
-- **Current-attempt pointer:** key `majandus_legacy_backup_v1_<switchId>_current` holds `JSON.stringify({ version: 1, switchId, attemptId })` (exact key set). It is valid only when it matches that shape and the record's `switchId`, and all three backups it names exist and are valid.
-- **Creation:**
-  1. Read the three originals. A throw aborts.
-  2. Write all three backups under a new `attemptId`.
-  3. Read each back: the stored string must equal the written string exactly, and the parsed `raw` must be `===` the original.
+- **Current-attempt pointer:** key `majandus_legacy_backup_v1_<switchId>_current` holds `JSON.stringify({ version: 1, switchId, attemptId })` (exact key set). It is valid only when it matches that shape, its `switchId` and `attemptId` equal the durable attempt record, and all three backups it names exist and are valid. A pointer naming another `attemptId` is invalid for this attempt; it is overwritten only while the attempt is `started`.
+- **Preparation** (only while the durable phase is `started`):
+  1. Read the three current shared values. A throw aborts preparation.
+  2. Write all three backups under the attempt's `attemptId`.
+  3. Read each back: the stored string must equal the written string exactly, and the parsed `raw` must be `===` the value read in step 1.
   4. Write the pointer, then read it back for exact equality.
-  5. Only after the pointer verifies may any shared legacy key change.
-- **On creation failure** (any throw or mismatch): no shared legacy key has been touched. Backup keys of this attempt are left in place (not shared keys, never reused). The status returns `active` with `legacyUntrusted` unchanged. The state is `REVERT_FAILED`.
-- **Fresh attempt from `active`:** first do a verified removal of the pointer key (a non-shared key; `removeItem` then `getItem === null`), and only then move the status to `reverting`. A removal failure means `REVERT_FAILED` with nothing changed. So while the status is `reverting`, any pointer present was created by the current attempt.
-- **Resume** (the revert build boots and finds `reverting`):
-  - A valid pointer means export may already have started, so the pointed backup set is the originals. Nothing is rewritten.
-  - An absent or invalid pointer means export cannot have started (export requires a verified pointer), so the shared keys are untouched. Creation runs with a new `attemptId` from the current values.
-- **Retention:** backup sets and pointers are never deleted by this plan (except the pointer removal at the start of a fresh attempt). They stay until a separate cleanup plan. Each attempt adds one set; the quota cost is three copies of the shared data per attempt.
+  5. Guarded IndexedDB transition `started` to `backups-verified` (Section 1c), confirmed by `oncomplete`.
+  6. Only now may the first shared legacy `setItem` happen.
+- **Preparation failure** (any throw or mismatch in steps 1-4): no shared legacy key has been touched. Guarded "revert aborted before export" (Section 1a: `active`, `legacyUntrusted` unchanged, attempt record deleted in the same transaction), then `REVERT_FAILED`. Backup keys of this attempt stay in place. If that transaction fails, the status stays `reverting` with phase `started`, and the next boot resumes safely.
+- **Step-5 failure** (throw, abort or no `oncomplete`): no export in this session, `REVERT_FAILED`, nothing else changed. The next boot reads the durable phase: `started` restarts preparation; `backups-verified` (the transition committed after all) resumes with the verified set.
+- **Resume** (the revert build boots and finds authority `reverting`):
+  - **Attempt record missing or malformed:** `REVERT_FAILED` reason `revert-attempt-invalid`; no writes of any kind, no new attempt (Section 1c).
+  - **Phase `started`:** export provably never began, because export requires a committed `backups-verified` phase. The shared keys hold only values written by other tabs or builds, never by this attempt. Preparation restarts from step 1 under the same `attemptId`, rewriting this attempt's backup keys and pointer from the current values. This is the only case where backup keys are rewritten.
+  - **Phase `backups-verified`:** export may have begun, and shared keys may hold partially exported values. The pointer and all three backups of the exact `attemptId` must be valid.
+    - If valid: they are the originals; nothing is rewritten; continue at Section 6c step 3.
+    - If the pointer is absent, malformed or names another `attemptId`, or any backup of the attempt is absent, unparsable or invalid: `REVERT_FAILED` reason `revert-backups-lost`. No shared-key write, no compensation, no backup or pointer write, no new `attemptId`, and no IndexedDB mutation. Authority stays `reverting` (IndexedDB authoritative). STOP condition; recovery needs an explicit decision (deploying the forward build converges to `active` with `legacyUntrusted: true`).
+- **Retention:** backup sets and pointers are never deleted by this plan. They stay until a separate cleanup plan. Each attempt adds at most one set; the quota cost is three copies of the shared data per attempt.
 
 ### 6c. Revert procedure and compensation
 
 For each device at boot, in the revert build, under the lock:
 
-1. Open and read authority as in Section 2 step 1. Unknown or malformed authority is `BLOCKED`/`STORAGE_UNAVAILABLE`.
+1. Open and read authority and the attempt record as in Section 2 step 1 and Section 1c. Unknown or malformed authority is `BLOCKED`/`STORAGE_UNAVAILABLE`; an orphan attempt record is `STORAGE_UNAVAILABLE`/`revert-attempt-orphan`.
    - If there is no record, or a valid record `reverted`: handle the hint per Section 1b (verified removal of any non-null hint; removal failure is `STORAGE_UNAVAILABLE`), then `LEGACY`.
    - A record absent while the hint is non-null means IndexedDB was lost; the revert build deliberately uses the frozen legacy snapshot, because no IndexedDB data remains to export.
-2. If the record is `active`: verified pointer removal (Section 6b), then a guarded mutation to `reverting`, recording `commitCount` (Section 1a). Forward tabs' writes now abort. If it is already `reverting`: resume.
-3. Read and validate all three domain snapshots. On failure: when resuming with a valid pointer (export may have started), run compensation (step 8); otherwise `active` with `legacyUntrusted` unchanged, and `REVERT_FAILED`.
-4. Backups per Section 6b.
+2. If the record is `active`: the "begin revert" transaction (Sections 1a, 1c) sets `reverting` and writes the attempt record with phase `started` atomically. Forward tabs' writes now abort. If it is already `reverting`: resume per Section 6b.
+3. Read and validate all three domain snapshots. On failure:
+   - phase `started`: "revert aborted before export" (`active`, trust unchanged, attempt record deleted), `REVERT_FAILED`;
+   - phase `backups-verified` with a valid exact backup set: compensation (step 8);
+   - phase `backups-verified` without it: `revert-backups-lost` (Section 6b).
+4. Phase `started`: preparation per Section 6b (steps 1-5). Phase `backups-verified`: already verified, skip.
 5. Export per Section 6a: write the calendar, household and places keys with `setItem`. Export never calls `removeItem`.
 6. Verify per Section 6a.
-7. On success: guarded mutation `reverting` to `reverted` (`commitCount` unchanged). Verified hint removal (a failure is `STORAGE_UNAVAILABLE`; the next boot sees `reverted` and retries the removal). Then `LEGACY`.
-8. **Compensation**, on any failure after the first export `setItem` was attempted (a throw in step 5, a verification mismatch in step 6, or a failed `reverted` transaction in step 7):
-   - For each of the three shared keys, restore the original raw from the backup set named by the verified pointer: an original string gets `setItem(legacyKey, originalRaw)`; an original `null` gets `removeItem(legacyKey)`. This `removeItem` is the only allowed deletion of a shared legacy key, and only to restore a previously absent key during failed-revert compensation.
+7. On success: guarded "revert complete" transaction (`reverted`, attempt record deleted). Verified hint removal (a failure is `STORAGE_UNAVAILABLE`; the next boot sees `reverted` and retries the removal). Then `LEGACY`.
+   - If the "revert complete" transaction fails, re-read authority in a new read transaction before any compensation: `reverted` means it committed (continue as success); a valid `reverting` with the same attempt in `backups-verified` means compensation (step 8); a failed read means `REVERT_FAILED` with no legacy writes, and the next boot resumes from the durable state.
+8. **Compensation**, on any failure after the first export `setItem` was attempted (a throw in step 5, a verification mismatch in step 6, a confirmed-uncommitted step 7, or a step-3 failure on resume in `backups-verified`). It requires a valid exact backup set for the attempt record's `attemptId`; otherwise `revert-backups-lost`.
+   - For each of the three shared keys, restore the original raw from that backup set: an original string gets `setItem(legacyKey, originalRaw)`; an original `null` gets `removeItem(legacyKey)`. This `removeItem` is the only allowed deletion of a shared legacy key, and only to restore a previously absent key during failed-revert compensation.
    - Verify byte-for-byte: `getItem(legacyKey) === originalRaw` for all three (`null` for originally absent keys).
-   - **Compensation verified:** guarded mutation `reverting` to `active` with `legacyUntrusted` unchanged (legacy is byte-identical to before), keep the backups, `REVERT_FAILED`.
-   - **Compensation failed** (any throw or mismatch): never `LEGACY`. Guarded mutation `reverting` to `active` with `legacyUntrusted: true`, keep the backups, `REVERT_FAILED` (compensation-failure variant), rollout STOP.
-   - If that final guarded mutation itself fails, the record stays `reverting`, and the next boot resumes (Section 6b) with the backups as originals.
-9. A forward build that finds `reverting` sets `active` with `legacyUntrusted: true` (Section 1a) and never touches legacy keys or backups.
+   - **Compensation verified:** guarded "compensation verified" transaction (`active`, `legacyUntrusted` unchanged, attempt record deleted), keep the backups, `REVERT_FAILED`.
+   - **Compensation failed** (any throw or mismatch): never `LEGACY`. Guarded "compensation failed" transaction (`active`, `legacyUntrusted: true`, attempt record deleted), keep the backups, `REVERT_FAILED` (compensation-failure variant), rollout STOP.
+   - If that final transaction itself fails, the status stays `reverting` with phase `backups-verified`, and the next boot resumes with the same backup set as originals.
+9. A forward build that finds `reverting` applies the Section 1a forward row in one transaction (`active`; `legacyUntrusted: true` unless the attempt record is valid with phase `started`; attempt value deleted) and never touches legacy keys, backups or the pointer.
 
 - The IndexedDB data is never deleted by a revert. Re-forward after a revert uses the reverted reset (Section 2 step 2.1).
 - **Forbidden:** deploying any pre-cutover build (without the controller) to an origin where any device may have switched.
@@ -316,7 +372,7 @@ For each device at boot, in the revert build, under the lock:
 | C1 | Phase A amendments: close/open race and the Section 5 item 4a connection-event contract | `src/storage/localReplica.js`, `src/storage/indexedDb.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` | none (dormant) |
 | C2 | Prerequisite: behavior-preserving extraction of saved-place defaults and normalization into one neutral pure module | new `src/places/savedPlaces.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js` (keeps its `DEFAULT_PLACES` export as a re-export), new `scripts/places/saved-places.test.mjs`, `scripts/storage/storage.test.mjs` (parity oracle only), `src/storage/legacyMigration.js` (comment-only update of its mirror reference; no code change) | none (behavior-preserving) |
 | C3 | Runtime record validators and mutation helper (items 5, 6) | new `src/storage/runtimeRecords.js`, new `src/storage/runtimeWrites.js`, both storage tests | none (dormant) |
-| C4 | Authority controller: Sections 1a and 1b contracts, state machine, hint gate, switch, resets, re-adopt, divergence, `STORAGE_LOST`, revert export, backups and compensation, connection-event subscription | new `src/storage/storageAuthority.js`, both storage tests | none (dormant) |
+| C4 | Authority controller: Sections 1a, 1b and 1c contracts, state machine, hint gate, switch, resets, divergence (no re-adopt), `STORAGE_LOST`, revert export, durable revert attempt, backups and compensation, connection-event subscription | new `src/storage/storageAuthority.js`, both storage tests | none (dormant) |
 | C5 | IndexedDB domain repositories (rollout order: household, then places, then calendar with waste) | new `src/storage/replicaRepositories.js`, both storage tests | none (dormant) |
 | C6 | Runtime wiring (the cutover) | `src/main.jsx`, `src/App.jsx`, `src/calendar/useHouseholdEvents.js`, `src/waste/useHousehold.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js` (remove the places writer), `src/components/SeadedTab.jsx` (remove the places fallback), `src/components/EventDialog.jsx`, `src/components/HouseholdSettings.jsx`, `src/components/WasteSettings.jsx` (await async mutators), new `src/components/StorageStatus.jsx`, `src/design/shell.css`, `scripts/shell/app-shell.test.mjs`, `scripts/calendar/browser-cases.mjs`, `scripts/waste/browser-cases.mjs`, both storage tests (the Task 6 dormant guard becomes an allowlist guard) | yes; desktop human smoke required |
 | C7 | Preview deploy and Android/PWA human gate, including the rollback drill | deploy configuration only as separately authorized; no source change | preview origin only |
@@ -384,8 +440,15 @@ For each device at boot, in the revert build, under the lock:
     - a hint-write failure right after the switch, at boot with authority `active` and hint absent, and while `READY` after a hint clear event, each leads to `AUTHORITY_HINT_PENDING` with no domain mounted or writes disabled and no legacy write;
     - a retry success leads to `READY`;
     - a read-back mismatch counts as failure.
-  - **Divergence:** post-switch divergence with `commitCount` 0 re-adopts; with a positive `commitCount` it notifies and leaves legacy bytes unchanged; a failed hint removal during re-adopt leads to `STORAGE_UNAVAILABLE`.
-  - **Crash points:** after steps 2.7 and 2.8 and inside re-adopt, simulated by aborting the controller between steps, the next boot converges.
+  - **Divergence (no re-adopt).** Each case asserts: IndexedDB records (authority, marker, extras, domain stores) deep-equal their pre-boot snapshot; the current legacy bytes are unchanged; state `READY` + `LEGACY_DIVERGED`; zero migration, reset, switch or record-delete writes (spy `replica`, spy storage):
+    - switch with real legacy data in all three keys, `commitCount` 0, then clear all three legacy keys only (hint kept), reboot;
+    - the same with `commitCount` 0 and all of localStorage cleared (hint rewritten through the gate, legacy keys stay absent);
+    - one-key loss: only `majamajandus_household_profile_v1` removed, `commitCount` 0; and separately only `sade_saved_places` removed with `commitCount > 0`;
+    - old-build legacy edit: after the switch, a pre-cutover build writes a changed calendar envelope, with `commitCount` 0 and with `commitCount > 0`; detected at boot and via a `storage` event in a mounted tab (stays `READY`, notice shown);
+    - divergence found at the step-9 post-switch confirmation: no second switch;
+    - a throwing legacy `getItem` during the check: `LEGACY_DIVERGED`, nothing written;
+    - source guard: no controller path deletes an `active` or `reverting` authority record, and `commitCount` is not read by any branch that deletes or resets.
+  - **Crash points:** after steps 2.7 and 2.8, simulated by aborting the controller between steps: the next boot keeps authority `active`, rewrites the hint, and reports any legacy write made in the window as `LEGACY_DIVERGED` without re-adopt.
   - **Storage loss:** `STORAGE_LOST` restore.
   - **Concurrency:** two concurrent boots produce exactly one switch.
   - **Connection events:** a `versionchange` delivered through the replica subscription moves the controller to `RELOAD_REQUIRED` and repositories reject new mutations, both while mounted and when injected during migration, switch, hint gate, snapshot load and revert (never `LEGACY`).
@@ -399,15 +462,29 @@ For each device at boot, in the revert build, under the lock:
   - **Backups (6b):**
     - each backup preserves a string raw and an absent `null` raw exactly;
     - a failure on the first, second or third backup write, a read-back mismatch, or a pointer write or read-back failure, each leaves all three shared keys byte-identical and gives `REVERT_FAILED` with `legacyUntrusted` unchanged;
-    - resume with a valid pointer uses the pointed set as originals without rewriting;
-    - resume with an absent or invalid pointer creates a new set under a new `attemptId` from current values;
-    - a second attempt after a compensated first attempt removes the pointer, creates a new set, and leaves the first attempt's set byte-identical;
-    - a pointer-removal failure at the start of a fresh attempt gives `REVERT_FAILED` with the status still `active`.
+    - a second attempt after a compensated first attempt gets a new `attemptId`, creates a new set, and leaves the first attempt's set byte-identical.
+  - **Revert attempt record (1c):**
+    - begin revert writes `reverting` and the exact 5-field attempt record (`phase: 'started'`, `commitCountAtStart === commitCount`) in one transaction; an injected abort leaves `active` with no attempt record;
+    - each malformed class (extra or missing key, empty `switchId`/`attemptId`, bad `commitCountAtStart`, unknown `phase`) and a missing record under `reverting` give `revert-attempt-invalid` in the revert build with zero writes;
+    - an attempt value with authority absent, `active`, `reverted` or a different `switchId` gives `STORAGE_UNAVAILABLE`/`revert-attempt-orphan` with zero writes;
+    - `phase` never moves backwards, and immutable fields never change;
+    - no shared-key `setItem` is issued before the `backups-verified` transaction completes (spy storage ordering); an injected failure of that transaction gives `REVERT_FAILED`, zero shared-key writes, status `reverting`;
+    - cleanup deletes the attempt record in the same transaction for: successful revert (`reverted`), verified compensation, failed compensation, preparation abort (`started`), and a forward build finding `reverting` (with `legacyUntrusted` unchanged for phase `started` and `true` for phase `backups-verified`, a malformed value or a missing value);
+    - reverted reset refuses while any attempt value exists.
+  - **Revert resume and crash (1c, 6b, 6c).** Every case asserts IndexedDB domain records unchanged, and "no new originals": no backup key or pointer write for any other `attemptId`, and no rewrite of the exact attempt's backup keys once `backups-verified`:
+    - crash in phase `started` after one backup write: resume rewrites the same `attemptId` set from current values, shared keys untouched until the phase commits, then completes;
+    - crash after `backups-verified` committed but before export: resume uses the exact set without rewriting it, exports, verifies, `reverted`;
+    - crash after the first export `setItem`, then the pointer removed: `REVERT_FAILED`/`revert-backups-lost`, status `reverting`, attempt record unchanged, zero shared-key, backup and pointer writes;
+    - pointer corrupted (malformed JSON, and separately a valid shape naming another `attemptId`) after export started: same result;
+    - one backup key removed, and separately one backup value corrupted, after export started: same result;
+    - resume in `backups-verified` with a valid set and invalid snapshots: compensation from the exact set;
+    - a `revert complete` transaction reported failed but actually committed (re-read shows `reverted`): no compensation, `LEGACY` with exported data;
+    - a forward build deployed after `revert-backups-lost`: `active`, `legacyUntrusted: true`, attempt record deleted, no legacy or backup writes.
   - **Compensation (6c):**
     - an originally absent calendar key plus a forced export failure after its `setItem`: compensation `removeItem` restores absence (`getItem === null`), the other keys are byte-identical, the status is `active` with `legacyUntrusted` unchanged, backups are retained, and the state is `REVERT_FAILED`;
-    - a forced verification failure and a forced `reverted`-transaction failure both compensate;
+    - a forced verification failure, and a forced `reverted`-transaction failure whose re-read confirms `reverting`, both compensate from the exact attempt set;
     - a forced compensation failure (a `setItem` or `removeItem` throw, or read-back mismatch) never gives `LEGACY` and leaves the status `active` with `legacyUntrusted: true`, backups retained, `REVERT_FAILED`;
-    - a forward build seeing `reverting` sets `legacyUntrusted: true` and writes no legacy or backup key;
+    - a forward build seeing `reverting` in phase `backups-verified` sets `legacyUntrusted: true` and writes no legacy or backup key;
     - revert success then re-forward after `reverted`.
   - **Invariants:** legacy key bytes never change in any forward path; private keys are never read; no `removeItem` on a shared legacy key outside compensation (source guard plus spy storage).
 - **C5:** for every domain operation, the IndexedDB repository result equals the legacy repository result on the same starting state, with events compared as id-keyed sets. The parity table covers calendar create/update occurrence and series/remove/importWaste, household save, and places update/add/remove with padding. IDs are stable; quota failure injection leaves the previous state; two-tab concurrent mutations both persist.
@@ -423,14 +500,14 @@ For each device at boot, in the revert build, under the lock:
 
 ## 9. Human smoke gates
 
-- **C6 desktop smoke:** a human performs the C6 checks on desktop Chrome: existing data appears after the switch; create, edit and delete in every domain; reload; two tabs; an update in a second tab shows the reload banner; `KalenderTab` legend categories acceptable.
+- **C6 desktop smoke:** a human performs the C6 checks on desktop Chrome: existing data appears after the switch; create, edit and delete in every domain; reload; two tabs; an update in a second tab shows the reload banner; visual parity of the calendar grid, agenda, home upcoming list, `KalenderTab` legend and `WasteSettings` imported subtype labels against the pre-switch legacy view (subtype label order may differ; any other difference is a FAIL).
 - **C7 Android/PWA gate (acceptance item 2, mandatory; stays PENDING until the human confirms):**
   1. Use one fixed Cloudflare Pages branch alias URL, because localStorage is per origin. Deploy the current accepted legacy build there. Install it as a PWA on a real Android phone (Chrome stable). Create real data: recurring and one-off events, a waste import, household profile, at least 3 places with one removed and re-added.
   2. Deploy the C6 build to the same alias. Open the installed PWA and let it update. Verify every item is unchanged, including place order, and that reminders still fire.
   3. Create, edit and delete in every domain. Force-stop the app, reopen, confirm persistence. Reboot the phone, confirm persistence. Repeat in airplane mode.
   4. Open the alias in a Chrome tab alongside the PWA, edit in one, and confirm the other shows it after focus.
   5. Deploy a new build while the PWA is open, and confirm `RELOAD_REQUIRED` or a clean reload with no data loss.
-  6. Via `chrome://inspect` remote DevTools: simulate a small custom storage quota, attempt a save, and confirm the error message with the previous data intact; delete the IndexedDB database only, reload, confirm the `STORAGE_LOST` screen, restore, and confirm data equals the switch-time snapshot; record `navigator.storage.persisted()` and the stored `persistGranted`.
+  6. Via `chrome://inspect` remote DevTools: simulate a small custom storage quota, attempt a save, and confirm the error message with the previous data intact; delete the IndexedDB database only, reload, confirm the `STORAGE_LOST` screen, restore, and confirm data equals the switch-time snapshot; separately remove only the three shared legacy keys, reload, confirm the `LEGACY_DIVERGED` notice with all IndexedDB data unchanged and still writable; record `navigator.storage.persisted()` and the stored `persistGranted`.
   7. Rollback drill: before reverting, delete one event that existed before the switch. Deploy the revert build to the alias. Confirm the data under `LEGACY` equals the pre-revert IndexedDB state, including that the deleted event stays deleted, and that backup keys exist. Then redeploy forward and confirm it converges.
 - **C8 production** requires the C7 gate PASS recorded by the human and a separate deploy scope.
 
@@ -442,7 +519,8 @@ STOP the rollout (no further phase or deploy, and investigate) on any of:
 - any forward path writing legacy keys;
 - any shared legacy key deletion outside failed-revert compensation;
 - any mismatch between a migrated and a legacy view;
-- `LEGACY_DIVERGED` observed in smoke or reported from the field;
+- `LEGACY_DIVERGED` observed in smoke or reported from the field (any cause, including localStorage-only key loss), or any code path deleting authority or migrated records because of divergence;
+- `revert-attempt-orphan`, `revert-attempt-invalid` or `revert-backups-lost` observed anywhere, or any revert creating a new backup set or rewriting backups after its attempt reached `backups-verified`;
 - `replica-not-empty`, `DOMAIN_INVALID`, `STORAGE_LOST` (either variant), `STORAGE_UNAVAILABLE` (any reason, `authority-malformed` always), `BLOCKED`, `AUTHORITY_HINT_PENDING` or `REVERT_FAILED` observed without a deliberate trigger;
 - a quota or eviction test losing previously saved data;
 - revert verification failure or any revert resurrecting deleted data;
@@ -453,37 +531,45 @@ Deploy the revert build (never a pre-cutover build) when production shows data l
 
 ## 11. Falsification review (post-amendment result: PASS)
 
-Each attack was traced against Sections 1-10 and the unchanged Task 1-6 contracts. The first eight rows were re-run specifically for amendment 2.
+Each attack was traced against Sections 1-10 and the unchanged Task 1-6 contracts. The first seven rows were added and re-run for amendment 3; the rest were re-checked against the amendment 3 changes.
 
 | Attack | Result |
 |---|---|
-| Malformed authority | Exact 9-key contract. Any malformed value is `STORAGE_UNAVAILABLE`/`authority-malformed` at every read site (boot, runtime write, revert, reset), with no legacy write, repair, reset, re-adopt or revert, plus a STOP |
+| localStorage-only shared-key loss | Phase A reads an absent key as valid empty data, so loss changes the digest. After the switch, any divergence keeps IndexedDB authoritative: no deletion of authority, marker, extras or migrated records, no re-migration, no legacy write, `LEGACY_DIVERGED` plus STOP. Whole-localStorage loss also loses the hint, which is rewritten through the gate while authority stays `active`. Tested for all three keys, one key and full clear |
+| `commitCount === 0` divergence | `commitCount` is diagnostic only. No branch deletes or resets on it. `commitCount` 0 with cleared keys, one lost key, or an old-build edit all give `READY` + `LEGACY_DIVERGED` with IndexedDB records deep-equal and zero migration or reset writes |
+| Crash-window divergence | A crash between 2.7 and 2.8 leaves `active`; the next boot rewrites the hint and reports window legacy writes as `LEGACY_DIVERGED`. Those bytes stay in place (not adopted, not deleted); recovery is an explicit decision. No automatic re-adopt path exists anywhere |
+| Revert pointer loss | Progress is the IndexedDB attempt phase, not the pointer. In `started` export provably never began, so preparation restarts under the same `attemptId`. In `backups-verified` a missing pointer is `revert-backups-lost`: zero shared-key, backup, pointer or IndexedDB writes, status stays `reverting`, STOP |
+| Revert pointer corruption | A malformed pointer, or one naming another `attemptId`, is invalid. `started`: overwritten during preparation (no export yet). `backups-verified`: `revert-backups-lost`, no new originals |
+| Backup loss after export began | Phase `backups-verified` requires all three backups of the exact `attemptId`. Any absent or invalid backup gives `revert-backups-lost`; compensation never runs from a partial set and no set is rebuilt from partially exported shared values |
+| Durable revert-attempt resume | Begin revert writes `reverting` and the attempt record atomically. The first export `setItem` requires a confirmed `backups-verified` commit. A failed phase commit prevents export in-session and resumes from the durable phase. An ambiguous `revert complete` failure is re-read before compensating, so a committed `reverted` is never followed by restoring old bytes. Every exit (`reverted`, compensation verified, compensation failed, abort in `started`, forward build) deletes the attempt record in the same transaction; orphans and malformed records STOP with no writes |
+| Malformed authority | Exact 9-key contract. Any malformed value is `STORAGE_UNAVAILABLE`/`authority-malformed` at every read site (boot, runtime write, revert, reset), with no legacy write, repair, reset or revert, plus a STOP |
 | Malformed hint | Classified `absent`/`valid`/`malformed`/`unreadable`. With authority active any non-matching hint is rewritten through the gate. With authority absent a malformed hint is the undated `STORAGE_LOST` (blocking, consent-only restore), never `LEGACY`, and an unreadable hint is `STORAGE_UNAVAILABLE`. The `LEGACY` write guard refuses on any non-null or unreadable hint |
-| Authority-field durability | All fields written explicitly at switch and validated before `put`. Immutable fields fixed. Every mutation is a guarded re-read, validate and single-field change. `legacyUntrusted` and `persistGranted` only move forward. `persist()` failure never alters authority, and `null` retries per boot |
+| Authority-field durability | All fields written explicitly at switch and validated before `put`. Immutable fields fixed. Every mutation is a guarded re-read and validate with only the listed changes. `legacyUntrusted` and `persistGranted` only move forward. `persist()` failure never alters authority, and `null` retries per boot |
 | Empty-domain rollback | Export always writes all three keys from current semantic state: calendar `events` may be `[]`, household absent exports the legacy default profile, zero places export the legacy default view. Frozen keys are never left in place |
 | Deleted-data resurrection | Deleted IndexedDB events are absent from the exported envelope; verification compares id-keyed sets with no extra ids. There is an explicit event-A acceptance test and a C7 drill step |
-| Partial backup | All three backups plus the attempt pointer are written and read-back-verified before the first shared-key `setItem`. Any failure leaves shared keys byte-identical, with `legacyUntrusted` unchanged. Backup sets are write-once per `attemptId`, so a later attempt never overwrites earlier originals (including preserved divergent legacy edits). The pointer is removed before `reverting` is set, so under `reverting` a valid pointer always belongs to the current attempt: a valid pointer means export may have started and its set is the originals; an absent or invalid pointer means export cannot have started |
-| Failed export | Compensation restores originals from the backup set named by the verified pointer (also when snapshot validation fails on resume after export may have started), then byte-for-byte verification, then `active` with trust unchanged and `REVERT_FAILED`. A failed final transaction leaves `reverting` for resume |
+| Partial backup | All three backups plus the pointer are written and read-back-verified, then the durable phase moves to `backups-verified`, before the first shared-key `setItem`. A failure before that leaves shared keys byte-identical, with `legacyUntrusted` unchanged. Each attempt owns one `attemptId`; a later attempt never overwrites an earlier attempt's set (including preserved divergent legacy edits) |
+| Failed export | Compensation restores originals from the exact attempt set (also when snapshot validation fails on resume in `backups-verified`), then byte-for-byte verification, then `active` with trust unchanged and `REVERT_FAILED`. A failed final transaction leaves `reverting`/`backups-verified` for resume |
 | Absent-key compensation | An originally `null` raw is restored with `removeItem`, the single allowed shared-key deletion, verified by `getItem === null`. A compensation failure is never `LEGACY`: `active` with `legacyUntrusted: true`, backups retained, STOP |
 | C2/C3 dependency ordering | `runtimeRecords.js` (C3) imports the neutral module created in C2; C3 cannot open before C2 is accepted; no storage module imports a React hook; the Task 3 mirror is untouched in code with its parity oracle on the module |
 | Unknown authority | `LEGACY` requires a successful open, a `meta` read and a valid record proving absence or `reverted`. Blocked is `BLOCKED`; every other failure or malformed record is `STORAGE_UNAVAILABLE`, independent of the hint |
 | Hint write failure | `READY` requires a valid matching hint. A gate failure at switch, at boot or while `READY` is `AUTHORITY_HINT_PENDING`, never legacy |
 | Versionchange propagation | `indexedDb.js` closes and calls back; the replica drops the handle, enters `lost` and notifies; the controller, subscribed from replica creation, sets `RELOAD_REQUIRED` for any boot step or mounted state; repositories reject and hooks disable writes |
-| Split authority | One valid authority record, switched transactionally. Unknown or malformed authority is never `LEGACY`. The hint is guaranteed while `READY`. The `LEGACY` guard refuses on any non-null hint. Pre-cutover tabs, propagation delay and the crash window are caught by divergence detection |
+| Split authority | One valid authority record, switched transactionally. Unknown or malformed authority is never `LEGACY`. The hint is guaranteed while `READY`. The `LEGACY` guard refuses on any non-null hint. Pre-cutover tabs, propagation delay and the crash window are reported by divergence detection and never flip authority back |
 | Data loss on switch | Switch adopts only verified complete-marker data equal to the digest read immediately before the switch; legacy stays frozen |
-| Partial migration or switch | Task 4 atomic preparation; switch requires `complete`; a crash at any step converges at next boot |
-| Multi-tab races | IndexedDB serializes readwrite transactions; mutations re-read inside the transaction; the guarded `switchId`/`status`/`commitCount` check catches re-adopt or revert under a live tab |
-| Quota or storage loss | Atomic abort with visible error. Eviction is no worse than today. IndexedDB-only loss is detected by the guaranteed hint and recovered with consent |
+| Partial migration or switch | Task 4 atomic preparation; switch requires `complete`; a crash before the switch commit converges at next boot; after it, authority stays `active` |
+| Multi-tab races | IndexedDB serializes readwrite transactions; mutations re-read inside the transaction; the guarded `switchId`/`status` check catches a revert under a live tab |
+| Quota or storage loss | Atomic abort with visible error. Eviction is no worse than today. IndexedDB-only loss is detected by the guaranteed hint and recovered with consent; localStorage-only loss is `LEGACY_DIVERGED` with IndexedDB intact |
 | Invalid payload writes | The domain repositories are the only payload producers. Validators run before every write and after every read |
 | Transaction auto-commit | Structural read, sync plan, validate, write discipline; thenable plans rejected; direct `transact` confined to four files |
 
 Residual and accepted:
 - **Crash window between the switch commit (2.7) and the hint write (2.8):** only a crash in this window matters, not a persistent hint failure (that is `AUTHORITY_HINT_PENDING`).
-  - Until the next boot, a pre-cutover build tab or an already-running new-build `LEGACY` tab can still write legacy. The next boot rewrites the hint through the gate and detects those writes as divergence. With `commitCount` 0, which is guaranteed because nothing mounted `READY`, they are re-adopted losslessly.
+  - Until the next boot, a pre-cutover build tab or an already-running new-build `LEGACY` tab can still write legacy. The next boot rewrites the hint through the gate and reports those writes as `LEGACY_DIVERGED`. The edits are preserved in the legacy keys but not adopted; recovering them needs an explicit decision (STOP).
   - If IndexedDB alone is also lost inside that window, the next boot sees authority absent with no hint and migrates the current legacy state. No IndexedDB edits can be lost, because none were possible.
-- **Edits in a pre-cutover build tab after IndexedDB already holds edits** are preserved but not adopted (notice plus STOP condition).
+- **Legacy edits after the switch** (pre-cutover tab, propagation delay) are preserved but not adopted (notice plus STOP condition), whatever `commitCount` holds.
+- **`revert-backups-lost`** leaves a device on `REVERT_FAILED` with IndexedDB authoritative until an explicit recovery decision (a forward redeploy converges to `active` with `legacyUntrusted: true`).
 - **Availability trade-off:** devices whose IndexedDB cannot be opened or read cannot use shared domains (Section 3; STOP condition if observed).
-- **Cosmetic:** the `KalenderTab` legend category order may differ after the switch, because canonical event order replaces insertion order.
+- **Cosmetic:** the `WasteSettings` imported subtype label order may differ after the switch, because canonical event order replaces insertion order. Calendar views and the `KalenderTab` legend are not affected (Section 1).
 
 ## 12. Amendment record
 
@@ -504,3 +590,17 @@ Residual and accepted:
   - compensation restores originals byte-for-byte, using `removeItem` only to restore an originally absent key;
   - a compensation failure is never `LEGACY` (`active` with `legacyUntrusted: true`, backups retained, `REVERT_FAILED`, STOP);
   - new state `REVERT_FAILED`.
+
+**Amendment 3** (baseline `37b226cdc50f0dddf495dc21c23648c06eb52fbd`, independent fresh review AMEND):
+- **A. No automatic re-adopt after the switch (Sections 1a, 2, 3, 8, 11):**
+  - any post-switch legacy divergence keeps IndexedDB authoritative, deletes no authority or migrated record, preserves the current legacy bytes, shows `LEGACY_DIVERGED` and is a STOP awaiting an explicit recovery decision;
+  - `commitCount` is diagnostic only; the re-adopt transaction, the switch retry bound and the re-adopt crash point are removed; the authority record is deleted only by the reverted reset;
+  - reason: localStorage shared keys can be lost independently, and Phase A reads absent keys as valid empty data;
+  - tests: all three legacy keys cleared with `commitCount` 0, one-key loss, full localStorage clear, old-build legacy edit, unreadable legacy key.
+- **B. Durable revert attempt (Sections 1a, 1c, 3, 6b, 6c, 8):**
+  - exact 5-field `meta/storageRevertAttemptV1` record `{ key, switchId, attemptId, commitCountAtStart, phase: 'started' | 'backups-verified' }`, written atomically with `reverting`;
+  - the first shared-key export write requires a confirmed `backups-verified` commit; `started` restarts preparation under the same `attemptId`; `backups-verified` requires the exact attempt's pointer and backups, otherwise `revert-backups-lost` with no writes and no new originals;
+  - attempt-record cleanup locked in the same transaction for successful revert, verified compensation, failed compensation, abort in `started` and a forward build finding `reverting`; orphan and invalid records STOP;
+  - the pre-attempt pointer removal is replaced by `attemptId` matching; an ambiguous `revert complete` failure is re-read before compensating;
+  - crash tests: after backups verified before export, after the first export write with the pointer removed, pointer corrupted after export started, backup missing after export started.
+- **C. Calendar order note corrected (Sections 1, 9, 11):** the `KalenderTab` legend is static and `expandOccurrences` already sorts by date, time and `occurrenceId`; the only stored-order display found by the source audit is the `WasteSettings` subtype label list; C6 visual and smoke parity are retained.

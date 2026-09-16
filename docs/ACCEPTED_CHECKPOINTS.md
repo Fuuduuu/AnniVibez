@@ -104,6 +104,16 @@
 - post-amendment falsification review: PASS (plan author); fresh independent review pending
 - runtime implementation: LOCKED
 
+### RUNTIME_CUTOVER_PLAN_AMENDMENT_3
+- status: AMENDED (plan remains LOCKED; not yet accepted)
+- baseline: `37b226cdc50f0dddf495dc21c23648c06eb52fbd`
+- origin: fresh independent review verdict AMEND
+- A: no automatic re-adopt after the authority switch; any legacy divergence keeps IndexedDB authoritative, deletes no authority or migrated record, preserves current legacy bytes, gives `LEGACY_DIVERGED` and a STOP awaiting an explicit recovery decision; `commitCount` is diagnostic only (localStorage shared keys can be lost independently and Phase A reads absent keys as valid empty data)
+- B: exact durable `meta/storageRevertAttemptV1` record `{ key, switchId, attemptId, commitCountAtStart, phase: 'started' | 'backups-verified' }` written atomically with `reverting`; first export write only after a confirmed `backups-verified` commit; `backups-verified` resume requires the exact attempt's pointer and backups, otherwise `revert-backups-lost` with no writes and no new originals; attempt-record cleanup locked for revert success, compensation success or failure, abort in `started` and a forward build finding `reverting`
+- C: calendar order note corrected (`KalenderTab` legend is static; `expandOccurrences` sorts by date, time and `occurrenceId`; `WasteSettings` subtype labels are the only stored-order display found); C6 visual and smoke parity retained
+- post-amendment falsification review: PASS (plan author); fresh independent review pending
+- runtime implementation: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
