@@ -13,6 +13,7 @@ import {
   createLocalReplica, validateCalendarEventRecord, validateHouseholdProfileRecord, validateSharedPlaceRecord, validateWasteStateRecord,
 } from '../../src/storage/localReplica.js';
 import { openMajandusDb } from '../../src/storage/indexedDb.js';
+import { normalizePlace as runtimeNormalizePlace, normalizePlaces as runtimeNormalizePlaces } from '../../src/places/savedPlaces.js';
 
 const [CALENDAR_KEY, HOUSEHOLD_PROFILE_KEY, PLACES_KEY] = LEGACY_SHARED_KEYS;
 
@@ -219,15 +220,8 @@ test('validation reports the first invalid source in canonical key order', () =>
 
 // ---- saved-place parity -----------------------------------------------------------------
 
-// Differential oracle: the hook's current pure normalizePlace, evaluated from its source text
-// without importing the React hook or modifying it.
-function runtimeNormalizePlace() {
-  const source = readFileSync(new URL('../../src/hooks/useSavedPlaces.js', import.meta.url), 'utf8');
-  const start = source.indexOf('const DEFAULTS');
-  const end = source.indexOf('function normalizePlaces');
-  assert.ok(start >= 0 && end > start, 'normalizePlace source markers must exist in useSavedPlaces.js');
-  return new Function(`${source.slice(start, end)}\nreturn normalizePlace;`)();
-}
+// Differential oracle: the neutral runtime normalizer in src/places/savedPlaces.js (C2), the same code
+// both saved-place hooks run. Legacy migration keeps its own mirror and never pads missing items.
 
 const PLACE_GOLDEN = [
   [null, { name: 'Kodu', address: '', lat: null, lon: null }],
@@ -247,9 +241,26 @@ test('saved-place normalization matches the golden table and the live runtime no
   const result = validate({ places: JSON.stringify(places) });
   assert.equal(result.status, 'valid');
   assert.deepEqual(result.data.sharedPlaces, PLACE_GOLDEN.map(([, expected]) => expected));
-  const normalizePlace = runtimeNormalizePlace();
   const parsedItems = JSON.parse(JSON.stringify(places));
-  assert.deepEqual(result.data.sharedPlaces, parsedItems.map((item, index) => normalizePlace(item, index)));
+  assert.deepEqual(result.data.sharedPlaces, parsedItems.map((item, index) => runtimeNormalizePlace(item, index)));
+});
+
+test('legacy place normalization equals the neutral runtime normalizer for every actual legacy item', () => {
+  const items = [
+    { name: 'Kodu', address: 'Tamme 1, Rakvere', lat: 59.34, lon: 26.35 }, null, { name: '   ', address: 'A' },
+    { name: '  Pood  ', address: '  Keskväljak 1 ' }, { name: 42 }, { name: 'Park', address: 12 },
+    { name: 'A', lat: 0, lon: -12.25 }, { name: 'A', lat: '59.5', lon: ' 26.4abc' }, { name: 'A', lat: '1e3', lon: '-0.5' },
+    { name: 'A', lat: 'abc', lon: {} }, { name: 'A', lat: true, lon: null }, { name: 'A', lat: 'Infinity', lon: 'NaN' },
+    {}, 'Tamme 5', [], { id: 'legacy-id', name: 'Park', address: 'Park 1', lat: 59.3, lon: 26.3, extra: true, order: 4 },
+  ];
+  for (const count of [0, 1, 3, 5, items.length]) {
+    const slice = items.slice(0, count);
+    const result = validate({ places: JSON.stringify(slice) });
+    assert.equal(result.status, 'valid');
+    assert.deepEqual(result.data.sharedPlaces, JSON.parse(JSON.stringify(slice)).map((item, index) => runtimeNormalizePlace(item, index)), `${count} items`);
+    assert.equal(result.data.sharedPlaces.length, count, 'legacy migration never pads');
+    if (count < 3) assert.equal(runtimeNormalizePlaces(JSON.parse(JSON.stringify(slice))).length, 3, 'the runtime loader still pads');
+  }
 });
 
 test('saved places are never padded with runtime defaults', () => {

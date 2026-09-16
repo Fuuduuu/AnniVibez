@@ -99,8 +99,8 @@ function validateHouseholdSource(raw) {
   return { valid: true, parsed: parsed.value, householdProfile: loaded.profile };
 }
 
-// Mirrors the current pure normalizePlace in src/hooks/useSavedPlaces.js (not exported there).
-// Parity is proven against that live source in scripts/storage/storage.test.mjs.
+// Mirrors the pure normalizePlace in src/places/savedPlaces.js, which both saved-place hooks use.
+// Parity is proven against that module in scripts/storage/storage.test.mjs.
 // Unlike the runtime loader, actual legacy items are never padded with default places.
 const PLACE_FALLBACK_NAMES = Object.freeze(['Kodu', 'Kool', 'Trenn']);
 

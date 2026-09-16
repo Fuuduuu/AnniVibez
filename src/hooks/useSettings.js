@@ -1,33 +1,10 @@
 import { useState, useCallback } from 'react';
+import { SAVED_PLACE_DEFAULTS, normalizePlaces } from '../places/savedPlaces.js';
 
 const PROFILE_KEY = 'sade_profile';
 const PLACES_KEY  = 'sade_saved_places';
 
-export const DEFAULT_PLACES = [
-  { name: 'Kodu',  address: '', lat: null, lon: null },
-  { name: 'Kool',  address: '', lat: null, lon: null },
-  { name: 'Trenn', address: '', lat: null, lon: null },
-];
-
-function normalizePlace(place, idx = 0) {
-  const fallback = DEFAULT_PLACES[idx] ?? { name: 'Koht', address: '', lat: null, lon: null };
-  const lat = Number.parseFloat(place?.lat);
-  const lon = Number.parseFloat(place?.lon);
-
-  return {
-    name: typeof place?.name === 'string' && place.name.trim() ? place.name.trim() : fallback.name,
-    address: typeof place?.address === 'string' ? place.address : '',
-    lat: Number.isFinite(lat) ? lat : null,
-    lon: Number.isFinite(lon) ? lon : null,
-  };
-}
-
-function normalizePlaces(places) {
-  const raw = Array.isArray(places) ? places : [];
-  const normalized = raw.map((p, i) => normalizePlace(p, i));
-  if (normalized.length >= DEFAULT_PLACES.length) return normalized;
-  return [...normalized, ...DEFAULT_PLACES.slice(normalized.length).map(p => ({ ...p }))];
-}
+export const DEFAULT_PLACES = SAVED_PLACE_DEFAULTS;
 
 function read(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }

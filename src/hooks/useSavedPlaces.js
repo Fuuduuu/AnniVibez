@@ -1,32 +1,7 @@
 import { useState, useCallback } from 'react';
+import { SAVED_PLACE_DEFAULTS as DEFAULTS, normalizePlace, normalizePlaces } from '../places/savedPlaces.js';
 
 const KEY = 'sade_saved_places';
-
-const DEFAULTS = [
-  { name: 'Kodu',  address: '', lat: null, lon: null },
-  { name: 'Kool',  address: '', lat: null, lon: null },
-  { name: 'Trenn', address: '', lat: null, lon: null },
-];
-
-function normalizePlace(place, idx = 0) {
-  const fallback = DEFAULTS[idx] ?? { name: 'Koht', address: '', lat: null, lon: null };
-  const lat = Number.parseFloat(place?.lat);
-  const lon = Number.parseFloat(place?.lon);
-
-  return {
-    name: typeof place?.name === 'string' && place.name.trim() ? place.name.trim() : fallback.name,
-    address: typeof place?.address === 'string' ? place.address : '',
-    lat: Number.isFinite(lat) ? lat : null,
-    lon: Number.isFinite(lon) ? lon : null,
-  };
-}
-
-function normalizePlaces(places) {
-  const raw = Array.isArray(places) ? places : [];
-  const normalized = raw.map((p, i) => normalizePlace(p, i));
-  if (normalized.length >= DEFAULTS.length) return normalized;
-  return [...normalized, ...DEFAULTS.slice(normalized.length).map(p => ({ ...p }))];
-}
 
 function load() {
   try {
