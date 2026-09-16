@@ -134,6 +134,21 @@
 - runtime/storage implementation stays closed until Visual Polish V1 is checkpointed and a separate C1 scope-open pass is approved
 - recorded state: the Visual Polish V1 implementation commit `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` (`feat: visual polish v1 for Kodu, cards, nav and bus card`) is already on `main` ahead of this record; it is NOT yet checkpointed and awaits the V1 human visual review
 
+### VISUAL_POLISH_V1
+- status: ACCEPTED / CHECKPOINTED
+- implementation: `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` (`feat: visual polish v1 for Kodu, cards, nav and bus card`)
+- checkpoint baseline: `28f55a3c78b3015f9e83096ac1a6cd9aa84b978d`
+- review: PASS
+- scope: Kodu dashboard hierarchy, card system (neutral, tinted, primary variants; 16px/12px radius tokens), bottom navigation active pill, button/control hierarchy and pressed states, `BussCard` on the shared card system, existing motion system retuned within 150-220ms
+- changed files: `src/design/tokens.js`, `src/design/shell.css`, `src/components/ShellViews.jsx`, `src/components/BussCard.jsx`, `src/App.jsx` (CSS variables only)
+- evidence: app shell `23/23`, visual `35/35`, calendar UI `29/29`, waste UI `30/30`, reminder UI `30/30`, storage `53/53`, build PASS, diff check PASS; mobile smoke at 390px and 360px plus desktop with no horizontal overflow
+- behavior changes: NONE; storage/runtime changes: NONE
+- next project gate: `VISUAL_POLISH_V2`, the final visual-only interlude before C1; V2 planning or implementation only after its own explicit scope-open pass
+- V2 direction: B-lite; modern native Android; calm warm utility; Material-3 influenced; no dark mode; no storage/runtime changes
+- V2 expected focus: EventDialog mobile bottom-sheet presentation; forms/fields consistency; Kalender, Prügivedu and Seaded visual consistency; final spacing, typography and microinteraction polish
+- V2 excluded: dark mode, skeleton loaders, bus countdown, dynamic theme-color, new behavior, new data logic
+- runtime cutover C1-C8: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

@@ -44,9 +44,13 @@ https://annivibe.pages.dev
   - Amendment 4 applied: confirm-only `REVERT_STORAGE_LOST` for the revert build with authority absent and a non-null hint; collision-safe revert `attemptId` that never overwrites an existing backup key.
   - Post-amendment falsification review PASS; final fresh independent review PASS.
   - Implementation phases C1-C8: LOCKED.
-- Current gate: `VISUAL_POLISH_V1` (intentional visual-only interlude before C1). Implementation commit `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` is on `main`, not yet checkpointed.
+- `VISUAL_POLISH_V1 = ACCEPTED / CHECKPOINTED` at implementation `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` (review PASS; behavior and storage/runtime changes NONE).
+- Current gate: `VISUAL_POLISH_V2` (final visual-only interlude before C1; opens only through its own scope-open pass).
+  - Direction: B-lite; modern native Android; calm warm utility; Material-3 influenced; no dark mode; no storage/runtime changes.
+  - Expected focus: EventDialog mobile bottom-sheet presentation; forms/fields consistency; Kalender, Prügivedu and Seaded visual consistency; final spacing, typography and microinteraction polish.
+  - Still excluded: dark mode, skeleton loaders, bus countdown, dynamic theme-color, new behavior, new data logic.
 
-Only the visual-only Visual Polish V1 pass is open. Runtime/storage implementation stays closed until Visual Polish V1 is checkpointed and a separate C1 scope-open pass is approved. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
+No implementation pass is open. Visual Polish V2 is next and needs its own scope-open pass. Runtime/storage implementation stays closed until Visual Polish V2 is checkpointed and a separate C1 scope-open pass is approved. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 
