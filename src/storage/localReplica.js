@@ -95,24 +95,80 @@ function validateMetaRecord(record) {
 export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = () => new Date().toISOString() } = {}) {
   let activeDb;
   let opening;
+  // Each explicit close() starts a new generation; handles and events of older generations are stale.
+  let generation = 0;
+  let lost = false;
+  let listeners = [];
+
+  const notify = event => {
+    let failure;
+    let failed = false;
+    for (const entry of listeners) {
+      try {
+        entry.listener(event);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
+    }
+    if (failed) queueMicrotask(() => { throw failure; });
+  };
+
+  const connectionLost = (owner, event) => {
+    if (owner !== generation || lost) return;
+    activeDb = undefined;
+    lost = true;
+    notify(event);
+  };
+
+  const subscribe = listener => {
+    const entry = { listener };
+    listeners = [...listeners, entry];
+    return () => {
+      listeners = listeners.filter(candidate => candidate !== entry);
+    };
+  };
+
+  const lostError = () => new DOMException('The local replica lost its database connection', 'ReplicaConnectionLostError');
 
   const open = async () => {
+    if (lost) throw lostError();
     if (activeDb) return activeDb;
     if (!opening) {
-      opening = openMajandusDb(indexedDb).then(db => {
+      const owner = generation;
+      const pending = openMajandusDb(indexedDb, {
+        onVersionChange: ({ oldVersion, newVersion }) => connectionLost(owner, { type: 'versionchange', oldVersion, newVersion }),
+        onClose: () => connectionLost(owner, { type: 'close' }),
+      }).then(db => {
+        if (owner !== generation) {
+          closeDb(db);
+          throw new DOMException('The local replica was closed while opening', 'ReplicaClosedError');
+        }
+        if (lost) {
+          closeDb(db);
+          throw lostError();
+        }
         activeDb = db;
         return db;
       }).finally(() => {
-        opening = undefined;
+        if (opening === pending) opening = undefined;
       });
+      opening = pending;
     }
     return opening;
   };
 
+  // Resolves only after no handle of an older generation can remain open.
   const close = async () => {
+    generation += 1;
     const db = activeDb;
     activeDb = undefined;
     closeDb(db);
+    const pending = opening;
+    opening = undefined;
+    if (pending) await pending.catch(() => undefined);
   };
 
   const transact = async (storeNames, mode, body) => runTransaction(await open(), storeNames, mode, body);
@@ -126,6 +182,7 @@ export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = (
   return {
     open,
     close,
+    subscribe,
     transact,
     getHouseholdProfile: () => get('householdProfile', 'household'),
     putHouseholdProfile: record => put('householdProfile', record, validateHouseholdProfileRecord),

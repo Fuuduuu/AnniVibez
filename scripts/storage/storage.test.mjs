@@ -10,8 +10,9 @@ import { LEGACY_SHARED_KEYS, readLegacySources } from '../../src/storage/legacyM
 import { EVENT_STORAGE_KEY, createEventRepository } from '../../src/calendar/eventRepository.js';
 import { HOUSEHOLD_KEY, createHouseholdRepository } from '../../src/waste/householdRepository.js';
 import {
-  validateCalendarEventRecord, validateHouseholdProfileRecord, validateSharedPlaceRecord, validateWasteStateRecord,
+  createLocalReplica, validateCalendarEventRecord, validateHouseholdProfileRecord, validateSharedPlaceRecord, validateWasteStateRecord,
 } from '../../src/storage/localReplica.js';
+import { openMajandusDb } from '../../src/storage/indexedDb.js';
 
 const [CALENDAR_KEY, HOUSEHOLD_PROFILE_KEY, PLACES_KEY] = LEGACY_SHARED_KEYS;
 
@@ -637,6 +638,232 @@ test('migration runs inside a supplied lock and works without one', async () => 
   assert.deepEqual(calls, ['majandus:legacy-migration']);
   const unlocked = await legacyMigration.runLegacyMigration(migrationArguments());
   assert.deepEqual(unlocked, { status: 'unreadable-source', legacyMutated: false });
+});
+
+// ---- C1: replica close/open race and connection-event contract ----------------------------
+
+// Controllable IndexedDB stub: every open() returns a request the test settles by hand.
+function stubIndexedDb() {
+  const requests = [];
+  return { requests, open(name, version) { const request = { name, version }; requests.push(request); return request; } };
+}
+
+function stubDb(label = 'db') {
+  return {
+    label,
+    closed: false,
+    closeCalls: 0,
+    close() { this.closed = true; this.closeCalls += 1; },
+    transaction() { throw new Error(`${label}: transaction must not be reached`); },
+  };
+}
+
+const succeedOpen = (request, db) => { request.result = db; request.onsuccess(); };
+const isNamed = name => error => error instanceof DOMException && error.name === name;
+const settleTicks = async (count = 10) => { for (let index = 0; index < count; index += 1) await Promise.resolve(); };
+
+async function openedReplica() {
+  const indexedDb = stubIndexedDb();
+  const replica = createLocalReplica({ indexedDb });
+  const opening = replica.open();
+  const db = stubDb('first');
+  succeedOpen(indexedDb.requests[0], db);
+  assert.equal(await opening, db);
+  return { indexedDb, replica, db };
+}
+
+// Captures queueMicrotask callbacks scheduled during `body` instead of running them.
+function captureMicrotasks(body) {
+  const original = globalThis.queueMicrotask;
+  const scheduled = [];
+  globalThis.queueMicrotask = callback => { scheduled.push(callback); };
+  try { body(); } finally { globalThis.queueMicrotask = original; }
+  return scheduled;
+}
+
+test('C1 openMajandusDb without options keeps the Task 1 close-on-versionchange behavior', () => {
+  const indexedDb = stubIndexedDb();
+  const opening = openMajandusDb(indexedDb);
+  const db = stubDb();
+  succeedOpen(indexedDb.requests[0], db);
+  assert.equal(typeof db.onversionchange, 'function');
+  db.onversionchange({ oldVersion: 1, newVersion: 2 });
+  assert.equal(db.closed, true);
+  const bare = stubDb('bare');
+  const second = openMajandusDb(indexedDb);
+  succeedOpen(indexedDb.requests[1], bare);
+  assert.doesNotThrow(() => bare.onversionchange());
+  assert.equal(bare.closed, true);
+  assert.doesNotThrow(() => bare.onclose?.());
+  return Promise.all([opening, second]);
+});
+
+test('C1 openMajandusDb closes the handle before onVersionChange and forwards exact payloads', async () => {
+  const indexedDb = stubIndexedDb();
+  const calls = [];
+  let db;
+  const opening = openMajandusDb(indexedDb, {
+    onVersionChange: payload => calls.push({ kind: 'versionchange', payload, closed: db.closed }),
+    onClose: (...args) => calls.push({ kind: 'close', args }),
+  });
+  db = stubDb();
+  succeedOpen(indexedDb.requests[0], db);
+  assert.equal(await opening, db);
+  db.onversionchange({ oldVersion: 1, newVersion: 2, extra: 'ignored' });
+  db.onclose();
+  assert.deepEqual(calls, [
+    { kind: 'versionchange', payload: { oldVersion: 1, newVersion: 2 }, closed: true },
+    { kind: 'close', args: [] },
+  ]);
+  assert.equal(db.closeCalls, 1);
+});
+
+test('C1 openMajandusDb with options keeps blocked rejection and closes a late success', async () => {
+  const indexedDb = stubIndexedDb();
+  const events = [];
+  const opening = openMajandusDb(indexedDb, { onVersionChange: () => events.push('versionchange'), onClose: () => events.push('close') });
+  const request = indexedDb.requests[0];
+  request.onblocked();
+  await assert.rejects(opening, isNamed('IndexedDbBlockedError'));
+  const late = stubDb('late');
+  succeedOpen(request, late);
+  assert.equal(late.closed, true);
+  assert.deepEqual(events, []);
+});
+
+test('C1 close during an in-flight open closes the late handle, rejects stale callers and allows reopen', async () => {
+  const indexedDb = stubIndexedDb();
+  const replica = createLocalReplica({ indexedDb });
+  const staleOpen = replica.open();
+  const staleTransact = replica.transact('meta', 'readonly', () => assert.fail('stale body must not run'));
+  await settleTicks();
+  assert.equal(indexedDb.requests.length, 1, 'concurrent callers share one in-flight open');
+  let closeResolved = false;
+  const closing = replica.close().then(() => { closeResolved = true; });
+  await settleTicks();
+  assert.equal(closeResolved, false, 'close waits for the in-flight open');
+  const late = stubDb('late');
+  succeedOpen(indexedDb.requests[0], late);
+  await assert.rejects(staleOpen, isNamed('ReplicaClosedError'));
+  await assert.rejects(staleTransact, isNamed('ReplicaClosedError'));
+  await closing;
+  assert.equal(late.closed, true, 'the late handle of the old generation is closed');
+  assert.equal(closeResolved, true);
+
+  const reopening = replica.open();
+  assert.equal(indexedDb.requests.length, 2, 'explicit reopen starts a new open');
+  const fresh = stubDb('fresh');
+  succeedOpen(indexedDb.requests[1], fresh);
+  assert.equal(await reopening, fresh);
+  assert.equal(fresh.closed, false);
+  assert.equal(await replica.open(), fresh, 'the new generation handle is reused');
+  assert.equal(indexedDb.requests.length, 2);
+});
+
+test('C1 close resolves even when the in-flight open fails, and a failed open is retryable', async () => {
+  const indexedDb = stubIndexedDb();
+  const replica = createLocalReplica({ indexedDb });
+  const opening = replica.open();
+  const closing = replica.close();
+  const request = indexedDb.requests[0];
+  request.error = new DOMException('boom', 'UnknownError');
+  request.onerror();
+  await assert.rejects(opening, isNamed('UnknownError'));
+  await closing;
+  const retry = replica.open();
+  const db = stubDb();
+  succeedOpen(indexedDb.requests[1], db);
+  assert.equal(await retry, db);
+});
+
+test('C1 versionchange closes the handle first, delivers the exact event and makes the replica terminally lost', async () => {
+  const { indexedDb, replica, db } = await openedReplica();
+  const received = [];
+  replica.subscribe(event => received.push({ event, closed: db.closed }));
+  db.onversionchange({ oldVersion: 1, newVersion: 2 });
+  assert.deepEqual(received, [{ event: { type: 'versionchange', oldVersion: 1, newVersion: 2 }, closed: true }]);
+  assert.deepEqual(Object.keys(received[0].event), ['type', 'oldVersion', 'newVersion']);
+  await assert.rejects(replica.open(), isNamed('ReplicaConnectionLostError'));
+  await assert.rejects(replica.transact('meta', 'readonly', () => assert.fail('body must not run')), isNamed('ReplicaConnectionLostError'));
+  await assert.rejects(replica.getMeta('any'), isNamed('ReplicaConnectionLostError'));
+  assert.equal(indexedDb.requests.length, 1, 'no further indexedDb.open call after loss');
+  await replica.close();
+  await assert.rejects(replica.open(), isNamed('ReplicaConnectionLostError'), 'close does not recover a lost replica');
+  assert.equal(indexedDb.requests.length, 1);
+  assert.equal(db.closeCalls, 1);
+});
+
+test('C1 browser-initiated close delivers exactly { type: close } and the same lost behavior', async () => {
+  const { indexedDb, replica, db } = await openedReplica();
+  const received = [];
+  replica.subscribe(event => received.push(event));
+  db.onclose();
+  assert.deepEqual(received, [{ type: 'close' }]);
+  assert.deepEqual(Object.keys(received[0]), ['type']);
+  await assert.rejects(replica.transact('meta', 'readonly', () => assert.fail('body must not run')), isNamed('ReplicaConnectionLostError'));
+  await assert.rejects(replica.open(), isNamed('ReplicaConnectionLostError'));
+  assert.equal(indexedDb.requests.length, 1);
+  await replica.close();
+});
+
+test('C1 listeners run synchronously in subscription order; a throwing listener does not block later ones', async () => {
+  const { replica, db } = await openedReplica();
+  const order = [];
+  const first = new Error('first listener failure');
+  const second = new Error('second listener failure');
+  replica.subscribe(() => { order.push('a'); throw first; });
+  replica.subscribe(() => { order.push('b'); throw second; });
+  replica.subscribe(() => { order.push('c'); });
+  const scheduled = captureMicrotasks(() => {
+    db.onversionchange({ oldVersion: 1, newVersion: 2 });
+    assert.deepEqual(order, ['a', 'b', 'c'], 'delivery is synchronous and complete before returning');
+  });
+  assert.equal(scheduled.length, 1, 'exactly one microtask rethrows');
+  assert.throws(() => scheduled[0](), error => error === first);
+});
+
+test('C1 unsubscribe is idempotent and prevents delivery without affecting other listeners', async () => {
+  const { replica, db } = await openedReplica();
+  const calls = [];
+  const unsubscribeA = replica.subscribe(() => calls.push('a'));
+  const unsubscribeB = replica.subscribe(() => calls.push('b'));
+  assert.equal(typeof unsubscribeA, 'function');
+  unsubscribeA();
+  assert.doesNotThrow(() => unsubscribeA());
+  db.onclose();
+  assert.deepEqual(calls, ['b']);
+  unsubscribeB();
+  unsubscribeB();
+});
+
+test('C1 connection events from a stale generation are ignored', async () => {
+  const { indexedDb, replica, db } = await openedReplica();
+  const received = [];
+  replica.subscribe(event => received.push(event));
+  await replica.close();
+  assert.equal(db.closed, true);
+  db.onversionchange({ oldVersion: 1, newVersion: 2 });
+  db.onclose();
+  assert.deepEqual(received, []);
+  const reopening = replica.open();
+  assert.equal(indexedDb.requests.length, 2, 'the replica is not lost');
+  const fresh = stubDb('fresh');
+  succeedOpen(indexedDb.requests[1], fresh);
+  assert.equal(await reopening, fresh);
+
+  // A late handle from a race is stale too.
+  const race = createLocalReplica({ indexedDb });
+  const raceEvents = [];
+  race.subscribe(event => raceEvents.push(event));
+  const pending = race.open();
+  const closing = race.close();
+  const late = stubDb('late');
+  succeedOpen(indexedDb.requests[2], late);
+  await assert.rejects(pending, isNamed('ReplicaClosedError'));
+  await closing;
+  late.onversionchange?.({ oldVersion: 1, newVersion: 2 });
+  late.onclose?.();
+  assert.deepEqual(raceEvents, []);
 });
 
 // ---- Task 6: dormant guard -----------------------------------------------------------------

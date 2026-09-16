@@ -4,7 +4,7 @@ function blockedError() {
   return new DOMException('Opening Majandus local storage was blocked', 'IndexedDbBlockedError');
 }
 
-export function openMajandusDb(indexedDb = globalThis.indexedDB) {
+export function openMajandusDb(indexedDb = globalThis.indexedDB, { onVersionChange, onClose } = {}) {
   return new Promise((resolve, reject) => {
     let wasBlocked = false;
     let request;
@@ -28,7 +28,14 @@ export function openMajandusDb(indexedDb = globalThis.indexedDB) {
         db.close();
         return;
       }
-      db.onversionchange = () => db.close();
+      // The handle is closed before anyone is told, so an upgrade or deletion elsewhere is never blocked by a listener.
+      db.onversionchange = event => {
+        db.close();
+        if (onVersionChange) onVersionChange({ oldVersion: event.oldVersion, newVersion: event.newVersion });
+      };
+      db.onclose = () => {
+        if (onClose) onClose();
+      };
       resolve(db);
     };
   });

@@ -299,6 +299,76 @@ test('native versionchange closes the handle so database deletion completes', { 
   }
 });
 
+test('C1 replica connection loss: a DB_VERSION + 1 upgrade closes a subscribed replica without blocking', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await createBrowserHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { DB_NAME, DB_VERSION, createLocalReplica } = window.storageApi;
+      await window.__t.reset();
+      const replica = createLocalReplica({ indexedDb: indexedDB });
+      const events = [];
+      replica.subscribe(event => events.push(event));
+      await replica.open();
+      await replica.transact('meta', 'readonly', () => undefined);
+      let blocked = false;
+      let upgraded = false;
+      const upgrade = indexedDB.open(DB_NAME, DB_VERSION + 1);
+      upgrade.onblocked = () => { blocked = true; };
+      upgrade.onupgradeneeded = event => { upgraded = event.oldVersion === DB_VERSION && event.newVersion === DB_VERSION + 1; };
+      const upgradedDb = await new Promise((resolve, reject) => {
+        upgrade.onsuccess = () => resolve(upgrade.result);
+        upgrade.onerror = () => reject(upgrade.error);
+      });
+      const version = upgradedDb.version;
+      let lostName = null;
+      try { await replica.transact('meta', 'readonly', () => undefined); } catch (error) { lostName = error.name; }
+      let openName = null;
+      try { await replica.open(); } catch (error) { openName = error.name; }
+      await replica.close();
+      upgradedDb.close();
+      await window.__t.reset();
+      return { events, blocked, upgraded, version, lostName, openName };
+    })()`);
+    assert.deepEqual(result.events, [{ type: 'versionchange', oldVersion: 1, newVersion: 2 }], 'exactly one versionchange delivered');
+    assert.equal(result.blocked, false, 'the replica handle closed, so the upgrade was not blocked');
+    assert.equal(result.upgraded, true);
+    assert.equal(result.version, 2);
+    assert.equal(result.lostName, 'ReplicaConnectionLostError');
+    assert.equal(result.openName, 'ReplicaConnectionLostError');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C1 replica connection loss: deleteDatabase delivers newVersion null and completes', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await createBrowserHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { DB_NAME, createLocalReplica } = window.storageApi;
+      await window.__t.reset();
+      const replica = createLocalReplica({ indexedDb: indexedDB });
+      const events = [];
+      replica.subscribe(event => events.push(event));
+      await replica.open();
+      let blocked = false;
+      const remove = indexedDB.deleteDatabase(DB_NAME);
+      remove.onblocked = () => { blocked = true; };
+      await new Promise((resolve, reject) => { remove.onsuccess = resolve; remove.onerror = () => reject(remove.error); });
+      let lostName = null;
+      try { await replica.transact('meta', 'readonly', () => undefined); } catch (error) { lostName = error.name; }
+      await replica.close();
+      const names = (await indexedDB.databases()).map(database => database.name);
+      return { events, blocked, lostName, stillListed: names.includes(DB_NAME) };
+    })()`);
+    assert.deepEqual(result.events, [{ type: 'versionchange', oldVersion: 1, newVersion: null }]);
+    assert.equal(result.blocked, false);
+    assert.equal(result.lostName, 'ReplicaConnectionLostError');
+    assert.equal(result.stillListed, false);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
 test('local replica validates contracts, persists records, and keeps outbox sequence atomic', { concurrency: false, timeout: 120000 }, async () => {
   const harness = await createBrowserHarness();
   try {
