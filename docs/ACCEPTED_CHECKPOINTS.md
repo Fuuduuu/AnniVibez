@@ -104,15 +104,6 @@
 - post-amendment falsification review: PASS (plan author); fresh independent review pending
 - runtime implementation: LOCKED
 
-### RUNTIME_CUTOVER_PLAN_AMENDMENT_4
-- status: AMENDED (plan remains LOCKED; not yet accepted)
-- baseline: `5fb0f48dec567a933838991531837934258d2365`
-- origin: fresh independent review verdict AMEND
-- A: revert build with authority absent has its own contract (plan Section 6d): hint absent gives `LEGACY`; valid or malformed hint gives blocking `REVERT_STORAGE_LOST` (dated or undated) with zero writes until user confirmation, then verified hint removal and `LEGACY`; unreadable hint or failed removal gives `STORAGE_UNAVAILABLE`; no silent hint removal
-- B: attempt-id collision: the three target backup keys are probed before "begin revert" and before the first backup write and must all be absent; at most 3 candidates, then `REVERT_FAILED`/`revert-attempt-id-collision` with status `active` and zero writes; unreadable key gives `revert-backup-key-unreadable`; no existing backup key is ever overwritten (`started` resume with an existing target key aborts before export)
-- post-amendment falsification review: PASS (plan author); fresh independent review pending
-- runtime implementation: LOCKED
-
 ### RUNTIME_CUTOVER_PLAN_AMENDMENT_3
 - status: AMENDED (plan remains LOCKED; not yet accepted)
 - baseline: `37b226cdc50f0dddf495dc21c23648c06eb52fbd`
@@ -122,6 +113,26 @@
 - C: calendar order note corrected (`KalenderTab` legend is static; `expandOccurrences` sorts by date, time and `occurrenceId`; `WasteSettings` subtype labels are the only stored-order display found); C6 visual and smoke parity retained
 - post-amendment falsification review: PASS (plan author); fresh independent review pending
 - runtime implementation: LOCKED
+
+### RUNTIME_CUTOVER_PLAN_AMENDMENT_4
+- status: AMENDED (plan remains LOCKED; not yet accepted)
+- baseline: `5fb0f48dec567a933838991531837934258d2365`
+- origin: fresh independent review verdict AMEND
+- A: revert build with authority absent has its own contract (plan Section 6d): hint absent gives `LEGACY`; valid or malformed hint gives blocking `REVERT_STORAGE_LOST` (dated or undated) with zero writes until user confirmation, then verified hint removal and `LEGACY`; unreadable hint or failed removal gives `STORAGE_UNAVAILABLE`; no silent hint removal
+- B: attempt-id collision: the three target backup keys are probed before "begin revert" and before the first backup write and must all be absent; at most 3 candidates, then `REVERT_FAILED`/`revert-attempt-id-collision` with status `active` and zero writes; unreadable key gives `revert-backup-key-unreadable`; no existing backup key is ever overwritten (`started` resume with an existing target key aborts before export)
+- post-amendment falsification review: PASS (plan author); fresh independent review pending
+- runtime implementation: LOCKED
+
+### RUNTIME_CUTOVER_PLAN_ACCEPTED
+- status: HUMAN ACCEPTED
+- plan: `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (amendments 1-4)
+- accepted plan checkpoint: `8077c0e2626f1be1ef149a5690f43aa1e46cb248`
+- `RUNTIME_CUTOVER_PLAN_FRESH_REVIEW = PASS` (fresh independent review)
+- `RUNTIME_CUTOVER_PLAN = ACCEPTED` by the human
+- implementation phases C1-C8: LOCKED; each opens only through its own separate scope-open pass
+- next project gate: `VISUAL_POLISH_V1`, an intentional visual-only interlude before C1
+- runtime/storage implementation stays closed until Visual Polish V1 is checkpointed and a separate C1 scope-open pass is approved
+- recorded state: the Visual Polish V1 implementation commit `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` (`feat: visual polish v1 for Kodu, cards, nav and bus card`) is already on `main` ahead of this record; it is NOT yet checkpointed and awaits the V1 human visual review
 
 ### 1. Initial governance baseline
 **Staatus:** accepted

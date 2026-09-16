@@ -19,11 +19,13 @@ Read and follow in this order:
 
 **PHASE_A_INDEXEDDB_FOUNDATION**: ACCEPTED (`PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`; range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
 
-**RUNTIME_CUTOVER_PLAN**: LOCKED and AMENDED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`. Four independent fresh reviews returned AMEND; amendments 1 (A-D), 2 (A-C), 3 (A-C) and 4 (A-B) are applied (plan Section 12); the post-amendment falsification review is PASS.
+**RUNTIME_CUTOVER_PLAN**: HUMAN ACCEPTED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (accepted plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). Four independent fresh reviews returned AMEND and amendments 1 (A-D), 2 (A-C), 3 (A-C) and 4 (A-B) were applied (plan Section 12); the final fresh independent review is PASS. Implementation phases C1-C8 remain LOCKED.
 
-Current gate: **RUNTIME_CUTOVER_PLAN_FRESH_REVIEW** (a fresh independent review of the amended plan, then human acceptance).
+Current gate: **VISUAL_POLISH_V1**, an intentional visual-only interlude before C1. Runtime/storage implementation stays closed until Visual Polish V1 is checkpointed and a separate C1 scope-open pass is approved.
 
-The locked plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
+Recorded state: the Visual Polish V1 implementation commit `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` is already on `main`; it is not yet checkpointed.
+
+The accepted plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
 - the neutral saved-place module prerequisite (A);
 - unknown authority as `BLOCKED`/`STORAGE_UNAVAILABLE`, never `LEGACY` (B);
 - the hint write as a `READY` gate (C);
@@ -41,10 +43,10 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 
 ## Allowed at this gate
 
-- fresh independent review of the amended plan
-- human acceptance (or further amendment) of the plan
-- docs-only governance updates recording those decisions
-- after acceptance: a separate docs-only scope-open commit for phase C1 exactly as listed in the plan
+- Visual Polish V1 only: visual presentation of the Kodu dashboard, card system, bottom navigation, buttons/controls, `BussCard` and existing motion
+- V1 surfaces: `src/design/tokens.js`, `src/design/shell.css`, `src/components/ShellViews.jsx`, `src/components/BussCard.jsx`, `src/components/ShellIcon.jsx`; `src/App.jsx` only for visual shell structure, classes or CSS variables with zero behavioral change; tests only where visual structure or class expectations legitimately change
+- the V1 human visual review and a docs-only checkpoint recording it
+- after the V1 checkpoint: a separate docs-only scope-open pass for phase C1 exactly as listed in the plan, if approved
 
 ## Locked phases (none open)
 
@@ -61,10 +63,12 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 
 ## Forbidden at this gate
 
-- any `src/**`, test, package or config change
-- opening any phase C1-C8 without its own scope-open commit
+- any `src/**`, test, package or config change outside the Visual Polish V1 surfaces above
+- any behavior, data, storage, hook, data-contract, bus-logic or calendar/waste semantic change during Visual Polish V1
+- dark mode, skeleton loaders, bus live countdown, dynamic theme-color behavior, bottom-sheet dialogs, new dependencies, or Visual Polish V2 work
+- opening any phase C1-C8 without its own scope-open pass (C1 cannot open before the V1 checkpoint)
 - runtime cutover: importing storage into App/React or any production component, switching reads from localStorage to IndexedDB, startup migration or any user data migration
-- writes to legacy keys by any forward cutover path (only the plan's revert export may write them)
+- writes to legacy keys by any forward cutover path (only the revert export defined in the plan may write them)
 - D1/backend, Cloudflare bindings, network calls, authentication, sync, outbox mutations or outbox UI
 - dependency updates (including remediation of the pre-existing `npm audit` report) or deployment
 - deploying a pre-cutover build to an origin where any device may have switched
@@ -78,4 +82,4 @@ All accepted Phase A Task 1-6 contracts remain unchanged except the narrow C1 an
 
 ## Decision gate
 
-NEXT: fresh independent review of the amended runtime cutover plan, then HUMAN DECISION (accept or amend). Runtime implementation remains LOCKED until acceptance and a separate C1 scope-open commit.
+NEXT: Visual Polish V1 human visual review and checkpoint. The runtime cutover plan is ACCEPTED; runtime implementation remains LOCKED until the V1 checkpoint and a separate approved C1 scope-open pass.
