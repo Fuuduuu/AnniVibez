@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +14,9 @@ import {
 } from '../../src/storage/localReplica.js';
 import { openMajandusDb } from '../../src/storage/indexedDb.js';
 import { normalizePlace as runtimeNormalizePlace, normalizePlaces as runtimeNormalizePlaces } from '../../src/places/savedPlaces.js';
+import { validateRuntimeRecord, validateSharedPlaceOrders } from '../../src/storage/runtimeRecords.js';
+import { validateEvent } from '../../src/calendar/eventModel.js';
+import { importKey } from '../../src/waste/reconcile.js';
 
 const [CALENDAR_KEY, HOUSEHOLD_PROFILE_KEY, PLACES_KEY] = LEGACY_SHARED_KEYS;
 
@@ -938,6 +941,128 @@ test('C1 connection events from a stale generation are ignored', async () => {
   assert.deepEqual(raceEvents, []);
 });
 
+// ---- C3: runtime record validation boundary ------------------------------------------------
+
+const RUNTIME_STAMP = '2026-09-16T10:00:00.000Z';
+const runtimeEnvelope = extra => ({ payload: {}, revision: 0, updatedAt: RUNTIME_STAMP, deletedAt: null, syncStatus: 'local', ...extra });
+const calendarPayload = (overrides = {}) => validateEvent({
+  id: 'event-1', title: 'Prügi', category: 'waste', subtype: 'mixed', date: '2026-09-20', source: 'manual',
+  recurrence: { frequency: 'none', interval: 1 }, ...overrides,
+});
+const wasteBatch = (overrides = {}) => ({
+  key: importKey('fixture', 'tamme 1'), provider: 'fixture', providerName: 'Fixture', address: 'Tamme 1', addressKey: 'tamme 1',
+  lastSuccess: RUNTIME_STAMP, returnedCount: 2, ...overrides,
+});
+const rejectsRecord = (store, record, label) => assert.throws(() => validateRuntimeRecord(store, record), undefined, label);
+
+test('C3 runtime records reject unknown stores and non-local, revised, deleted or malformed envelopes', () => {
+  const valid = runtimeEnvelope({ key: 'household', payload: { name: 'Kodu', address: '', serverHouseholdId: null } });
+  assert.equal(validateRuntimeRecord('householdProfile', valid), valid);
+  for (const store of ['meta', 'outbox', 'auth', 'syncState', 'conflicts', 'unknown', undefined]) {
+    assert.throws(() => validateRuntimeRecord(store, valid), TypeError, `store ${store}`);
+  }
+  rejectsRecord('householdProfile', { ...valid, syncStatus: 'pending' }, 'pending');
+  rejectsRecord('householdProfile', { ...valid, syncStatus: 'synced', revision: 1 }, 'synced');
+  rejectsRecord('householdProfile', { ...valid, syncStatus: 'conflict' }, 'conflict');
+  rejectsRecord('householdProfile', { ...valid, revision: 1 }, 'revision');
+  rejectsRecord('householdProfile', { ...valid, deletedAt: RUNTIME_STAMP }, 'deletedAt');
+  rejectsRecord('householdProfile', { ...valid, deletedAt: undefined }, 'deletedAt undefined');
+  rejectsRecord('householdProfile', { ...valid, updatedAt: '2026-02-30T10:00:00Z' }, 'updatedAt');
+  rejectsRecord('householdProfile', { ...valid, key: 'other' }, 'key');
+  rejectsRecord('householdProfile', null, 'null record');
+});
+
+test('C3 calendar runtime records accept accepted event output and reject repairs, invalid events and id mismatch', () => {
+  const payload = calendarPayload();
+  const record = runtimeEnvelope({ id: 'event-1', payload });
+  assert.equal(validateRuntimeRecord('calendarEvents', record), record);
+  const series = calendarPayload({ id: 'event-2', seriesId: 'series:event-2', recurrence: { frequency: 'weekly', interval: 2 }, excludedDates: ['2026-09-27'], overrides: { '2026-10-04': { title: 'Nihkes' } } });
+  assert.doesNotThrow(() => validateRuntimeRecord('calendarEvents', runtimeEnvelope({ id: 'event-2', payload: series })));
+  const repairable = [
+    ['untrimmed title', { ...payload, title: '  Prügi  ' }],
+    ['missing householdId', (({ householdId, ...rest }) => rest)(payload)],
+    ['missing notes', (({ notes, ...rest }) => rest)(payload)],
+    ['non-waste subtype kept', { ...calendarPayload({ category: 'general', subtype: undefined }), subtype: 'mixed' }],
+    ['unsorted excluded dates', { ...series, excludedDates: ['2026-10-11', '2026-09-27'] }],
+    ['missing interval', { ...payload, recurrence: { frequency: 'none' } }],
+  ];
+  for (const [label, candidate] of repairable) rejectsRecord('calendarEvents', runtimeEnvelope({ id: 'event-1', payload: candidate }), label);
+  rejectsRecord('calendarEvents', runtimeEnvelope({ id: 'event-1', payload: { ...payload, title: '' } }), 'invalid title');
+  rejectsRecord('calendarEvents', runtimeEnvelope({ id: 'event-1', payload: { ...payload, date: '2026-13-01' } }), 'invalid date');
+  rejectsRecord('calendarEvents', runtimeEnvelope({ id: 'event-1', payload: { ...payload, source: 'server' } }), 'invalid source');
+  rejectsRecord('calendarEvents', runtimeEnvelope({ id: 'other-id', payload }), 'id mismatch');
+  rejectsRecord('calendarEvents', runtimeEnvelope({ id: 'event-1', payload: null }), 'null payload');
+});
+
+test('C3 waste runtime records accept accepted import history and reject invalid history, absent history and extra fields', () => {
+  const record = runtimeEnvelope({ key: 'waste', payload: { wasteImports: [wasteBatch(), wasteBatch({ key: importKey('fixture', 'kivi 2'), addressKey: 'kivi 2', range: { from: '2026-09-01', to: '2026-12-31', authoritative: true } })] } });
+  assert.equal(validateRuntimeRecord('wasteState', record), record);
+  assert.doesNotThrow(() => validateRuntimeRecord('wasteState', runtimeEnvelope({ key: 'waste', payload: { wasteImports: [] } })));
+  for (const [label, payload] of [
+    ['wrong batch key', { wasteImports: [wasteBatch({ key: 'forged' })] }],
+    ['negative count', { wasteImports: [wasteBatch({ returnedCount: -1 })] }],
+    ['bad timestamp', { wasteImports: [wasteBatch({ lastSuccess: 'yesterday' })] }],
+    ['inverted range', { wasteImports: [wasteBatch({ range: { from: '2026-12-31', to: '2026-09-01', authoritative: true } })] }],
+    ['non-array history', { wasteImports: {} }],
+    ['absent history', {}],
+    ['extra field', { wasteImports: [], other: true }],
+  ]) rejectsRecord('wasteState', runtimeEnvelope({ key: 'waste', payload }), label);
+  rejectsRecord('wasteState', runtimeEnvelope({ key: 'other', payload: { wasteImports: [] } }), 'key');
+});
+
+test('C3 household runtime records go through the accepted repository save path and require serverHouseholdId null', () => {
+  const record = runtimeEnvelope({ key: 'household', payload: { name: 'Kodu', address: 'Tamme 1, Rakvere', serverHouseholdId: null } });
+  assert.equal(validateRuntimeRecord('householdProfile', record), record);
+  assert.doesNotThrow(() => validateRuntimeRecord('householdProfile', runtimeEnvelope({ key: 'household', payload: { name: '', address: '', serverHouseholdId: null } })));
+  for (const [label, payload] of [
+    ['untrimmed name', { name: ' Kodu ', address: '', serverHouseholdId: null }],
+    ['untrimmed address', { name: 'Kodu', address: 'Tamme 1 ', serverHouseholdId: null }],
+    ['server id set', { name: 'Kodu', address: '', serverHouseholdId: 'server-1' }],
+    ['server id missing', { name: 'Kodu', address: '' }],
+    ['name too long', { name: 'x'.repeat(101), address: '', serverHouseholdId: null }],
+    ['address not string', { name: 'Kodu', address: 5, serverHouseholdId: null }],
+    ['null payload', null],
+  ]) rejectsRecord('householdProfile', runtimeEnvelope({ key: 'household', payload }), label);
+});
+
+test('C3 place runtime records must equal the neutral normalizePlace output for their order', () => {
+  const record = runtimeEnvelope({ id: 'place-1', order: 0, payload: runtimeNormalizePlace({ name: 'Kodu', address: 'Tamme 1', lat: 59.3, lon: 26.3 }, 0) });
+  assert.equal(validateRuntimeRecord('sharedPlaces', record), record);
+  assert.doesNotThrow(() => validateRuntimeRecord('sharedPlaces', runtimeEnvelope({ id: 'place-4', order: 3, payload: runtimeNormalizePlace({}, 3) })));
+  for (const [label, order, payload] of [
+    ['untrimmed name', 0, { name: ' Kodu ', address: '', lat: null, lon: null }],
+    ['string coordinate', 0, { name: 'Kodu', address: '', lat: '59.3', lon: null }],
+    ['missing address', 0, { name: 'Kodu', lat: null, lon: null }],
+    ['extra field', 0, { name: 'Kodu', address: '', lat: null, lon: null, id: 'x' }],
+    ['blank name', 1, { name: '', address: '', lat: null, lon: null }],
+    ['NaN coordinate', 0, { name: 'Kodu', address: '', lat: NaN, lon: null }],
+  ]) rejectsRecord('sharedPlaces', runtimeEnvelope({ id: 'place-1', order, payload }), label);
+  rejectsRecord('sharedPlaces', runtimeEnvelope({ id: 'place-1', order: 0.5, payload: record.payload }), 'fractional order');
+  rejectsRecord('sharedPlaces', runtimeEnvelope({ id: '', order: 0, payload: record.payload }), 'empty id');
+});
+
+test('C3 shared place orders must be the contiguous integers 0..n-1', () => {
+  const at = (id, order) => ({ id, order });
+  for (const records of [[], [at('a', 0)], [at('a', 0), at('b', 1), at('c', 2)], [at('c', 2), at('a', 0), at('b', 1)]]) {
+    assert.doesNotThrow(() => validateSharedPlaceOrders(records), JSON.stringify(records));
+  }
+  for (const records of [[at('a', 1)], [at('a', 0), at('b', 2)], [at('a', 0), at('b', 0)], [at('a', -1), at('b', 0)], [at('a', 0), at('a', 1)], [at('a', '0')]]) {
+    assert.throws(() => validateSharedPlaceOrders(records), undefined, JSON.stringify(records));
+  }
+});
+
+test('C3 direct transaction calls stay confined to the accepted storage modules', () => {
+  const allowed = new Set(['src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/runtimeWrites.js', 'src/storage/storageAuthority.js']);
+  const files = [...runtimeSourceFiles(), ...readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).map(name => `${STORAGE_DIRECTORY}/${name}`)];
+  const callers = files.filter(path => CODE_FILE.test(path))
+    .filter(path => /\.transact\s*\(|(?<!function\s+)\brunTransaction\s*\(/.test(readFileSync(join(repositoryRoot, path), 'utf8')));
+  for (const path of callers) assert.ok(allowed.has(path), `${path} must not call transact/runTransaction directly`);
+  assert.ok(callers.includes('src/storage/runtimeWrites.js'), 'runtimeWrites.js owns runtime mutation transactions');
+  assert.ok(!existsSync(join(repositoryRoot, STORAGE_DIRECTORY, 'storageAuthority.js')), 'storageAuthority.js is not created in C3');
+  const records = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, 'runtimeRecords.js'), 'utf8');
+  assert.doesNotMatch(records, /\/hooks\/|\buse[A-Z]\w*\b/, 'runtimeRecords.js imports no hook');
+});
+
 // ---- Task 6: dormant guard -----------------------------------------------------------------
 
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
@@ -1098,8 +1223,10 @@ test('the application bundle contains no storage foundation module, directly or 
 
 test('storage foundation modules stay dormant: no network, global storage, UI or unexpected imports', () => {
   const modules = readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).sort();
-  assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'schema.js']);
-  const allowedImports = ['../calendar/eventRepository.js', '../waste/householdRepository.js', './indexedDb.js', './localReplica.js', './schema.js'];
+  assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'runtimeRecords.js', 'runtimeWrites.js', 'schema.js']);
+  // C3 extends the accepted imports only with the pure domain modules named by the runtime cutover plan.
+  const allowedImports = ['../calendar/eventRepository.js', '../waste/householdRepository.js', './indexedDb.js', './localReplica.js', './schema.js',
+    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js'];
   const forbidden = ['fetch(', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'navigator', 'localStorage', 'sessionStorage', 'window.', 'document.', 'serviceWorker', 'react'];
   for (const name of modules) {
     const source = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, name), 'utf8');

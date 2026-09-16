@@ -45,7 +45,10 @@ async function createBrowserHarness() {
         import { openMajandusDb, closeDb, requestResult, runTransaction } from './src/storage/indexedDb.js';
         import { validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord, createLocalReplica } from './src/storage/localReplica.js';
         import * as legacy from './src/storage/legacyMigration.js';
-        window.storageApi = { DB_NAME, DB_VERSION, STORE_NAMES, upgradeSchema, openMajandusDb, closeDb, requestResult, runTransaction, validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord, createLocalReplica, legacy };
+        import { validateRuntimeRecord, validateSharedPlaceOrders } from './src/storage/runtimeRecords.js';
+        import { runReplicaMutation } from './src/storage/runtimeWrites.js';
+        import { normalizePlace } from './src/places/savedPlaces.js';
+        window.storageApi = { DB_NAME, DB_VERSION, STORE_NAMES, upgradeSchema, openMajandusDb, closeDb, requestResult, runTransaction, validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord, createLocalReplica, legacy, validateRuntimeRecord, validateSharedPlaceOrders, runReplicaMutation, normalizePlace };
       `,
     },
   });
@@ -294,6 +297,284 @@ test('native versionchange closes the handle so database deletion completes', { 
       return 'deleted';
     })()`);
     assert.equal(result, 'deleted');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+// Page-side C3 helpers: a seeded replica with a valid authority record and a spy-free dump.
+const C3_PAGE = `window.__c3 = (() => {
+  const api = window.storageApi;
+  const AUTHORITY = { key: 'storageAuthorityV1', status: 'active', switchId: 'switch-1', switchedAt: '2026-09-16T10:00:00.000Z',
+    legacyDigestAtSwitch: 'a'.repeat(64), markerPreparationId: 'prep-1', commitCount: 0, legacyUntrusted: false, persistGranted: null };
+  const place = (id, order, name) => ({ id, order, payload: api.normalizePlace({ name }, order), revision: 0, updatedAt: '2026-09-16T10:00:00.000Z', deletedAt: null, syncStatus: 'local' });
+  const setup = async (authority = AUTHORITY) => {
+    await window.__t.reset();
+    const replica = api.createLocalReplica({ indexedDb: indexedDB });
+    if (authority !== null) await replica.transact(['meta'], 'readwrite', ({ stores }) => api.requestResult(stores.meta.put(authority)));
+    return replica;
+  };
+  const state = replica => replica.transact(['meta', 'sharedPlaces', 'calendarEvents', 'householdProfile', 'wasteState'], 'readonly', async ({ stores }) => ({
+    authority: await api.requestResult(stores.meta.get('storageAuthorityV1')) ?? null,
+    metaKeys: (await api.requestResult(stores.meta.getAllKeys())).sort(),
+    places: await api.requestResult(stores.sharedPlaces.getAll()),
+    events: await api.requestResult(stores.calendarEvents.getAll()),
+    household: await api.requestResult(stores.householdProfile.getAll()),
+    waste: await api.requestResult(stores.wasteState.getAll()),
+  }));
+  const failure = error => ({ name: error && error.name, state: error && error.state, reason: error && error.reason, message: String(error && error.message) });
+  const attempt = async promise => { try { return { ok: true, value: await promise }; } catch (error) { return { ok: false, error: failure(error) }; } };
+  const placesMutation = (replica, overrides = {}) => api.runReplicaMutation({
+    replica, authority: { switchId: 'switch-1' }, domain: 'places', stores: ['sharedPlaces'],
+    read: ({ sharedPlaces }) => api.requestResult(sharedPlaces.getAll()),
+    plan: snapshot => ({ puts: [{ store: 'sharedPlaces', record: place('place-' + (snapshot.length + 1), snapshot.length, 'Koht ' + snapshot.length) }], deletes: [], result: snapshot.length }),
+    ...overrides,
+  });
+  return { AUTHORITY, place, setup, state, attempt, placesMutation };
+})();
+'ready';`;
+
+async function c3Harness() {
+  const harness = await createBrowserHarness();
+  await harness.evaluate(C3_PAGE);
+  return harness;
+}
+
+test('C3 runtime mutation commits planned writes and increments commitCount exactly once per committed mutation', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c3Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { setup, state, attempt, placesMutation } = window.__c3;
+      const replica = await setup();
+      const first = await attempt(placesMutation(replica));
+      const afterFirst = await state(replica);
+      const second = await attempt(placesMutation(replica));
+      const afterSecond = await state(replica);
+      const deletion = await attempt(window.storageApi.runReplicaMutation({ replica, authority: { switchId: 'switch-1' }, domain: 'places', stores: ['sharedPlaces', 'meta'],
+        read: ({ sharedPlaces }) => window.storageApi.requestResult(sharedPlaces.getAll()),
+        plan: snapshot => ({ puts: [], deletes: [{ store: 'sharedPlaces', key: 'place-2' }], result: 'deleted' }) }));
+      const afterDelete = await state(replica);
+      await replica.close();
+      return { first, second, deletion, afterFirst, afterSecond, afterDelete };
+    })()`);
+    assert.deepEqual(result.first, { ok: true, value: 0 });
+    assert.deepEqual(result.second, { ok: true, value: 1 });
+    assert.equal(result.afterFirst.authority.commitCount, 1);
+    assert.deepEqual(result.afterFirst.places.map(record => [record.id, record.order]), [['place-1', 0]]);
+    assert.equal(result.afterSecond.authority.commitCount, 2);
+    assert.deepEqual(result.afterSecond.places.map(record => [record.id, record.order]), [['place-1', 0], ['place-2', 1]]);
+    assert.deepEqual(result.deletion, { ok: true, value: 'deleted' });
+    assert.equal(result.afterDelete.authority.commitCount, 3);
+    assert.deepEqual(result.afterDelete.places.map(record => record.id), ['place-1']);
+    const { commitCount, ...unchangedFields } = result.afterDelete.authority;
+    const { commitCount: seeded, ...seededFields } = await harness.evaluate('window.__c3.AUTHORITY');
+    assert.deepEqual(unchangedFields, seededFields, 'only commitCount changes');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C3 a thenable plan throws TypeError before any write and leaves every store unchanged', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c3Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { setup, state, attempt, placesMutation, place } = window.__c3;
+      const replica = await setup();
+      const before = await state(replica);
+      const promisePlan = await attempt(placesMutation(replica, { plan: async () => ({ puts: [{ store: 'sharedPlaces', record: place('place-1', 0, 'A') }], deletes: [] }) }));
+      let thenCalled = false;
+      const customThenable = await attempt(placesMutation(replica, { plan: () => ({ then() { thenCalled = true; }, puts: [{ store: 'sharedPlaces', record: place('place-1', 0, 'A') }], deletes: [] }) }));
+      const after = await state(replica);
+      await replica.close();
+      return { promisePlan, customThenable, thenCalled, before, after };
+    })()`);
+    assert.equal(result.promisePlan.ok, false);
+    assert.equal(result.promisePlan.error.name, 'TypeError');
+    assert.equal(result.customThenable.ok, false);
+    assert.equal(result.customThenable.error.name, 'TypeError');
+    assert.equal(result.thenCalled, false, 'the helper never adopts a thenable plan');
+    assert.deepEqual(result.after, result.before);
+    assert.equal(result.after.authority.commitCount, 0);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C3 validation failure aborts the whole mutation with zero domain and meta writes', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c3Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { setup, state, attempt, placesMutation, place } = window.__c3;
+      const api = window.storageApi;
+      const replica = await setup();
+      const before = await state(replica);
+      let planned = 0;
+      const cases = {
+        invalidPlace: placesMutation(replica, { plan: () => { planned += 1; return { puts: [{ store: 'sharedPlaces', record: place('place-1', 0, 'A') }, { store: 'sharedPlaces', record: { ...place('place-2', 1, 'B'), payload: { name: ' B ', address: '', lat: null, lon: null } } }], deletes: [] }; } }),
+        gapInOrders: placesMutation(replica, { plan: () => { planned += 1; return { puts: [{ store: 'sharedPlaces', record: place('place-2', 1, 'B') }], deletes: [] }; } }),
+        repairedEvent: api.runReplicaMutation({ replica, authority: { switchId: 'switch-1' }, domain: 'calendar', stores: ['calendarEvents', 'wasteState'], read: () => null,
+          plan: () => { planned += 1; return { puts: [{ store: 'calendarEvents', record: { id: 'e1', payload: { id: 'e1', title: ' Prügi ', category: 'general', date: '2026-09-20', source: 'manual' }, revision: 0, updatedAt: '2026-09-16T10:00:00.000Z', deletedAt: null, syncStatus: 'local' } }], deletes: [] }; } }),
+        householdServerId: api.runReplicaMutation({ replica, authority: { switchId: 'switch-1' }, domain: 'household', stores: ['householdProfile'], read: () => null,
+          plan: () => { planned += 1; return { puts: [{ store: 'householdProfile', record: { key: 'household', payload: { name: 'Kodu', address: '', serverHouseholdId: 'server-1' }, revision: 0, updatedAt: '2026-09-16T10:00:00.000Z', deletedAt: null, syncStatus: 'local' } }], deletes: [] }; } }),
+        metaWrite: placesMutation(replica, { plan: () => { planned += 1; return { puts: [{ store: 'meta', record: { key: 'other' } }], deletes: [] }; } }),
+        wrongDomainStore: api.runReplicaMutation({ replica, authority: { switchId: 'switch-1' }, domain: 'places', stores: ['calendarEvents'], read: () => null,
+          plan: () => { planned += 1; return { puts: [], deletes: [] }; } }),
+        malformedPlan: placesMutation(replica, { plan: () => { planned += 1; return { puts: {} }; } }),
+      };
+      const outcomes = {};
+      for (const [name, promise] of Object.entries(cases)) outcomes[name] = await attempt(promise);
+      const after = await state(replica);
+      await replica.close();
+      return { outcomes, planned, before, after };
+    })()`);
+    for (const [name, outcome] of Object.entries(result.outcomes)) assert.equal(outcome.ok, false, `${name} must be rejected`);
+    assert.equal(result.outcomes.wrongDomainStore.error.name, 'TypeError', 'stores outside the domain are rejected before the transaction');
+    assert.deepEqual(result.after, result.before, 'no domain or meta record changed');
+    assert.equal(result.after.authority.commitCount, 0);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C3 authority switchId mismatch, inactive status and absent authority abort with zero writes', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c3Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { AUTHORITY, setup, state, attempt, placesMutation } = window.__c3;
+      const out = {};
+      for (const [name, authority, runtimeSwitchId] of [
+        ['wrongSwitchId', AUTHORITY, 'switch-2'],
+        ['reverting', { ...AUTHORITY, status: 'reverting' }, 'switch-1'],
+        ['reverted', { ...AUTHORITY, status: 'reverted' }, 'switch-1'],
+        ['absent', null, 'switch-1'],
+      ]) {
+        const replica = await setup(authority);
+        const before = await state(replica);
+        let planned = false;
+        const outcome = await attempt(placesMutation(replica, { authority: { switchId: runtimeSwitchId }, plan: () => { planned = true; return { puts: [], deletes: [] }; } }));
+        const after = await state(replica);
+        await replica.close();
+        out[name] = { outcome, planned, unchanged: JSON.stringify(after) === JSON.stringify(before) };
+      }
+      return out;
+    })()`);
+    for (const [name, entry] of Object.entries(result)) {
+      assert.equal(entry.outcome.ok, false, name);
+      assert.equal(entry.outcome.error.name, 'RuntimeAuthorityError', name);
+      assert.equal(entry.outcome.error.state, 'RELOAD_REQUIRED', name);
+      assert.equal(entry.outcome.error.reason, 'authority-mismatch', name);
+      assert.equal(entry.planned, false, `${name}: plan must not run`);
+      assert.equal(entry.unchanged, true, `${name}: zero writes`);
+    }
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C3 malformed authority records abort before writes as STORAGE_UNAVAILABLE / authority-malformed', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c3Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { AUTHORITY, setup, state, attempt, placesMutation } = window.__c3;
+      const { persistGranted, ...missingKey } = AUTHORITY;
+      const classes = {
+        extraKey: { ...AUTHORITY, extra: true },
+        missingKey,
+        emptyMarkerPreparationId: { ...AUTHORITY, markerPreparationId: '' },
+        unknownStatus: { ...AUTHORITY, status: 'paused' },
+        emptySwitchId: { ...AUTHORITY, switchId: '' },
+        nonStringSwitchId: { ...AUTHORITY, switchId: 7 },
+        invalidSwitchedAt: { ...AUTHORITY, switchedAt: '2026-02-30T10:00:00.000Z' },
+        uppercaseDigest: { ...AUTHORITY, legacyDigestAtSwitch: 'A'.repeat(64) },
+        shortDigest: { ...AUTHORITY, legacyDigestAtSwitch: 'a'.repeat(63) },
+        negativeCommitCount: { ...AUTHORITY, commitCount: -1 },
+        fractionalCommitCount: { ...AUTHORITY, commitCount: 1.5 },
+        unsafeCommitCount: { ...AUTHORITY, commitCount: Number.MAX_SAFE_INTEGER + 2 },
+        stringCommitCount: { ...AUTHORITY, commitCount: '0' },
+        nonBooleanUntrusted: { ...AUTHORITY, legacyUntrusted: 'no' },
+        badPersistGranted: { ...AUTHORITY, persistGranted: 'yes' },
+        nullStatus: { ...AUTHORITY, status: null },
+      };
+      const out = {};
+      for (const [name, authority] of Object.entries(classes)) {
+        const replica = await setup(authority);
+        const before = await state(replica);
+        let planned = false;
+        const outcome = await attempt(placesMutation(replica, { plan: () => { planned = true; return { puts: [], deletes: [] }; } }));
+        const after = await state(replica);
+        await replica.close();
+        out[name] = { outcome, planned, unchanged: JSON.stringify(after) === JSON.stringify(before) };
+      }
+      const exhausted = await setup({ ...AUTHORITY, commitCount: Number.MAX_SAFE_INTEGER });
+      const exhaustedBefore = await state(exhausted);
+      const exhaustedOutcome = await attempt(placesMutation(exhausted));
+      const exhaustedAfter = await state(exhausted);
+      await exhausted.close();
+      out.exhausted = { outcome: exhaustedOutcome, unchanged: JSON.stringify(exhaustedAfter) === JSON.stringify(exhaustedBefore) };
+      return out;
+    })()`);
+    const { exhausted, ...malformed } = result;
+    assert.equal(Object.keys(malformed).length, 16);
+    for (const [name, entry] of Object.entries(malformed)) {
+      assert.equal(entry.outcome.ok, false, name);
+      assert.equal(entry.outcome.error.name, 'RuntimeAuthorityError', name);
+      assert.equal(entry.outcome.error.state, 'STORAGE_UNAVAILABLE', name);
+      assert.equal(entry.outcome.error.reason, 'authority-malformed', name);
+      assert.equal(entry.planned, false, `${name}: plan must not run`);
+      assert.equal(entry.unchanged, true, `${name}: zero writes`);
+    }
+    assert.equal(exhausted.outcome.ok, false, 'commitCount + 1 above MAX_SAFE_INTEGER aborts');
+    assert.equal(exhausted.outcome.error.name, 'RangeError');
+    assert.equal(exhausted.unchanged, true);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C3 transaction auto-commit hazard: a timer await before writing raises TransactionInactiveError with no write issued', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c3Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { setup, state, attempt, placesMutation, place } = window.__c3;
+      const api = window.storageApi;
+      const replica = await setup();
+      const db = await replica.open();
+      const raw = await new Promise(resolve => {
+        const transaction = db.transaction(['sharedPlaces'], 'readwrite');
+        const events = [];
+        transaction.oncomplete = () => events.push('complete');
+        (async () => {
+          const store = transaction.objectStore('sharedPlaces');
+          await api.requestResult(store.getAll());
+          events.push('read');
+          await new Promise(done => setTimeout(done, 50));
+          let writeIssued = false;
+          try {
+            store.put(place('raw-1', 0, 'Raw'));
+            writeIssued = true;
+          } catch (error) {
+            events.push('throw:' + error.name);
+          }
+          resolve({ writeIssued, events });
+        })();
+      });
+      const before = await state(replica);
+      const viaHelper = await attempt(placesMutation(replica, { read: async ({ sharedPlaces }) => {
+        const rows = await api.requestResult(sharedPlaces.getAll());
+        await new Promise(done => setTimeout(done, 50));
+        return rows;
+      } }));
+      const after = await state(replica);
+      await replica.close();
+      return { raw, viaHelper, before, after };
+    })()`);
+    assert.equal(result.raw.writeIssued, false);
+    assert.deepEqual(result.raw.events, ['read', 'complete', 'throw:TransactionInactiveError'], 'the transaction auto-committed before the attempted write');
+    assert.equal(result.before.places.length, 0, 'the raw write never reached the store');
+    assert.equal(result.viaHelper.ok, false, 'the helper never reports an auto-committed transaction as success');
+    assert.equal(result.viaHelper.error.name, 'TransactionInactiveError');
+    assert.deepEqual(result.after, result.before);
+    assert.equal(result.after.authority.commitCount, 0);
   } finally {
     await harness.cleanup();
   }
