@@ -250,6 +250,33 @@
 - runtime behavior change: NONE; storage foundation: DORMANT
 - C4-C8: LOCKED
 
+### RUNTIME_CUTOVER_C3
+- status: ACCEPTED / CHECKPOINTED
+- implementation history: `41d0fdadb78ba4adfaf2bd726d6cba9dbd7bed9b` (`feat: add runtime record and mutation guards`), `5612953e7c9e07eef411cecc3c6bb5dd5685930d` (`fix: reject async runtime mutation results`)
+- final implementation: `5612953e7c9e07eef411cecc3c6bb5dd5685930d`
+- independent review: initial AMEND (a thenable `planned.result` could be adopted and reject after the transaction committed); final PASS / ACCEPT (the result thenable is rejected synchronously before validation and write requests)
+- independent source review of the final HEAD: live final HEAD verified; fix scope exactly `src/storage/runtimeWrites.js` + `scripts/storage/indexeddb-browser.test.mjs`; guard ordering PASS; result thenable non-adoption PASS; zero-write source ordering PASS; remaining C3 blocker NONE FOUND
+- changed files (C3 total): new `src/storage/runtimeRecords.js`, new `src/storage/runtimeWrites.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`
+- accepted contracts:
+  - runtime record validation boundary: `validateRuntimeRecord(store, record)`
+  - Task 2 envelope validators reused (not reimplemented), with `syncStatus: 'local'`, `revision: 0`, `deletedAt: null`
+  - calendar: `validateEvent` plus exact payload equality and `payload.id === record.id`; no silent repair
+  - waste: `validateImportHistory` import-history validation
+  - household: validation through the accepted household repository save path (`serverHouseholdId === null`); household rules not duplicated
+  - saved places: `normalizePlace` from `src/places/savedPlaces.js` deep-equal plus contiguous `0..n-1` order validation
+  - authority write guard: exact 9-field authority record, `status === 'active'`, matching `switchId`, safe `commitCount` and safe `commitCount + 1`
+  - READ → synchronous PLAN → VALIDATE → synchronous WRITE discipline in one readwrite transaction including `meta`
+  - a top-level thenable plan is rejected with `TypeError` before any write
+  - a thenable `planned.result` is rejected with `TypeError` before any write and is never adopted (its `then` is never invoked)
+  - validation failure yields zero domain and zero meta writes
+  - a successful mutation increments `commitCount` exactly once; no increment on abort or failure
+  - authority mismatch/absence → `RELOAD_REQUIRED` / `authority-mismatch`; malformed authority → `STORAGE_UNAVAILABLE` / `authority-malformed`; both with zero writes
+  - transaction auto-commit hazard (`TransactionInactiveError`) is reported as failure, never as success
+- evidence: C3 node `7/7`, storage `73/73`, IndexedDB/Chromium `25/25`, saved places `6/6`, calendar + UI `48/48`, app shell `23/23`, reminders + UI + native `82/82`, waste + UI `53/53`, build PASS, diff check PASS
+- runtime behavior change: NONE; storage foundation: DORMANT
+- C3 source scope: CLOSED
+- next project gate: `RUNTIME_CUTOVER_C4_SCOPE_OPEN` (docs-only C4 scope-open pass); C4 implementation LOCKED until that pass; C5-C8 LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

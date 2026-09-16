@@ -1,6 +1,6 @@
 # Majandus Runtime Cutover Plan (localStorage -> IndexedDB)
 
-Status: HUMAN ACCEPTED (plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). AMENDED four times after independent fresh reviews returned AMEND (amendment record in Section 12); the final fresh independent review returned PASS. It authorizes no runtime code by itself. Each phase opens only through its own separate scope-open pass. C1 ACCEPTED / CHECKPOINTED at `704cc7a815d1df1efdbfba979814aceb94886c09`; C2 ACCEPTED / CHECKPOINTED at `cdacf4ec2f9b9f0767d485708c5a5e9c4c0f379e`; C3 scope OPEN at `65e34d702fed498960c07dc88ebefd2fc917c346` (implementation in a separate pass); C4-C8 LOCKED.
+Status: HUMAN ACCEPTED (plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). AMENDED four times after independent fresh reviews returned AMEND (amendment record in Section 12); the final fresh independent review returned PASS. It authorizes no runtime code by itself. Each phase opens only through its own separate scope-open pass. C1 ACCEPTED / CHECKPOINTED at `704cc7a815d1df1efdbfba979814aceb94886c09`; C2 ACCEPTED / CHECKPOINTED at `cdacf4ec2f9b9f0767d485708c5a5e9c4c0f379e`; C3 ACCEPTED / CHECKPOINTED at `5612953e7c9e07eef411cecc3c6bb5dd5685930d`; C4 opens only through its docs-only scope-open pass; C4-C8 LOCKED.
 
 **Goal:** Make the accepted Phase A IndexedDB replica the runtime authority for the three shared household domains without data loss, split authority or an unrecoverable rollback.
 
