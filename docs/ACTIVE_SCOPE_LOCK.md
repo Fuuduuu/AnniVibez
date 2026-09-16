@@ -17,11 +17,11 @@ Read and follow in this order:
 
 ## Current phase
 
-**PHASE_A_INDEXEDDB_FOUNDATION**: IMPLEMENTATION COMPLETE.
+**PHASE_A_INDEXEDDB_FOUNDATION**: ACCEPTED (`PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`).
 
-Current gate: **PHASE_A_FINAL_HUMAN_REVIEW**.
+Current gate: **RUNTIME_CUTOVER_PLANNING** (planning only).
 
-Tasks 1-6 are ACCEPTED / COMPLETE; the final implementation commit is `abdd002240e78ed093facdb3ef463d4ba6ede418` (Task 6). The Phase A range is `4e9a65af179c45ce95395aae21d577fe90ed13b2` (plan checkpoint) `..abdd002240e78ed093facdb3ef463d4ba6ede418`. All accepted Task 1-6 contracts in `docs/superpowers/plans/2026-09-14-majandus-phase-a-indexeddb-foundation.md` remain authoritative and unchanged.
+Tasks 1-6 are ACCEPTED / COMPLETE (Phase A range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`). Human acceptance is based on the Phase A review package recorded at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`. All accepted Task 1-6 contracts in `docs/superpowers/plans/2026-09-14-majandus-phase-a-indexeddb-foundation.md` remain authoritative and unchanged.
 
 ## Accepted state carried forward
 
@@ -32,13 +32,24 @@ Tasks 1-6 are ACCEPTED / COMPLETE; the final implementation commit is `abdd00224
 
 ## Allowed at this gate
 
-- read-only human review of the Phase A diff and Chromium evidence
-- docs-only governance updates that record the human decision (ACCEPT or AMEND)
-- if the human decides AMEND: a separately scoped, explicitly approved amendment pass
+- read-only investigation of the current runtime, the accepted Phase A foundation and target platforms
+- drafting a runtime cutover plan/contract as a docs-only change, followed by an independent review before any acceptance
+- docs-only governance updates recording that plan and its review
+
+## Required cutover acceptance items
+
+The runtime cutover plan must explicitly resolve each item below; a plan that leaves any item open cannot be accepted:
+
+1. **Authority-switch ordering:** the exact localStorage -> IndexedDB authority switch sequence, including the last legacy write, migration, verification and the read switch, and the rule for legacy writes that occur after a completed migration (`source-changed-after-complete`).
+2. **Android/PWA real-device validation:** real Android Chrome and installed-PWA validation, including storage persistence/eviction and quota-failure behavior, as a required human smoke gate.
+3. **Multi-tab / blocked-open handling:** runtime behavior for `IndexedDbBlockedError`, `versionchange`, concurrent tabs and future schema upgrades.
+4. **`createLocalReplica.close()` open race:** handling of `close()` called while an open is in flight, so no connection handle leaks.
+5. **Transaction-body async invariant:** how runtime callers are held to awaiting only IndexedDB requests inside transaction bodies, so transactions never auto-commit mid-body.
+6. **Runtime payload validation boundary:** where domain payloads are validated before runtime writes, given the replica validators check only record envelopes.
 
 ## Forbidden at this gate
 
-- any `src/**`, test, package or config change without a new explicit scope opening
+- runtime implementation of any kind: any `src/**`, test, package or config change
 - runtime cutover: importing storage into App/React or any production component, switching reads from localStorage to IndexedDB
 - startup migration or any user data migration
 - dual-write
@@ -47,6 +58,7 @@ Tasks 1-6 are ACCEPTED / COMPLETE; the final implementation commit is `abdd00224
 - sync
 - outbox mutations or outbox UI
 - dependency updates (including remediation of the pre-existing `npm audit` report) or deployment
+- changing accepted Phase A Task 1-6 contracts without a separately approved amendment
 - modifying accepted calendar, household, waste, saved-place, bus or reminder behavior; unrelated redesign, broad refactor or Trends work
 
 ## Protected current behavior
@@ -57,4 +69,4 @@ Tasks 1-6 are ACCEPTED / COMPLETE; the final implementation commit is `abdd00224
 
 ## Decision gate
 
-HUMAN REVIEW DECISION REQUIRED: ACCEPT or AMEND the Phase A foundation. Runtime cutover remains LOCKED until explicit human acceptance, and even after acceptance requires its own plan and a separate explicit scope lock.
+Next safe action: design and independently review the runtime cutover contract. Runtime implementation remains LOCKED until that contract resolves all six acceptance items, passes independent review, is explicitly accepted by the human and a separate implementation scope lock is opened.

@@ -321,4 +321,4 @@ Commit: `feat: add IndexedDB migration foundation`
 
 The next safe implementation pass is Task 1 only. No later task opens automatically.
 
-**Phase A status:** IMPLEMENTATION COMPLETE (Tasks 1-6, range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`). Current gate: `PHASE_A_FINAL_HUMAN_REVIEW`. No further task in this plan opens; runtime cutover, startup migration, dual-write, D1/backend, authentication, sync and outbox UI require explicit human acceptance and a separate plan/scope lock.
+**Phase A status:** IMPLEMENTATION COMPLETE (Tasks 1-6, range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`). Final human review: ACCEPTED; Phase A foundation ACCEPTED. Current gate: `RUNTIME_CUTOVER_PLANNING` (planning only). No further task in this plan opens; runtime cutover, startup migration, dual-write, D1/backend, authentication, sync and outbox UI remain locked until a separate accepted runtime cutover plan and scope lock.

@@ -36,9 +36,10 @@ https://annivibe.pages.dev
 - `PHASE_A_TASK_5_INTEGRATION_BREADTH_ONLY = ACCEPTED / COMPLETE` at `fa7f7b79dbdbac300ca1e7e2069091bbc9c474cf` with storage tests `49/49 PASS`, IndexedDB tests `16/16 PASS`, `npm run build` PASS, `git diff --check` PASS and no production file changes. Migration remains dormant; no live runtime migration has occurred.
 - `PHASE_A_TASK_6_DORMANT_GUARD_AND_FAIL_FAST = ACCEPTED / COMPLETE` at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS (storage `53/53`, IndexedDB `16/16`, build and diff check PASS; full list in `docs/ACCEPTED_CHECKPOINTS.md`) and runtime diff NONE.
 - `PHASE_A_INDEXEDDB_FOUNDATION = IMPLEMENTATION COMPLETE` (Phase A range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
-- Current gate: `PHASE_A_FINAL_HUMAN_REVIEW`.
+- `PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`: the Phase A foundation is ACCEPTED by the human, based on the Phase A review package recorded at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`.
+- Current gate: `RUNTIME_CUTOVER_PLANNING` (planning only).
 
-No implementation pass is open. The human must ACCEPT or AMEND the Phase A foundation after reviewing the Phase A diff and Chromium evidence. Runtime cutover, startup migration, dual-write, D1/backend, authentication, sync and outbox UI remain locked until explicit human acceptance and a separate scope opening. The running Majandus application continues using its existing accepted localStorage/runtime paths.
+No implementation pass is open. The next safe action is to design and independently review a runtime cutover contract; see `docs/ACTIVE_SCOPE_LOCK.md` for the six acceptance items it must resolve. Runtime cutover implementation, startup migration, dual-write, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 

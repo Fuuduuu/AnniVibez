@@ -68,6 +68,13 @@
 - current gate: `PHASE_A_FINAL_HUMAN_REVIEW` (decision: ACCEPT or AMEND)
 - locked: runtime cutover, startup migration, dual-write, D1/backend, authentication, sync, outbox UI
 
+### PHASE_A_FINAL_HUMAN_REVIEW
+- status: ACCEPTED
+- Phase A foundation: ACCEPTED by the human, based on the Phase A review package recorded at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`
+- all accepted Task 1-6 contracts remain unchanged
+- runtime cutover: STILL LOCKED
+- approved next action: `RUNTIME_CUTOVER_PLANNING` only (design and independently review a runtime cutover contract resolving the six acceptance items in `docs/ACTIVE_SCOPE_LOCK.md`); no runtime implementation, D1/backend, authentication or sync
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

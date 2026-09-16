@@ -32,7 +32,7 @@ Status: compact operational snapshot for future Majandus passes.
 
 ## Next action
 
-- **PHASE_A_INDEXEDDB_FOUNDATION** / `PHASE_A_FINAL_HUMAN_REVIEW` (implementation complete).
+- `RUNTIME_CUTOVER_PLANNING` (planning only; Phase A IndexedDB foundation ACCEPTED).
 - Common Backend Architecture v1 is accepted; Cloudflare Pages Functions + D1 is selected for the v1 backend; the Phase A implementation plan is accepted.
 - Task 1's native IndexedDB schema/primitives are accepted at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium tests `5/5 PASS`, build PASS and no runtime cutover.
 - Task 2's local-replica contracts and exported record validators are accepted at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, build PASS and no runtime cutover.
@@ -40,4 +40,5 @@ Status: compact operational snapshot for future Majandus passes.
 - Task 4's dormant migration state machine is accepted at `e651a6edb2f19bf850e5e67ceac462551f2fd37a` with storage tests `48/48 PASS`, IndexedDB tests `15/15 PASS`, build PASS and final adversarial audit PASS; no runtime migration has occurred, legacy storage remains non-destructive and migration generates zero outbox mutations.
 - Task 5's integration breadth is accepted at `fa7f7b79dbdbac300ca1e7e2069091bbc9c474cf` with storage tests `49/49 PASS`, IndexedDB tests `16/16 PASS`, build PASS, diff check PASS and no production file changes; migration remains dormant and no live runtime migration has occurred.
 - Task 6's dormant guard and fail-fast regression is accepted at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS and runtime diff NONE.
-- Phase A implementation is complete. No implementation authority is open; the current gate is human review of the Phase A diff (`4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`) and Chromium evidence, with decision ACCEPT or AMEND. Legacy localStorage remains the runtime authority. Runtime cutover, startup migration, dual-write, D1/backend, authentication, sync, outbox UI, dependency and deployment work remain locked.
+- Phase A implementation is complete and the Phase A final human review is ACCEPTED (range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`; review package at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`).
+- Only runtime cutover planning is open: design and independently review a runtime cutover contract that resolves the six acceptance items in `docs/ACTIVE_SCOPE_LOCK.md`. No implementation authority is open. Legacy localStorage remains the runtime authority. Runtime cutover implementation, startup migration, dual-write, D1/backend, authentication, sync, outbox UI, dependency and deployment work remain locked.
