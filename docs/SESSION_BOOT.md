@@ -34,9 +34,11 @@ https://annivibe.pages.dev
 - `PHASE_A_TASK_3_LEGACY_VALIDATION_TRANSFORM_DIGEST = ACCEPTED / COMPLETE` at `7ace02444fc3783898a14251c62ebe032113e0ea` with storage tests `45/45 PASS`, IndexedDB regressions `6/6 PASS`, `npm run build` PASS, `git diff --check` PASS and no runtime migration.
 - `PHASE_A_TASK_4_MIGRATION_STATE_MACHINE = ACCEPTED / COMPLETE` at `e651a6edb2f19bf850e5e67ceac462551f2fd37a` with storage tests `48/48 PASS`, IndexedDB tests `15/15 PASS`, `npm run build` PASS and final adversarial audit PASS. Migration remains dormant: no runtime migration has occurred, legacy storage remains non-destructive and migration generates zero outbox mutations.
 - `PHASE_A_TASK_5_INTEGRATION_BREADTH_ONLY = ACCEPTED / COMPLETE` at `fa7f7b79dbdbac300ca1e7e2069091bbc9c474cf` with storage tests `49/49 PASS`, IndexedDB tests `16/16 PASS`, `npm run build` PASS, `git diff --check` PASS and no production file changes. Migration remains dormant; no live runtime migration has occurred.
-- Current implementation task: `TASK_6_DORMANT_GUARD_AND_FAIL_FAST` (final Phase A dormant-foundation pass).
+- `PHASE_A_TASK_6_DORMANT_GUARD_AND_FAIL_FAST = ACCEPTED / COMPLETE` at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS (storage `53/53`, IndexedDB `16/16`, build and diff check PASS; full list in `docs/ACCEPTED_CHECKPOINTS.md`) and runtime diff NONE.
+- `PHASE_A_INDEXEDDB_FOUNDATION = IMPLEMENTATION COMPLETE` (Phase A range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
+- Current gate: `PHASE_A_FINAL_HUMAN_REVIEW`.
 
-Task 6 is test/guard-only and may initially modify only `scripts/storage/storage.test.mjs` and `scripts/storage/indexeddb-browser.test.mjs` to prove the Phase A foundation is dormant: no runtime source outside `src/storage/` imports storage (static, side-effect or dynamic), the application bundle contains no `src/storage/` module, broad regressions pass fail-fast and runtime files have no Phase A diff. A proven contract failure requiring a `src/storage/**` change means STOP and report; it is not fixed under Task 6. Runtime cutover remains locked and requires a separate Phase A final checkpoint and human review. The running Majandus application continues using its existing accepted localStorage/runtime paths.
+No implementation pass is open. The human must ACCEPT or AMEND the Phase A foundation after reviewing the Phase A diff and Chromium evidence. Runtime cutover, startup migration, dual-write, D1/backend, authentication, sync and outbox UI remain locked until explicit human acceptance and a separate scope opening. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 

@@ -53,6 +53,21 @@
 - migration remains DORMANT; no live runtime migration has occurred
 - approved next action: `TASK_6_DORMANT_GUARD_AND_FAIL_FAST` (final Phase A dormant-foundation pass, test/guard-only); runtime cutover locked
 
+### PHASE_A_TASK_6_DORMANT_GUARD_AND_FAIL_FAST
+- status: ACCEPTED / COMPLETE
+- commit: `abdd002240e78ed093facdb3ef463d4ba6ede418` (`feat: add IndexedDB migration foundation`)
+- surfaces: `scripts/storage/storage.test.mjs`; production files changed: NONE
+- fail-fast evidence: calendar `19/19`, calendar UI `29/29`, app shell `23/23`, reminders `28/28`, reminder UI `30/30`, native notifications `24/24`, waste `23/23`, waste UI `30/30`, storage `53/53`, IndexedDB `16/16`, build PASS, diff check PASS
+- guards: source guard PASS (all runtime code files under `src/` outside `src/storage/`; static, side-effect, re-export, `require` and dynamic forms); bundle guard PASS (app-shell esbuild shape, metafile excludes `src/storage/`); runtime diff NONE
+
+### PHASE_A_INDEXEDDB_FOUNDATION
+- status: IMPLEMENTATION COMPLETE
+- range: `4e9a65af179c45ce95395aae21d577fe90ed13b2` (plan checkpoint) `..abdd002240e78ed093facdb3ef463d4ba6ede418`
+- implementation surfaces: added `src/storage/schema.js`, `src/storage/indexedDb.js`, `src/storage/localReplica.js`, `src/storage/legacyMigration.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`; no other source, test, package or config file changed in the range
+- migration remains DORMANT; legacy localStorage remains runtime authority; no live runtime migration has occurred
+- current gate: `PHASE_A_FINAL_HUMAN_REVIEW` (decision: ACCEPT or AMEND)
+- locked: runtime cutover, startup migration, dual-write, D1/backend, authentication, sync, outbox UI
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

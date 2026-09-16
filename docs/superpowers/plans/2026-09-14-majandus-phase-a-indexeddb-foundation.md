@@ -264,13 +264,13 @@ Commit: `test: cover IndexedDB migration safety`
 
 ## Task 6: Dormant guard and fail-fast regression
 
-**Status:** CURRENT (`TASK_6_DORMANT_GUARD_AND_FAIL_FAST`), the final Phase A dormant-foundation pass. Runtime cutover remains locked.
+**Status:** ACCEPTED / COMPLETE at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS (storage `53/53`, IndexedDB `16/16`, build and diff check PASS) and runtime diff NONE. Runtime cutover remains locked.
 
 **Files:** Modify storage tests; storage modules only after proven contract failure. Initial allowlist: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`. A proven contract failure requiring a `src/storage/**` change is a STOP and report (exact failing contract, exact file, why tests alone cannot fix it) for a separately approved amendment; it never broadens Task 6 automatically.
 
 Guard all `src/` outside storage against static default/named imports, side-effect imports, and `import('./storage/...')`; bundle metafile uses the same entry/build shape as `scripts/shell/app-shell.test.mjs` and must exclude `src/storage/`.
 
-- [ ] **Step 1: Guard test**
+- [x] **Step 1: Guard test**
 
 ```js
 assert.doesNotMatch(source,/from\s+['"][^'"]*storage\//);
@@ -278,7 +278,7 @@ assert.doesNotMatch(source,/import\s*['"][^'"]*storage\//);
 assert.doesNotMatch(source,/import\s*\(\s*['"][^'"]*storage\//);
 ```
 
-- [ ] **Step 2: Run fail-fast verification**
+- [x] **Step 2: Run fail-fast verification**
 
 ```powershell
 node --test scripts/calendar/events.test.mjs
@@ -307,7 +307,7 @@ git diff --check
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 ```
 
-- [ ] **Step 3: Checkpoint**
+- [x] **Step 3: Checkpoint**
 
 Run: `git diff -- src/App.jsx src/main.jsx src/calendar/eventRepository.js src/calendar/useHouseholdEvents.js src/waste/householdRepository.js src/waste/useHousehold.js src/hooks/useSavedPlaces.js`
 
@@ -320,3 +320,5 @@ Commit: `feat: add IndexedDB migration foundation`
 ## Execution Boundary
 
 The next safe implementation pass is Task 1 only. No later task opens automatically.
+
+**Phase A status:** IMPLEMENTATION COMPLETE (Tasks 1-6, range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`). Current gate: `PHASE_A_FINAL_HUMAN_REVIEW`. No further task in this plan opens; runtime cutover, startup migration, dual-write, D1/backend, authentication, sync and outbox UI require explicit human acceptance and a separate plan/scope lock.
