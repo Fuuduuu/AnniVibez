@@ -75,6 +75,14 @@
 - runtime cutover: STILL LOCKED
 - approved next action: `RUNTIME_CUTOVER_PLANNING` only (design and independently review a runtime cutover contract resolving the six acceptance items in `docs/ACTIVE_SCOPE_LOCK.md`); no runtime implementation, D1/backend, authentication or sync
 
+### RUNTIME_CUTOVER_PLAN
+- status: LOCKED (awaiting human acceptance)
+- plan: `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md`
+- resolves: authority-switch ordering including legacy writes after migration or switch; mandatory Android/installed-PWA human gate with quota and eviction; blocked open, `versionchange`, multi-tab and schema upgrades; `close()` open race; transaction-body async invariant; runtime payload-validation boundary
+- falsification review: PASS (plan author, same session)
+- phases C1-C7 locked; no phase opens without its own scope-open commit
+- runtime implementation: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
