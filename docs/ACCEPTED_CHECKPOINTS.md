@@ -83,6 +83,17 @@
 - phases C1-C7 locked; no phase opens without its own scope-open commit
 - runtime implementation: LOCKED
 
+### RUNTIME_CUTOVER_PLAN_AMENDMENT_1
+- status: AMENDED (plan remains LOCKED; not yet accepted)
+- baseline: `fac198747186e5307914b5567c7cd7b523991b3c`
+- origin: independent fresh review verdict AMEND
+- A: new prerequisite phase C2 extracts the neutral pure saved-place module `src/places/savedPlaces.js` used by both hooks and runtime validators, with characterization tests; later phases renumbered C3-C8
+- B: `LEGACY` only after a successful open and `meta` read proving absent or reverted authority; blocked open is `BLOCKED`, every other open or read failure `STORAGE_UNAVAILABLE`, regardless of the hint
+- C: hint write is a `READY` gate (`AUTHORITY_HINT_PENDING`); only the crash window between authority commit and hint write remains as a residual
+- D: exact `versionchange` path (`openMajandusDb` options, `replica.subscribe`, terminal `lost` state, controller `RELOAD_REQUIRED`, disabled writes) with C1, C4 and C6 tests
+- post-amendment falsification review: PASS (plan author); fresh independent review pending
+- runtime implementation: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

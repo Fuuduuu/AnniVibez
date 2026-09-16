@@ -32,7 +32,7 @@ Status: compact operational snapshot for future Majandus passes.
 
 ## Next action
 
-- `RUNTIME_CUTOVER_PLAN_HUMAN_ACCEPTANCE` (runtime cutover plan LOCKED; Phase A IndexedDB foundation ACCEPTED).
+- `RUNTIME_CUTOVER_PLAN_FRESH_REVIEW` (runtime cutover plan LOCKED / AMENDED; Phase A IndexedDB foundation ACCEPTED).
 - Common Backend Architecture v1 is accepted; Cloudflare Pages Functions + D1 is selected for the v1 backend; the Phase A implementation plan is accepted.
 - Task 1's native IndexedDB schema/primitives are accepted at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium tests `5/5 PASS`, build PASS and no runtime cutover.
 - Task 2's local-replica contracts and exported record validators are accepted at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, build PASS and no runtime cutover.
@@ -41,4 +41,4 @@ Status: compact operational snapshot for future Majandus passes.
 - Task 5's integration breadth is accepted at `fa7f7b79dbdbac300ca1e7e2069091bbc9c474cf` with storage tests `49/49 PASS`, IndexedDB tests `16/16 PASS`, build PASS, diff check PASS and no production file changes; migration remains dormant and no live runtime migration has occurred.
 - Task 6's dormant guard and fail-fast regression is accepted at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS and runtime diff NONE.
 - Phase A implementation is complete and the Phase A final human review is ACCEPTED (range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`; review package at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`).
-- The runtime cutover plan is LOCKED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (all six acceptance items resolved, falsification review PASS) and awaits human acceptance. It defines phases C1-C7; each opens only through a separate scope-open commit. No implementation authority is open. Legacy localStorage remains the runtime authority. Runtime cutover implementation, startup migration, dual-write, D1/backend, authentication, sync, outbox UI, dependency and deployment work remain locked.
+- The runtime cutover plan is LOCKED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (all six acceptance items resolved). After an independent AMEND verdict it was amended (A-D, plan Section 12) and its post-amendment falsification review is PASS. It awaits a fresh independent review and human acceptance. It defines phases C1-C8; each opens only through a separate scope-open commit. No implementation authority is open. Legacy localStorage remains the runtime authority. Runtime cutover implementation, startup migration, dual-write, D1/backend, authentication, sync, outbox UI, dependency and deployment work remain locked.
