@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AV, card } from '../design/tokens';
+import { ShellIcon } from './ShellIcon';
 import { deps, nearest } from '../utils/bus';
 
 export function BussCard({ savedPlaces = [], onOpenBuss }) {
@@ -50,91 +50,46 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
     return () => clearTimeout(fallback);
   }, [savedPlaces]);
 
-  const dotColor = {
-    ok: AV.sage,
-    searching: AV.warning,
-    error: AV.muted,
-    fallback: AV.sage,
-    idle: AV.warning,
-  }[gpsState];
-
   const alternateStops = Array.isArray(stop?.candidates)
     ? stop.candidates.filter(c => c.code !== stop.code).slice(0, 2)
     : [];
 
   return (
-    <div style={{ ...card, marginBottom: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0, display: 'inline-block' }} />
-        <span style={{ fontSize: 14, fontWeight: 600, color: AV.text }}>
-          {stop ? `${stop.name}${stop.dist != null ? ` · ${stop.dist} m` : ''}` : 'Otsin lähimat peatust…'}
-        </span>
+    <div className="mm-card mm-card-primary mm-bus-card">
+      <div className="mm-bus-stop">
+        <span className="mm-bus-dot" data-state={gpsState} aria-hidden="true" />
+        <span className="mm-bus-stop-name">{stop ? stop.name : 'Otsin lähimat peatust…'}</span>
+        {stop?.dist != null && <span className="mm-bus-distance">{stop.dist} m</span>}
       </div>
       {alternateStops.length > 0 && (
-        <div style={{ fontSize: 11, color: AV.muted, marginBottom: 8 }}>
+        <p className="mm-bus-alt">
           Lähedal ka: {alternateStops.map(c => `${c.name}${c.dist != null ? ` (${c.dist} m)` : ''}`).join(' · ')}
-        </div>
+        </p>
       )}
 
-      {stopDeps.length > 0 ? (
-        stopDeps.map((d, i) => (
-          <div
-            key={`${d.time}-${d.line}-${i}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              padding: '8px 0',
-              borderBottom: i < stopDeps.length - 1 ? `1px solid ${AV.border}` : 'none',
-            }}
-          >
-            <span style={{ fontSize: 20, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 58, color: AV.text }}>
-              {d.time}
-            </span>
-            <span
-              style={{
-                background: AV.sageL,
-                color: AV.sage,
-                fontSize: 11,
-                fontWeight: 600,
-                borderRadius: 4,
-                padding: '2px 7px',
-                marginRight: 8,
-                flexShrink: 0,
-              }}
-            >
-              Liin {d.line}
-              {d.v ? `·${d.v}` : ''}
-            </span>
-            <span className="mm-bus-headsign" title={d.dir} style={{ fontSize: 13, color: AV.textSoft }}>{d.dir}</span>
-          </div>
-        ))
-      ) : (
-        <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '8px 0' }}>{stop ? 'Täna enam busse pole' : 'Laen väljumisi…'}</div>
-      )}
+      <div className="mm-bus-departures">
+        {stopDeps.length > 0 ? (
+          stopDeps.map((d, i) => (
+            <div key={`${d.time}-${d.line}-${i}`} className="mm-bus-departure">
+              <span className="mm-bus-time">{d.time}</span>
+              <span className="mm-line-badge">
+                Liin {d.line}
+                {d.v ? `·${d.v}` : ''}
+              </span>
+              <span className="mm-bus-headsign" title={d.dir}>{d.dir}</span>
+            </div>
+          ))
+        ) : (
+          <p className="mm-bus-empty">{stop ? 'Täna enam busse pole' : 'Laen väljumisi…'}</p>
+        )}
+      </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, borderTop: `1px solid ${AV.border}` }}>
-      {stopDeps.length > 0 && <span style={{ fontSize: 11, color: AV.textSoft }}>Ajad on sõiduplaani järgi</span>}
-      <button
-        onClick={onOpenBuss}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          minHeight: 44,
-          gap: 6,
-          marginLeft: 'auto',
-          padding: '9px 0',
-          border: 'none',
-          background: 'none',
-          cursor: 'pointer',
-          fontSize: 13,
-          color: AV.primary,
-          flexShrink: 0,
-        }}
-      >
-        <span>Ava buss</span>
-        <span>→</span>
-      </button>
+      <div className="mm-bus-footer">
+        {stopDeps.length > 0 && <span className="mm-bus-note">Ajad on sõiduplaani järgi</span>}
+        <button className="mm-bus-open" onClick={onOpenBuss}>
+          <span>Ava buss</span>
+          <ShellIcon name="next" />
+        </button>
       </div>
     </div>
   );

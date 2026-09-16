@@ -22,14 +22,14 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
       <span className="mm-mark" aria-hidden="true">M</span>
       <div><h1>Majandus</h1><p className="mm-date">{date}</p></div>
     </header>
-    <section className="mm-section" aria-labelledby="upcoming-heading">
+    <section className="mm-section mm-section-primary" aria-labelledby="upcoming-heading">
       <div className="mm-section-heading">
         <h2 id="upcoming-heading">Tulemas</h2>
         <button className="mm-text-button" onClick={() => onNavigate('kalender')}>Kogu kalender</button>
       </div>
       <CalendarError error={calendar.error} />
       <EventRows items={upcoming} today={today} now={now} onOpen={onOpen} variant="home" />
-      {!upcoming.length && <div className="mm-card mm-welcome">
+      {!upcoming.length && <div className="mm-card mm-card-tinted mm-welcome">
         <span className="mm-icon-tile"><ShellIcon name="kodu" /></span>
         <h3>Paneme sinu kodu asjad ritta</h3>
         <p>Lähenevaid sündmusi pole. Lisa kalendrisse hooldus, makse või prügipäev.</p>
@@ -51,7 +51,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
         <button className="mm-button mm-button-secondary" onClick={() => onNavigate('seaded', 'prugivedu')}>
           <ShellIcon name="waste" />Prügivedu
         </button>
-        <button className="mm-button mm-button-secondary mm-wide" onClick={() => onNavigate('buss')}>
+        <button className="mm-button mm-button-secondary" onClick={() => onNavigate('buss')}>
           <ShellIcon name="buss" />Buss
         </button>
       </div>

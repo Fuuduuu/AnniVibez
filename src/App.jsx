@@ -56,7 +56,9 @@ export default function MajamajandusApp({wasteLookup,notificationService} = {}) 
       '--mm-tint': AV.primaryTint, '--mm-primary': AV.primary, '--mm-strong': AV.primaryStrong,
       '--mm-ink': AV.text, '--mm-soft': AV.textSoft, '--mm-muted': AV.muted,
       '--mm-border': AV.border, '--mm-border-strong': AV.borderStrong,
-      '--mm-shadow': AV.shadow, '--mm-display': FONT.display,
+      '--mm-shadow': AV.shadow, '--mm-shadow-md': AV.shadowMd, '--mm-display': FONT.display,
+      '--mm-radius': `${AV.r}px`, '--mm-radius-sm': `${AV.rSm}px`,
+      '--mm-bus': AV.bus, '--mm-bus-tint': AV.sageL, '--mm-warning': AV.warning, '--mm-quiet': AV.bgSoft,
       fontFamily: FONT.body, backgroundColor: AV.bg, color: AV.text,
     }}>
       <main key={tab} id="main-content" className="mm-main">

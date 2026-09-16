@@ -27,12 +27,13 @@ export const AV = {
   border:      '#E2DFD8',
   danger:      '#9E3B2F',
 
-  shadow:      '0 1px 2px rgba(27,31,33,.05), 0 8px 20px -12px rgba(27,31,33,.18)',
+  shadow:      '0 1px 2px rgba(27,31,33,.04), 0 6px 16px -10px rgba(27,31,33,.16)',
   shadowSm:    '0 1px 2px rgba(27,31,33,.05)',
+  shadowMd:    '0 1px 2px rgba(27,31,33,.05), 0 12px 28px -16px rgba(26,91,105,.34)',
   shadowLg:    '0 12px 40px rgba(27,31,33,.18)',
 
-  r:    12,
-  rSm:  10,
+  r:    16,
+  rSm:  12,
   navH: 68,
 };
 
