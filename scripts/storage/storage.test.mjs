@@ -1226,11 +1226,12 @@ test('the application bundle contains no storage foundation module, directly or 
 
 test('storage foundation modules stay dormant: no network, global storage, UI or unexpected imports', () => {
   const modules = readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).sort();
-  assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'runtimeRecords.js', 'runtimeWrites.js', 'schema.js', 'storageAuthority.js']);
+  assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'replicaRepositories.js', 'runtimeRecords.js', 'runtimeWrites.js', 'schema.js', 'storageAuthority.js']);
   // C3 extends the accepted imports only with the pure domain modules named by the runtime cutover plan.
   // C4 (storageAuthority.js) reuses legacyMigration.js, localReplica.js/indexedDb.js and the same pure domain modules; no new import surface.
+  // C5 (replicaRepositories.js) additionally reuses runtimeWrites.js (runReplicaMutation); no other new import surface.
   const allowedImports = ['../calendar/eventRepository.js', '../waste/householdRepository.js', './indexedDb.js', './localReplica.js', './schema.js',
-    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js', './legacyMigration.js'];
+    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js', './legacyMigration.js', './runtimeWrites.js'];
   const forbidden = ['fetch(', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'navigator', 'localStorage', 'sessionStorage', 'window.', 'document.', 'serviceWorker', 'react'];
   for (const name of modules) {
     const source = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, name), 'utf8');

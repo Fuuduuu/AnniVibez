@@ -194,6 +194,10 @@ export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = (
     putWasteState: record => put('wasteState', record, validateWasteStateRecord),
     getCalendarEvent: id => get('calendarEvents', id),
     putCalendarEvent: record => put('calendarEvents', record, validateCalendarEventRecord),
+    listCalendarEvents: async () => {
+      const records = await transact('calendarEvents', 'readonly', ({ stores }) => requestResult(stores.calendarEvents.getAll()));
+      return records.sort((left, right) => left.id.localeCompare(right.id));
+    },
     listSharedPlaces: async () => {
       const records = await transact('sharedPlaces', 'readonly', ({ stores }) => requestResult(stores.sharedPlaces.getAll()));
       return records.sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
