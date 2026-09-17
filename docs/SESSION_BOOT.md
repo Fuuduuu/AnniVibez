@@ -50,9 +50,13 @@ https://annivibe.pages.dev
 - `RUNTIME_CUTOVER_C2 = ACCEPTED / CHECKPOINTED` at implementation `cdacf4ec2f9b9f0767d485708c5a5e9c4c0f379e` (independent source review PASS / ACCEPT; runtime behavior change NONE; runtime/storage activation NONE). C2 source scope: CLOSED.
 - `RUNTIME_CUTOVER_C3 = ACCEPTED / CHECKPOINTED` at final implementation `5612953e7c9e07eef411cecc3c6bb5dd5685930d` (review: initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C3 source scope: CLOSED.
 - `RUNTIME_CUTOVER_C4 = ACCEPTED / CHECKPOINTED` at final implementation `d2d1dad0e688706609b80172e8b10a50c54d138d` (implementation history `bf4c598f5b494bb289d748d48632c77d4be96be9` → `fa4b81055a4d4449bac89ac40fb9dc44f851abef` → `858d777e0b15ef8a61197d9c49262f1818030a20` → final `d2d1dad0e688706609b80172e8b10a50c54d138d`; final independent source review PASS / ACCEPT). Authority controller and the complete dormant cutover state machine (authority record, hint, revert-attempt record, startup state machine including `REVERTING`, switch ordering, no-re-adopt divergence, connection lifecycle, revert export/backups/compensation, and the mounted-`READY`/mounted-`LEGACY` runtime-signal amendment via `handleRuntimeSignal`). Runtime behavior change: NONE; storage foundation stays DORMANT. C4 source scope: CLOSED. Full accepted contract in `docs/ACCEPTED_CHECKPOINTS.md` (`RUNTIME_CUTOVER_C4`) and `docs/ACTIVE_SCOPE_LOCK.md`.
-- Current gate: `RUNTIME_CUTOVER_C5_SCOPE_OPEN`, pending its own separate docs-only scope-open pass. C5-C8: LOCKED.
+- Current gate: `RUNTIME_CUTOVER_C5`. C5 source scope: OPEN at `590a2a7c56f63a5895a4fd56da7668ad879b95c6`.
+  - Production file: new `src/storage/replicaRepositories.js`.
+  - Test files: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`.
+  - Purpose: dormant IndexedDB domain repositories for household, places, and calendar + waste, mutating only through the accepted C3 `runReplicaMutation(...)` and reusing (never reimplementing) the accepted household/places/calendar domain logic. Runtime behavior change: NONE.
+  - C6-C8: LOCKED. Full locked architecture, contracts and cumulative test scope in `docs/ACTIVE_SCOPE_LOCK.md`.
 
-Runtime cutover implementation is complete through C4 (four dormant storage modules; no runtime behavior change). C5 opens only through its own separate docs-only scope-open pass, and C6-C8 remain locked. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
+The only open implementation scope is runtime cutover C5 (one new dormant storage module implementing the IndexedDB domain repositories; no runtime behavior change); implementation happens in a separate pass, and C6-C8 remain locked. Runtime implementation, startup migration, D1/backend, authentication, sync and outbox UI remain locked. The running Majandus application continues using its existing accepted localStorage/runtime paths.
 
 ## Required reads by task
 

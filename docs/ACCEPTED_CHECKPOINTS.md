@@ -321,6 +321,18 @@
 - C4 source scope: CLOSED
 - next project gate: `RUNTIME_CUTOVER_C5_SCOPE_OPEN` (docs-only C5 scope-open pass); C5 implementation LOCKED until that pass; C6-C8 LOCKED
 
+### RUNTIME_CUTOVER_C5_SCOPE_OPEN
+- status: OPEN (docs-only scope open; implementation in a separate pass)
+- baseline: `590a2a7c56f63a5895a4fd56da7668ad879b95c6`
+- plan: `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Section 4 multi-tab/runtime-write rules; Section 5 items 5 and 6; Section 6 quota behavior; Section 7 row C5; Section 8 C5; Section 10 STOP conditions); C4 prerequisite satisfied
+- purpose: dormant IndexedDB domain repositories for household, places, and calendar + waste
+- production scope: new `src/storage/replicaRepositories.js`
+- test scope: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`
+- locked architecture: mutations go only through the accepted C3 `runReplicaMutation(...)`; `replicaRepositories.js` never calls `replica.transact`/`runTransaction` directly; household reuses `createHouseholdRepository(...)`, places reuses the accepted C2 neutral module `src/places/savedPlaces.js`, calendar+waste reuses `createEventRepository(...)` — no domain semantics reimplemented; every produced record passes the accepted C3 `validateRuntimeRecord`; mutations bind to the C4 authority/switch identity (mismatch -> `RELOAD_REQUIRED`/`authority-mismatch`, malformed -> `STORAGE_UNAVAILABLE`/`authority-malformed`, both zero writes); every mutation re-reads its domain state inside its own transaction (two-tab concurrent mutations both persist); quota/write-error failures atomically preserve previous state with no fallback to legacy writes
+- full locked contract, parity test matrix and required failure/concurrency tests in `docs/ACTIVE_SCOPE_LOCK.md` (Runtime cutover C5 scope)
+- runtime behavior change: NONE; storage foundation stays DORMANT
+- C6-C8: LOCKED (C6 not before C5 is implemented, independently reviewed and checkpointed)
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
