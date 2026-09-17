@@ -365,6 +365,30 @@
 - runtime behavior change: NONE; storage foundation stays DORMANT
 - C6-C8: LOCKED
 
+### RUNTIME_CUTOVER_C5
+- status: ACCEPTED / CHECKPOINTED
+- implementation history: scope open `590a2a7c56f63a5895a4fd56da7668ad879b95c6` (`docs: open runtime cutover c5`) → calendar-read scope amendment `02b5ff1824258bf28d16121517c072d90d0b892a` (`docs: amend c5 calendar read scope`) → initial implementation `5c3f6fee68a5af98390f28706dc759d4737f5a56` (`feat: add dormant replica repositories`) → review-amend governance `fbbff8b9dc4fa237ab144a1ac066d70244ef7a4f` (`docs: amend c5 after independent review`) → final corrective implementation `f8f5fecab2442db1347ac4741a79dd66650dd68b` (`fix: harden dormant replica repositories`)
+- final implementation: `f8f5fecab2442db1347ac4741a79dd66650dd68b`
+- review history:
+  - initial independent source review of `5c3f6fee68a5af98390f28706dc759d4737f5a56`: AMEND (five findings A-E, recorded in `RUNTIME_CUTOVER_C5_REVIEW_AMEND` above)
+  - final independent source review of `f8f5fecab2442db1347ac4741a79dd66650dd68b`: PASS / ACCEPT; remaining C5 source blocker: NONE FOUND
+  - verified at final review: corrective commit scope stayed within C5; the invalid-existing-places pre-state guard is present; true oracle tests are present for household/places/calendar; the generic write-error test is present; `requestResult` usage remains scoped to `read(...)` callbacks; the direct-transaction prohibition is preserved; the canonical comparator is aligned with C4; `runtimeWrites.js` still performs PLAN before all writes; storage remains dormant
+- changed files (final corrective amendment `5c3f6fee..f8f5fec`): `src/storage/replicaRepositories.js` (+1 line: `validateSharedPlaceOrders(records)` before any places transform), `src/storage/localReplica.js` (2-line comparator fix inside the already-accepted `listCalendarEvents()`), `scripts/storage/indexeddb-browser.test.mjs` (+329 lines)
+- accepted public API: `createReplicaRepositories({ replica, authority, newId, clock })` → `{ household: {load, save}, places: {load, update, add, remove}, calendar: {load, create, update, remove, importWaste} }`; no React or runtime/browser wiring
+- accepted contracts (full detail in `docs/ACTIVE_SCOPE_LOCK.md` Runtime cutover C5 section):
+  - transaction architecture: every mutation through `runReplicaMutation(...)` only; `replicaRepositories.js` never calls `replica.transact`/`runTransaction` directly (allowlist unchanged); every successful mutation re-reads durable authority, requires active status and matching booted `switchId`, and increments `commitCount` exactly once; every failure writes nothing and leaves `commitCount` unchanged; `requestResult` from `./indexedDb.js` is an explicit, scoped C5 dependency
+  - household: `createHouseholdRepository(...)` is the sole oracle; `serverHouseholdId === null`; invalid stored state is `writable: false` with no repair; retained extras untouched
+  - places: the C2 neutral module is the sole oracle; existing ids survive updates/shifts, new ids only for materialized entries, orders stay contiguous `0..n-1`; an invalid *existing* collection is validated and rejected before any transform, with zero writes and no auto-repair (finding A); the inherited C3 resulting-order guard remains active too
+  - calendar + waste: `createEventRepository(...)` is the sole oracle (recurrence, overrides, series behavior, imported-event protection and waste reconciliation never reimplemented); canonical event-id order uses the same locale-independent `<`/`>` comparator as C4 (finding E), never `localeCompare()`; extras/`version` preserved, no extras invented when absent, `wasteState` exists exactly when `wasteImports` is defined
+  - failure/atomicity: `QuotaExceededError` and a distinct generic `UnknownError` write failure (finding C) both atomically preserve previous state; authority mismatch, malformed authority, invalid planned record, invalid resulting places order and invalid existing places collection all reject with zero writes
+  - multi-tab: two-tab concurrent household/places/calendar mutations all persist correctly, no lost update, `commitCount` advances once per successful mutation
+  - parity: true oracle-comparison tests (finding B) for household, places and calendar+waste, each seeding two independent worlds from equivalent state and comparing the resulting semantic state (calendar events as id-keyed sets)
+- evidence: C5 focused `20/20`, storage Node `82/82`, storage Chromium/IndexedDB `86/86`, saved places `12/12`, calendar `13/13`, calendar UI `20/20` real assertions, app shell `52/52` combined (`23/23` clean standalone), reminders + UI + native `82/82` combined (`80/80` real assertions before documented cleanup-only EPERM failures), waste + UI `53/53`, build PASS, diff check PASS
+- harness note: the pre-existing Windows Chromium profile-cleanup EPERM (documented since C4) recurred in combined runs; assertion bodies completed before the `finally` block's `rmSync` failure each time; a standalone app-shell rerun passed cleanly; not misrepresented as a clean process-level PASS
+- runtime behavior change: NONE; storage foundation stays DORMANT; legacy/localStorage remains the application runtime authority; nothing outside `src/storage/` imports the storage foundation; the application bundle excludes the storage foundation
+- C5 source scope: CLOSED
+- next project gate: `RUNTIME_CUTOVER_C6_SCOPE_OPEN` (docs-only C6 scope-open pass); C6 implementation LOCKED until that pass; C7-C8 LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
