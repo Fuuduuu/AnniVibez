@@ -349,6 +349,22 @@
 - runtime behavior change: NONE; storage foundation stays DORMANT
 - C6-C8: LOCKED
 
+### RUNTIME_CUTOVER_C5_REVIEW_AMEND
+- status: AMEND (C5 remains OPEN / NOT CHECKPOINTED; corrective source pass required)
+- baseline: `5c3f6fee68a5af98390f28706dc759d4737f5a56`
+- origin: independent C5 source review of the implementation at that HEAD (`feat: add dormant replica repositories`)
+- findings (all require a corrective source pass before C5 can be checkpointed):
+  - **A — invalid places collection can be auto-repaired:** `planPlacesMutation` validated every individual `sharedPlaces` record but never re-validated the *existing* collection with `validateSharedPlaceOrders(records)` before planning, so an already-invalid stored collection (for example two records both at `order: 0`) could be silently reindexed into a valid contiguous order by a normal mutation, violating the accepted "invalid stored data is not auto-repaired" contract. Required fix: validate the current collection before any transform; on failure, reject with zero `sharedPlaces` writes and zero authority/`commitCount` change, leaving stored bytes untouched. Required test: a real `repos.places.update/add/remove` call against a seeded invalid collection must reject, proven by a before/after deep-comparison — not a synthetic bad-plan substitute.
+  - **B — the parity matrix must be a true oracle comparison:** tests asserted hand-computed expected values instead of seeding the legacy repository and the IndexedDB repository from equivalent state, running the same operation on each, and comparing the resulting semantic state. Required for household (`save`, including normalization/default cases, with extras verified unchanged), places (using the C2 neutral module as the oracle; ids/order asserted separately from legacy semantic equality) and calendar+waste (two independent deterministic worlds — legacy `createEventRepository` and the C5 repository — compared as id-keyed sets, plus `wasteImports`, extras, `version` and writable/error semantics).
+  - **C — a generic write-error case is required in addition to `QuotaExceededError`:** the accepted failure matrix requires both; add a second write-request-level failure (e.g. a `DOMException` named `UnknownError`) through a real C5 mutation, with the same atomicity invariant as the quota case.
+  - **D — `requestResult` is an explicit, accepted C5 dependency:** C5's `runReplicaMutation(...).read(...)` callbacks genuinely need it (the C3 transaction contract requires `READ` to await request promises through it), but the dependency allowlist omitted it. Amended to allow `requestResult` from `./indexedDb.js`, scoped only to request promises issued from the stores passed into `read(...)`; grants nothing else (no `replica.transact`, `runTransaction`, `openMajandusDb`, schema access or direct database opening from `replicaRepositories.js`).
+  - **E — the canonical event-id order must be locale-independent:** `listCalendarEvents()` used locale-sensitive `left.id.localeCompare(right.id)` instead of the same locale-independent `<`/`>` comparator C4's revert/export already uses, which is not guaranteed identical for arbitrary valid event ids. Required fix applies the C4 comparator consistently in `listCalendarEvents()` and the C5 calendar envelope reconstruction (C4's own revert/export code is unchanged). Required test uses ids where locale collation could differ from relational order, deriving expected order from `<`/`>`; required falsification check temporarily swaps in `localeCompare()` and confirms the regression test fails (removing the explicit sort is not an acceptable substitute, since IndexedDB's own key enumeration may already happen to return canonical order).
+- corrective source pass locked to exactly: `src/storage/replicaRepositories.js` (finding A) and `src/storage/localReplica.js` (finding E); no other production behavior change; C5 test scope unchanged (`scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`); existing C5 tests preserved unless a redundant assertion is cleanly folded into a stronger oracle test
+- full amended contract in `docs/ACTIVE_SCOPE_LOCK.md` (Runtime cutover C5 scope)
+- this pass was docs/governance only; no source, test, package or config file changed
+- runtime behavior change: NONE; storage foundation stays DORMANT
+- C6-C8: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
