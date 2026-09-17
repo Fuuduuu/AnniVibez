@@ -17,6 +17,9 @@ import { normalizePlace as runtimeNormalizePlace, normalizePlaces as runtimeNorm
 import { validateRuntimeRecord, validateSharedPlaceOrders } from '../../src/storage/runtimeRecords.js';
 import { validateEvent } from '../../src/calendar/eventModel.js';
 import { importKey } from '../../src/waste/reconcile.js';
+import {
+  isWellFormedAuthorityRecord, isWellFormedRevertAttemptRecord, classifyHint, hintMatches, canWriteLegacy, createStorageAuthorityController,
+} from '../../src/storage/storageAuthority.js';
 
 const [CALENDAR_KEY, HOUSEHOLD_PROFILE_KEY, PLACES_KEY] = LEGACY_SHARED_KEYS;
 
@@ -1051,14 +1054,14 @@ test('C3 shared place orders must be the contiguous integers 0..n-1', () => {
   }
 });
 
-test('C3 direct transaction calls stay confined to the accepted storage modules', () => {
+test('C3/C4 direct transaction calls stay confined to the accepted storage modules', () => {
   const allowed = new Set(['src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/runtimeWrites.js', 'src/storage/storageAuthority.js']);
   const files = [...runtimeSourceFiles(), ...readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).map(name => `${STORAGE_DIRECTORY}/${name}`)];
   const callers = files.filter(path => CODE_FILE.test(path))
     .filter(path => /\.transact\s*\(|(?<!function\s+)\brunTransaction\s*\(/.test(readFileSync(join(repositoryRoot, path), 'utf8')));
   for (const path of callers) assert.ok(allowed.has(path), `${path} must not call transact/runTransaction directly`);
   assert.ok(callers.includes('src/storage/runtimeWrites.js'), 'runtimeWrites.js owns runtime mutation transactions');
-  assert.ok(!existsSync(join(repositoryRoot, STORAGE_DIRECTORY, 'storageAuthority.js')), 'storageAuthority.js is not created in C3');
+  assert.ok(callers.includes('src/storage/storageAuthority.js'), 'storageAuthority.js owns the C4 authority/revert transactions');
   const records = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, 'runtimeRecords.js'), 'utf8');
   assert.doesNotMatch(records, /\/hooks\/|\buse[A-Z]\w*\b/, 'runtimeRecords.js imports no hook');
 });
@@ -1223,10 +1226,11 @@ test('the application bundle contains no storage foundation module, directly or 
 
 test('storage foundation modules stay dormant: no network, global storage, UI or unexpected imports', () => {
   const modules = readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).sort();
-  assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'runtimeRecords.js', 'runtimeWrites.js', 'schema.js']);
+  assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'runtimeRecords.js', 'runtimeWrites.js', 'schema.js', 'storageAuthority.js']);
   // C3 extends the accepted imports only with the pure domain modules named by the runtime cutover plan.
+  // C4 (storageAuthority.js) reuses legacyMigration.js, localReplica.js/indexedDb.js and the same pure domain modules; no new import surface.
   const allowedImports = ['../calendar/eventRepository.js', '../waste/householdRepository.js', './indexedDb.js', './localReplica.js', './schema.js',
-    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js'];
+    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js', './legacyMigration.js'];
   const forbidden = ['fetch(', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'navigator', 'localStorage', 'sessionStorage', 'window.', 'document.', 'serviceWorker', 'react'];
   for (const name of modules) {
     const source = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, name), 'utf8');
@@ -1235,4 +1239,154 @@ test('storage foundation modules stay dormant: no network, global storage, UI or
       .map(match => match[2] ?? match[4] ?? 'dynamic import');
     for (const specifier of specifiers) assert.ok(allowedImports.includes(specifier), `${name} imports ${specifier}`);
   }
+});
+
+// ---- C4: authority controller — pure contracts (Sections 1a-1c) -----------------------------
+
+const AUTH_STAMP = '2026-09-16T10:00:00.000Z';
+const validAuthority = (overrides = {}) => ({
+  key: 'storageAuthorityV1', status: 'active', switchId: 'switch-1', switchedAt: AUTH_STAMP,
+  legacyDigestAtSwitch: 'a'.repeat(64), markerPreparationId: 'prep-1', commitCount: 0, legacyUntrusted: false, persistGranted: null, ...overrides,
+});
+
+test('C4 authority record accepts the exact 9-field shape and rejects every malformed class', () => {
+  const valid = validAuthority();
+  assert.equal(isWellFormedAuthorityRecord(valid), true);
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, extra: 1 }), false, 'extra key');
+  const { key, ...missingKey } = valid;
+  assert.equal(isWellFormedAuthorityRecord(missingKey), false, 'missing key');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, status: 'pending' }), false, 'wrong status');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, switchId: '' }), false, 'empty switchId');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, switchedAt: '2026-13-40T00:00:00.000Z' }), false, 'invalid switchedAt');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, legacyDigestAtSwitch: 'A'.repeat(64) }), false, 'uppercase digest');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, legacyDigestAtSwitch: 'a'.repeat(63) }), false, 'short digest');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, markerPreparationId: '' }), false, 'empty preparationId');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, commitCount: -1 }), false, 'negative commitCount');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, commitCount: 1.5 }), false, 'non-integer commitCount');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, legacyUntrusted: 'false' }), false, 'non-boolean legacyUntrusted');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, persistGranted: 'true' }), false, 'persistGranted not null/boolean');
+  assert.equal(isWellFormedAuthorityRecord({ ...valid, persistGranted: true }), true, 'persistGranted boolean is accepted');
+  assert.equal(isWellFormedAuthorityRecord(null), false);
+  assert.equal(isWellFormedAuthorityRecord([valid]), false);
+});
+
+const validAttempt = (overrides = {}) => ({
+  key: 'storageRevertAttemptV1', switchId: 'switch-1', attemptId: 'attempt-1', commitCountAtStart: 0, phase: 'started', ...overrides,
+});
+
+test('C4 revert attempt record accepts the exact 5-field shape and rejects every malformed class', () => {
+  const valid = validAttempt();
+  assert.equal(isWellFormedRevertAttemptRecord(valid), true);
+  assert.equal(isWellFormedRevertAttemptRecord({ ...valid, extra: 1 }), false, 'extra key');
+  const { key, ...missingKey } = valid;
+  assert.equal(isWellFormedRevertAttemptRecord(missingKey), false, 'missing key');
+  assert.equal(isWellFormedRevertAttemptRecord({ ...valid, switchId: '' }), false, 'empty switchId');
+  assert.equal(isWellFormedRevertAttemptRecord({ ...valid, attemptId: '' }), false, 'empty attemptId');
+  assert.equal(isWellFormedRevertAttemptRecord({ ...valid, commitCountAtStart: -1 }), false, 'negative commitCountAtStart');
+  assert.equal(isWellFormedRevertAttemptRecord({ ...valid, commitCountAtStart: 1.5 }), false, 'non-integer commitCountAtStart');
+  assert.equal(isWellFormedRevertAttemptRecord({ ...valid, phase: 'done' }), false, 'unknown phase');
+  assert.equal(isWellFormedRevertAttemptRecord({ ...valid, phase: 'backups-verified' }), true, 'backups-verified is accepted');
+  assert.equal(isWellFormedRevertAttemptRecord(null), false);
+});
+
+// Minimal in-memory localStorage-shaped capability for pure hint tests (no IndexedDB involved).
+function fakeStorage(initial = {}) {
+  const map = new Map(Object.entries(initial));
+  const calls = [];
+  return {
+    map,
+    calls,
+    getItem: key => { calls.push(['get', key]); return map.has(key) ? map.get(key) : null; },
+    setItem: (key, value) => { calls.push(['set', key]); map.set(key, String(value)); },
+    removeItem: key => { calls.push(['remove', key]); map.delete(key); },
+  };
+}
+
+function throwingStorage(methods = ['getItem']) {
+  const target = {};
+  for (const method of methods) target[method] = () => { throw new Error(`${method} blocked`); };
+  return target;
+}
+
+const HINT_KEY = 'majandus_storage_authority_v1';
+const validHint = (overrides = {}) => ({ version: 1, switchId: 'switch-1', legacyDigestAtSwitch: 'a'.repeat(64), switchedAt: AUTH_STAMP, ...overrides });
+
+test('C4 hint classification distinguishes absent, valid, malformed and unreadable exactly', () => {
+  assert.deepEqual(classifyHint(fakeStorage()), { kind: 'absent' });
+  const validRaw = JSON.stringify(validHint());
+  assert.deepEqual(classifyHint(fakeStorage({ [HINT_KEY]: validRaw })), { kind: 'valid', raw: validRaw, value: validHint() });
+  for (const raw of ['not json', JSON.stringify({ ...validHint(), extra: 1 }), JSON.stringify({ ...validHint(), version: 2 }),
+    JSON.stringify({ ...validHint(), switchId: '' }), JSON.stringify({ ...validHint(), legacyDigestAtSwitch: 'AA' }), '[]', '42']) {
+    assert.equal(classifyHint(fakeStorage({ [HINT_KEY]: raw })).kind, 'malformed', raw);
+  }
+  assert.deepEqual(classifyHint(throwingStorage()), { kind: 'unreadable' });
+});
+
+test('C4 hint matches exactly when switchId, legacyDigestAtSwitch and switchedAt are all equal', () => {
+  const authority = validAuthority();
+  assert.equal(hintMatches(validHint(), authority), true);
+  assert.equal(hintMatches(validHint({ switchId: 'switch-2' }), authority), false);
+  assert.equal(hintMatches(validHint({ legacyDigestAtSwitch: 'b'.repeat(64) }), authority), false);
+  assert.equal(hintMatches(validHint({ switchedAt: '2026-09-17T10:00:00.000Z' }), authority), false);
+});
+
+test('C4 LEGACY write guard refuses on any non-null hint value or a throwing read', () => {
+  assert.equal(canWriteLegacy(fakeStorage()), true, 'absent hint allows the write');
+  assert.equal(canWriteLegacy(fakeStorage({ [HINT_KEY]: JSON.stringify(validHint()) })), false, 'valid hint refuses the write');
+  assert.equal(canWriteLegacy(fakeStorage({ [HINT_KEY]: 'garbage' })), false, 'malformed hint refuses the write');
+  assert.equal(canWriteLegacy(throwingStorage()), false, 'a throwing read refuses the write');
+});
+
+test('C4 controller starts BOOTING and exposes exactly the minimal public API', () => {
+  const controller = createStorageAuthorityController({ storage: fakeStorage(), newId: () => 'id' });
+  assert.equal(controller.getState(), 'BOOTING');
+  assert.deepEqual(controller.getResult(), { state: 'BOOTING' });
+  assert.deepEqual(Object.keys(controller).sort(), ['boot', 'close', 'confirmRevertStorageLost', 'confirmStorageLost', 'getResult', 'getState', 'replica', 'retry', 'subscribe']);
+  assert.equal(controller.retry, controller.boot);
+});
+
+test('C4 unknown authority (blocked open) resolves BLOCKED, never LEGACY, with zero storage reads', async () => {
+  const indexedDb = stubIndexedDb();
+  const storage = fakeStorage();
+  const controller = createStorageAuthorityController({ indexedDb, storage, newId: () => 'id' });
+  const boot = controller.boot();
+  await settleTicks();
+  indexedDb.requests[0].onblocked();
+  assert.deepEqual(await boot, { state: 'BLOCKED' });
+  assert.equal(controller.getState(), 'BLOCKED');
+  assert.equal(storage.calls.length, 0, 'the hint is never read while authority is unknown');
+});
+
+test('C4 unknown authority (any other open/API/meta-read failure) resolves STORAGE_UNAVAILABLE, never LEGACY', async () => {
+  const indexedDb = stubIndexedDb();
+  const controller = createStorageAuthorityController({ indexedDb, storage: fakeStorage(), newId: () => 'id' });
+  const boot = controller.boot();
+  await settleTicks();
+  indexedDb.requests[0].error = new DOMException('boom', 'UnknownError');
+  indexedDb.requests[0].onerror();
+  assert.deepEqual(await boot, { state: 'STORAGE_UNAVAILABLE', reason: 'open-or-read-failed' });
+
+  const throwingIndexedDb = { open() { throw new Error('no indexedDB'); } };
+  const throwingController = createStorageAuthorityController({ indexedDb: throwingIndexedDb, storage: fakeStorage(), newId: () => 'id' });
+  assert.deepEqual(await throwingController.boot(), { state: 'STORAGE_UNAVAILABLE', reason: 'open-or-read-failed' });
+});
+
+test('C4 a VersionError on open, and a connection already lost before boot, both resolve RELOAD_REQUIRED, never LEGACY', async () => {
+  const versionErrorDb = stubIndexedDb();
+  const versionErrorController = createStorageAuthorityController({ indexedDb: versionErrorDb, storage: fakeStorage(), newId: () => 'id' });
+  const versionErrorBoot = versionErrorController.boot();
+  await settleTicks();
+  versionErrorDb.requests[0].error = new DOMException('too old', 'VersionError');
+  versionErrorDb.requests[0].onerror();
+  assert.deepEqual(await versionErrorBoot, { state: 'RELOAD_REQUIRED' });
+
+  const indexedDb = stubIndexedDb();
+  const lostController = createStorageAuthorityController({ indexedDb, storage: fakeStorage(), newId: () => 'id' });
+  const opening = lostController.replica.open();
+  const db = stubDb('first');
+  succeedOpen(indexedDb.requests[0], db);
+  await opening;
+  db.onversionchange({ oldVersion: 1, newVersion: 2 });
+  assert.equal(lostController.getState(), 'RELOAD_REQUIRED', 'the subscription alone already reports RELOAD_REQUIRED');
+  assert.deepEqual(await lostController.boot(), { state: 'RELOAD_REQUIRED' });
 });
