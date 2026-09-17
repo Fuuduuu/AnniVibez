@@ -1872,24 +1872,110 @@ test('C4 a real versionchange delivered mid-boot resolves RELOAD_REQUIRED, never
   }
 });
 
-test('C4 two concurrent boots on a clean device produce exactly one switch', { concurrency: false, timeout: 120000 }, async () => {
+test('C4 two concurrent boots without a Web Lock converge on exactly one authority and both reach READY, never LEGACY', { concurrency: false, timeout: 120000 }, async () => {
   const harness = await c4Harness();
   try {
     const result = await harness.evaluate(`(async () => {
-      const { reset, seed, makeController, dump, authorityOf } = window.__c4;
+      const { reset, seed, makeController, dump, authorityOf, spyStorage } = window.__c4;
+      const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
+      const idsFor = prefix => { let n = 0; return () => prefix + '-' + (++n); };
+      // Test-only instrumentation: counts fresh authority creations (the only put of this exact shape).
+      const originalPut = IDBObjectStore.prototype.put;
+      let creations = 0;
+      IDBObjectStore.prototype.put = function (value, ...rest) {
+        if (value && value.key === 'storageAuthorityV1' && value.status === 'active' && value.commitCount === 0
+          && value.legacyUntrusted === false && value.persistGranted === null) creations += 1;
+        return originalPut.call(this, value, ...rest);
+      };
+      const rounds = [];
+      try {
+        for (let round = 0; round < 8; round += 1) {
+          await reset();
+          seed({ household: '{"version":1,"profile":{"name":"Kodu","address":""}}', places: '[{"name":"Kodu"}]' });
+          // Odd rounds pre-complete the migration, so both boots get already-complete and race directly
+          // in the switch transaction (the loser observes authority-present there). Even rounds race
+          // from a clean device, where the loser usually loses inside migration (concurrent-migration).
+          const premigrated = round % 2 === 1;
+          if (premigrated) await window.__t.run({ ids: ['pre-place-1'] });
+          creations = 0;
+          const storageA = spyStorage();
+          const storageB = spyStorage();
+          const first = makeController({ newId: idsFor('a' + round), storage: storageA, stamp: '2026-09-16T10:00:00.000Z' });
+          const second = makeController({ newId: idsFor('b' + round), storage: storageB, stamp: '2026-09-16T11:00:00.000Z' });
+          const [resultFirst, resultSecond] = await Promise.all([first.boot(), second.boot()]);
+          const data = await dump();
+          await first.close(); await second.close();
+          const marker = data.meta.find(record => record.key === 'legacyMigrationV1') || null;
+          const sharedWrites = [...storageA.calls, ...storageB.calls].filter(([op, key]) => op !== 'get' && SHARED.includes(key));
+          rounds.push({
+            premigrated,
+            states: [resultFirst.state, resultSecond.state],
+            creations,
+            authorityRecords: data.meta.filter(record => record.key === 'storageAuthorityV1').length,
+            authority: authorityOf(data),
+            hint: localStorage.getItem('majandus_storage_authority_v1'),
+            marker,
+            sharedWrites,
+          });
+        }
+      } finally {
+        IDBObjectStore.prototype.put = originalPut;
+      }
+      return rounds;
+    })()`);
+    assert.equal(result.filter(round => round.premigrated).length, 4);
+    for (const [index, round] of result.entries()) {
+      assert.deepEqual(round.states, ['READY', 'READY'], `round ${index} (premigrated=${round.premigrated}): neither concurrent boot finishes LEGACY`);
+      assert.equal(round.creations, 1, `round ${index}: exactly one authority creation`);
+      assert.equal(round.authorityRecords, 1, `round ${index}`);
+      const winner = round.authority.switchId.startsWith('a') ? '2026-09-16T10:00:00.000Z' : '2026-09-16T11:00:00.000Z';
+      assert.match(round.authority.switchId, /^[ab]\d-\d+$/, `round ${index}`);
+      assert.equal(round.authority.switchedAt, winner, `round ${index}: the record is one controller's switch, not a mixture`);
+      assert.equal(round.authority.commitCount, 0, `round ${index}`);
+      assert.deepEqual(JSON.parse(round.hint), {
+        version: 1, switchId: round.authority.switchId, legacyDigestAtSwitch: round.authority.legacyDigestAtSwitch, switchedAt: round.authority.switchedAt,
+      }, `round ${index}: both boots converge on the winning hint`);
+      assert.equal(round.marker.status, 'complete', `round ${index}`);
+      assert.equal(round.marker.preparationId, round.authority.markerPreparationId, `round ${index}: the loser did not reset or re-migrate under the winning authority`);
+      assert.deepEqual(round.sharedWrites, [], `round ${index}: no shared legacy key write`);
+    }
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 a switch guard failure with authority confirmed absent inside the transaction still resolves LEGACY', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf, spyStorage } = window.__c4;
+      const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
       await reset();
       seed({ household: '{"version":1,"profile":{"name":"Kodu","address":""}}' });
-      const first = makeController({ ids: ['switch-a', 'prep-a'] });
-      const second = makeController({ ids: ['switch-b', 'prep-b'] });
-      const [resultFirst, resultSecond] = await Promise.all([first.boot(), second.boot()]);
+      // The migration digest is real; the pre-switch digest differs, so the marker digest guard fails.
+      let digestCalls = 0;
+      const cryptoApi = { subtle: { digest: async (algorithm, bytes) => {
+        digestCalls += 1;
+        if (digestCalls === 1) return crypto.subtle.digest(algorithm, bytes);
+        return crypto.subtle.digest(algorithm, new TextEncoder().encode('changed-before-switch'));
+      } } };
+      const storage = spyStorage();
+      const controller = makeController({ ids: ['switch-1', 'prep-1'], cryptoApi, storage });
+      const boot = await controller.boot();
       const data = await dump();
-      await first.close(); await second.close();
-      return { resultFirst, resultSecond, authority: authorityOf(data) };
+      await controller.close();
+      return {
+        boot, authority: authorityOf(data),
+        marker: data.meta.find(record => record.key === 'legacyMigrationV1') || null,
+        hint: localStorage.getItem('majandus_storage_authority_v1'),
+        sharedWrites: storage.calls.filter(([op, key]) => op !== 'get' && SHARED.includes(key)),
+      };
     })()`);
-    const states = [result.resultFirst.state, result.resultSecond.state].sort();
-    assert.deepEqual(states, ['LEGACY', 'READY']);
-    assert.ok(['switch-a', 'switch-b'].includes(result.authority.switchId));
-    assert.equal(result.authority.commitCount, 0);
+    assert.deepEqual(result.boot, { state: 'LEGACY' });
+    assert.equal(result.authority, null, 'the transaction confirmed authority absent and created none');
+    assert.equal(result.marker.status, 'complete');
+    assert.equal(result.hint, null);
+    assert.deepEqual(result.sharedWrites, []);
   } finally {
     await harness.cleanup();
   }
@@ -2905,6 +2991,250 @@ test('C4 backup/preparation failure matrix: each locked case gives the exact pla
 
     assert.deepEqual(result.case7, { state: 'REVERT_FAILED', reason: 'revert-preparation-failed' });
     assert.equal(result.authority7.status, 'active');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+// ---- concurrency amend: transaction-time guards ------------------------------------------------
+
+// Test-only race injector: when the controller creates the matching transaction, a racing readwrite
+// transaction is created on a separate connection immediately after it. IndexedDB runs overlapping
+// transactions in creation order, so the race commits after that transaction and before the
+// controller's next one.
+const RACE_PAGE = `window.__race = (() => {
+  const install = async ({ match, apply }) => {
+    const raceDb = await window.storageApi.openMajandusDb(indexedDB);
+    const originalTransaction = IDBDatabase.prototype.transaction;
+    let fired = false;
+    IDBDatabase.prototype.transaction = function (names, mode, ...rest) {
+      const txn = originalTransaction.call(this, names, mode, ...rest);
+      const list = Array.isArray(names) ? names : [names];
+      if (!fired && this !== raceDb && match(list, mode)) {
+        fired = true;
+        const race = originalTransaction.call(raceDb, ['meta'], 'readwrite');
+        apply(race.objectStore('meta'));
+      }
+      return txn;
+    };
+    return { fired: () => fired, restore: () => { IDBDatabase.prototype.transaction = originalTransaction; raceDb.close(); } };
+  };
+  // Creates the racing meta transaction immediately (for use from synchronous storage hooks).
+  const now = async () => {
+    const raceDb = await window.storageApi.openMajandusDb(indexedDB);
+    return { run: apply => apply(raceDb.transaction(['meta'], 'readwrite').objectStore('meta')), close: () => raceDb.close() };
+  };
+  return { install, now };
+})();
+'ready';`;
+
+async function raceHarness() {
+  const harness = await c4Harness();
+  await harness.evaluate(RACE_PAGE);
+  return harness;
+}
+
+test('C4 a forward build finding reverting classifies the attempt inside its transition transaction, not from the boot-time read', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await raceHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf, attemptOf, spyStorage } = window.__c4;
+      const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
+      const authority = { key: 'storageAuthorityV1', status: 'reverting', switchId: 's1', switchedAt: '2026-09-16T10:00:00.000Z',
+        legacyDigestAtSwitch: 'a'.repeat(64), markerPreparationId: 'p1', commitCount: 0, legacyUntrusted: false, persistGranted: null };
+      const started = { key: 'storageRevertAttemptV1', switchId: 's1', attemptId: 'a1', commitCountAtStart: 0, phase: 'started' };
+      const variants = {
+        noRace: null,
+        startedToBackupsVerified: store => store.put({ ...started, phase: 'backups-verified' }),
+        attemptDeleted: store => store.delete('storageRevertAttemptV1'),
+        attemptMalformed: store => store.put({ key: 'storageRevertAttemptV1', switchId: 's1', attemptId: 'a1', commitCountAtStart: 0, phase: 'bogus' }),
+        attemptOtherSwitch: store => store.put({ ...started, switchId: 's-other' }),
+      };
+      const out = {};
+      for (const [name, apply] of Object.entries(variants)) {
+        await reset(); seed({});
+        await window.__t.put('meta', authority);
+        await window.__t.put('meta', started);
+        // Race right after the boot-time readonly meta read, before the forward transition transaction.
+        const race = apply ? await window.__race.install({ match: (list, mode) => mode === 'readonly' && list.length === 1 && list[0] === 'meta', apply }) : null;
+        const storage = spyStorage();
+        const controller = makeController({ storage });
+        let boot;
+        try { boot = await controller.boot(); } finally { race?.restore(); }
+        const data = await dump();
+        await controller.close();
+        out[name] = {
+          boot, fired: race ? race.fired() : null, authority: authorityOf(data), attempt: attemptOf(data),
+          writes: storage.calls.filter(([op, key]) => op !== 'get' && (SHARED.includes(key) || key.startsWith('majandus_legacy_backup_v1_'))),
+        };
+      }
+      return out;
+    })()`);
+    for (const [name, entry] of Object.entries(result)) {
+      assert.notEqual(entry.fired, false, `${name}: the race fired`);
+      assert.deepEqual(entry.writes, [], `${name}: zero shared-key and backup writes`);
+    }
+    assert.equal(result.noRace.boot.state, 'READY');
+    assert.equal(result.noRace.authority.status, 'active');
+    assert.equal(result.noRace.authority.legacyUntrusted, false, 'valid started at transaction time: trust unchanged');
+    assert.equal(result.noRace.attempt, null);
+    for (const name of ['startedToBackupsVerified', 'attemptDeleted', 'attemptMalformed']) {
+      assert.equal(result[name].boot.state, 'READY', name);
+      assert.equal(result[name].authority.status, 'active', name);
+      assert.equal(result[name].authority.legacyUntrusted, true, `${name}: classified at transaction time -> legacyUntrusted true`);
+      assert.equal(result[name].attempt, null, `${name}: attempt deleted atomically`);
+    }
+    assert.deepEqual(result.attemptOtherSwitch.boot, { state: 'STORAGE_UNAVAILABLE', reason: 'revert-attempt-orphan' });
+    assert.equal(result.attemptOtherSwitch.authority.status, 'reverting', 'orphan: no convergence mutation');
+    assert.equal(result.attemptOtherSwitch.authority.legacyUntrusted, false);
+    assert.equal(result.attemptOtherSwitch.attempt.switchId, 's-other', 'orphan attempt untouched');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 compensation checks the exact durable attempt before its first restore write: a replaced attempt gets zero compensation writes', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await raceHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf, attemptOf } = window.__c4;
+      const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
+      const [calKey, houseKey] = SHARED;
+      await reset();
+      // Non-compact raw calendar bytes, so the export (and any stale restore) visibly changes them.
+      seed({ calendar: '{ "version": 1, "events": [] }', household: '{"version":1,"profile":{"name":"Kodu","address":""}}', places: '[{"name":"Kodu"}]' });
+      const forward = makeController({ ids: ['switch-1', 'prep-1', 'place-1', 'place-2', 'place-3'] });
+      await forward.boot();
+      await forward.close();
+
+      const racer = await window.__race.now();
+      const attempt2 = { key: 'storageRevertAttemptV1', switchId: 'switch-1', attemptId: 'attempt-2', commitCountAtStart: 0, phase: 'backups-verified' };
+      let raced = false;
+      let atRace = null;
+      const afterRace = [];
+      const storage = {
+        getItem: k => localStorage.getItem(k),
+        removeItem: k => { if (raced && SHARED.includes(k)) afterRace.push(['remove', k]); localStorage.removeItem(k); },
+        setItem: (k, v) => {
+          if (k === houseKey && !raced) {
+            raced = true;
+            // attempt-1 is backups-verified and the calendar key is already exported. Before
+            // compensation runs, the durable attempt is replaced by an unrelated attempt-2.
+            racer.run(store => store.put(attempt2));
+            atRace = {
+              legacy: Object.fromEntries(SHARED.map(key => [key, localStorage.getItem(key)])),
+              backups: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
+            };
+            throw new Error('blocked household export write');
+          }
+          if (raced && SHARED.includes(k)) afterRace.push(['set', k]);
+          localStorage.setItem(k, v);
+        },
+      };
+      const revert = makeController({ mode: 'revert', ids: ['attempt-1'], storage });
+      const revertResult = await revert.boot();
+      racer.close();
+      const data = await dump();
+      await revert.close();
+      return {
+        revertResult, atRace, afterRace,
+        legacyAfter: Object.fromEntries(SHARED.map(key => [key, localStorage.getItem(key)])),
+        backupsAfter: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
+        authority: authorityOf(data), attempt: attemptOf(data), attempt2,
+      };
+    })()`);
+    assert.equal(result.revertResult.state, 'REVERT_FAILED');
+    assert.deepEqual(result.afterRace, [], 'no shared-key setItem/removeItem from the stale attempt-1 compensation');
+    assert.deepEqual(result.legacyAfter, result.atRace.legacy, 'shared legacy bytes are unchanged from the race-winning state');
+    assert.notEqual(result.atRace.legacy.majamajandus_household_events_v1, '{ "version": 1, "events": [] }', 'the calendar key had already been exported before the race');
+    assert.deepEqual(result.attempt, result.attempt2, 'attempt-2 survives untouched');
+    assert.equal(result.authority.status, 'reverting', 'no stale meta cleanup');
+    assert.deepEqual(result.backupsAfter, result.atRace.backups, 'attempt-1 backups are retained untouched');
+    assert.ok(result.atRace.backups.every(Boolean));
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 reverted reset re-reads the attempt key inside its transaction: a raced-in attempt refuses the reset with authority and domain bytes unchanged', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await raceHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf } = window.__c4;
+      await reset();
+      seed({ household: '{"version":1,"profile":{"name":"Kodu","address":""}}' });
+      const forward = makeController({ ids: ['switch-1', 'prep-1'] });
+      await forward.boot();
+      await forward.close();
+      const revert = makeController({ mode: 'revert', ids: ['attempt-1'] });
+      const revertResult = await revert.boot();
+      await revert.close();
+      const before = await dump();
+
+      const racer = await window.__race.now();
+      const orphan = { key: 'storageRevertAttemptV1', switchId: 'switch-1', attemptId: 'orphan-1', commitCountAtStart: 0, phase: 'started' };
+      let raced = false;
+      const storage = {
+        // The boot-time read saw no attempt; the attempt appears before the reverted reset transaction.
+        getItem: k => { if (!raced && k === 'majandus_storage_authority_v1') { raced = true; racer.run(store => store.put(orphan)); } return localStorage.getItem(k); },
+        setItem: (k, v) => localStorage.setItem(k, v),
+        removeItem: k => localStorage.removeItem(k),
+      };
+      const controller = makeController({ ids: ['switch-2', 'prep-2'], storage });
+      const boot = await controller.boot();
+      racer.close();
+      const after = await dump();
+      await controller.close();
+      const withoutAttempt = data => ({ ...data, meta: data.meta.filter(record => record.key !== 'storageRevertAttemptV1') });
+      return { revertResult, raced, boot, before, afterWithoutAttempt: withoutAttempt(after), attempt: after.meta.find(r => r.key === 'storageRevertAttemptV1'), orphan, authorityBefore: authorityOf(before) };
+    })()`);
+    assert.equal(result.revertResult.state, 'LEGACY');
+    assert.equal(result.authorityBefore.status, 'reverted');
+    assert.equal(result.raced, true);
+    assert.deepEqual(result.boot, { state: 'STORAGE_UNAVAILABLE', reason: 'revert-attempt-orphan' });
+    assert.deepEqual(result.afterWithoutAttempt, result.before, 'reset refused: authority, marker and domain bytes unchanged');
+    assert.deepEqual(result.attempt, result.orphan);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 stale reset re-reads the attempt key inside its transaction: a raced-in orphan attempt refuses the reset with marker and domain bytes unchanged', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await raceHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf } = window.__c4;
+      const [calKey, houseKey] = window.__t.legacy.LEGACY_SHARED_KEYS;
+      await reset();
+      seed({ household: '{"version":1,"profile":{"name":"Kodu","address":""}}' });
+      await window.__t.run({});
+      // The source changes after completion, so migration reports source-changed-after-complete.
+      localStorage.setItem(houseKey, '{"version":1,"profile":{"name":"Uus","address":""}}');
+      const before = await dump();
+
+      const racer = await window.__race.now();
+      const orphan = { key: 'storageRevertAttemptV1', switchId: 'switch-orphan', attemptId: 'orphan-1', commitCountAtStart: 0, phase: 'started' };
+      let raced = false;
+      const storage = {
+        // The boot-time read saw no attempt; the attempt appears while migration reads the sources,
+        // i.e. before the stale reset transaction.
+        getItem: k => { if (!raced && k === calKey) { raced = true; racer.run(store => store.put(orphan)); } return localStorage.getItem(k); },
+        setItem: (k, v) => localStorage.setItem(k, v),
+        removeItem: k => localStorage.removeItem(k),
+      };
+      const controller = makeController({ ids: ['switch-1', 'prep-2', 'p-1'], storage });
+      const boot = await controller.boot();
+      racer.close();
+      const after = await dump();
+      await controller.close();
+      const withoutAttempt = data => ({ ...data, meta: data.meta.filter(record => record.key !== 'storageRevertAttemptV1') });
+      return { raced, boot, before, afterWithoutAttempt: withoutAttempt(after), attempt: after.meta.find(r => r.key === 'storageRevertAttemptV1'), orphan, authority: authorityOf(after) };
+    })()`);
+    assert.equal(result.raced, true);
+    assert.deepEqual(result.boot, { state: 'STORAGE_UNAVAILABLE', reason: 'revert-attempt-orphan' });
+    assert.deepEqual(result.afterWithoutAttempt, result.before, 'stale reset refused: marker and domain bytes unchanged');
+    assert.equal(result.authority, null);
+    assert.deepEqual(result.attempt, result.orphan);
   } finally {
     await harness.cleanup();
   }

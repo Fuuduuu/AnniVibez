@@ -345,18 +345,25 @@ export function createStorageAuthorityController({
     return finish('READY', detail);
   }
 
+  // Distinguishes the three outcomes a caller must never conflate: this execution created authority;
+  // another execution's authority is already present (absence no longer proven); or the guard failed
+  // while this same transaction confirmed authority is still absent.
   async function switchTransaction({ switchId, switchedAt, legacyDigestAtSwitch }) {
     return replica.transact(['meta'], 'readwrite', async ({ stores }) => {
       const authority = await requestResult(stores.meta.get(AUTHORITY_KEY));
-      if (authority !== undefined) return null;
+      if (authority !== undefined) return { kind: 'authority-present' };
       const marker = await requestResult(stores.meta.get(MARKER_KEY));
-      if (!marker || marker.status !== 'complete' || !isNonEmptyString(marker.preparationId) || marker.sourceDigest !== legacyDigestAtSwitch) return null;
+      if (!marker || marker.status !== 'complete' || !isNonEmptyString(marker.preparationId) || marker.sourceDigest !== legacyDigestAtSwitch) {
+        return { kind: 'guard-failed-authority-absent' };
+      }
       const fresh = freshAuthorityRecord({ switchId, switchedAt, legacyDigestAtSwitch, markerPreparationId: marker.preparationId });
       stores.meta.put(fresh);
-      return fresh;
+      return { kind: 'switched', record: fresh };
     });
   }
 
+  // The stale reset re-reads authority AND the revert-attempt key inside its own transaction; a
+  // raced-in attempt with authority absent is an orphan and nothing around it is deleted.
   async function staleResetTransaction() {
     try {
       return await replica.transact(
@@ -364,26 +371,35 @@ export function createStorageAuthorityController({
         'readwrite',
         async ({ stores }) => {
           const authority = await requestResult(stores.meta.get(AUTHORITY_KEY));
-          if (authority !== undefined) return false;
+          if (authority !== undefined) return 'authority-present';
+          const attempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
+          if (attempt !== undefined) return 'attempt-present';
           const marker = await requestResult(stores.meta.get(MARKER_KEY));
-          if (!marker || marker.status !== 'complete') return false;
-          for (const name of EMPTY_CHECK_STORES) if (await requestResult(stores[name].count()) > 0) return false;
+          if (!marker || marker.status !== 'complete') return 'refused';
+          for (const name of EMPTY_CHECK_STORES) if (await requestResult(stores[name].count()) > 0) return 'refused';
           for (const id of marker.migratedCalendarIds) stores.calendarEvents.delete(id);
           for (const id of marker.generatedIds.sharedPlaces) stores.sharedPlaces.delete(id);
           for (const key of marker.migratedMetaKeys) stores.meta.delete(key);
           for (const key of marker.migratedSingletonKeys) stores[SINGLETON_STORE_OF[key]].delete(key);
           stores.meta.delete(MARKER_KEY);
-          return true;
+          return 'reset';
         },
       );
     } catch {
-      return false;
+      return 'refused';
     }
   }
 
-  async function finishAfterMigration(migrationResult, switchId, storageLostContext) {
+  // Bounded re-entry into the CURRENT authority flow. A boot that observed another execution's
+  // migration or authority re-reads durable state instead of trusting its own stale snapshot. Once the
+  // bound is spent, a fresh read proving authority absent is the only way to LEGACY.
+  const MAX_REENTRIES = 3;
+  const reenterForward = reentries => bootForward({ reentries: reentries + 1 });
+
+  async function finishAfterMigration(migrationResult, { switchId, storageLostContext, reentries }) {
     if (!SWITCHABLE_MIGRATION_STATUSES.includes(migrationResult.status)) {
       if (migrationResult.status === 'replica-not-empty' && storageLostContext) return finish('STORAGE_LOST', storageLostContext);
+      if (migrationResult.status === 'concurrent-migration') return reenterForward(reentries);
       return finish('LEGACY');
     }
     const sources = readLegacySources(storage);
@@ -401,30 +417,37 @@ export function createStorageAuthorityController({
     } catch {
       return finish('LEGACY');
     }
-    if (!switched) return finish('LEGACY');
-    return bootAuthorityActive(switched);
+    if (switched.kind === 'switched') return bootAuthorityActive(switched.record);
+    if (switched.kind === 'authority-present') return reenterForward(reentries);
+    return finish('LEGACY');
   }
 
-  async function runMigrationAndSwitch({ switchId, storageLostContext } = {}) {
+  async function runMigrationAndSwitch({ switchId, storageLostContext, reentries = 0 } = {}) {
+    const context = { switchId, storageLostContext, reentries };
     const migrationResult = await runLegacyMigration({ replica, storage, cryptoApi, newId, newPreparationId: newId, now: clock });
     if (migrationResult.status === 'source-changed-after-complete') {
-      const resetOk = await staleResetTransaction();
-      if (resetOk) {
+      const reset = await staleResetTransaction();
+      if (reset === 'attempt-present') return finish('STORAGE_UNAVAILABLE', { reason: 'revert-attempt-orphan' });
+      if (reset === 'authority-present') return reenterForward(reentries);
+      if (reset === 'reset') {
         const rerun = await runLegacyMigration({ replica, storage, cryptoApi, newId, newPreparationId: newId, now: clock });
-        return finishAfterMigration(rerun, switchId, storageLostContext);
+        return finishAfterMigration(rerun, context);
       }
     }
-    return finishAfterMigration(migrationResult, switchId, storageLostContext);
+    return finishAfterMigration(migrationResult, context);
   }
 
-  async function bootAuthorityAbsent() {
+  async function bootAuthorityAbsent({ reentries }) {
     const hint = classifyHint(storage);
     if (hint.kind === 'unreadable') return finish('STORAGE_UNAVAILABLE', { reason: 'hint-unreadable' });
     if (hint.kind === 'valid') return finish('STORAGE_LOST', { variant: 'dated', switchedAt: hint.value.switchedAt, hintRaw: hint.raw });
     if (hint.kind === 'malformed') return finish('STORAGE_LOST', { variant: 'undated', hintRaw: hint.raw });
-    return runMigrationAndSwitch({ switchId: newId() });
+    // Re-entry bound spent: this boot's own fresh read proved authority absent.
+    if (reentries > MAX_REENTRIES) return finish('LEGACY');
+    return runMigrationAndSwitch({ switchId: newId(), reentries });
   }
 
+  // The reverted reset re-reads authority AND the revert-attempt key inside its own transaction.
   async function revertedResetTransaction() {
     try {
       return await replica.transact(
@@ -432,8 +455,10 @@ export function createStorageAuthorityController({
         'readwrite',
         async ({ stores }) => {
           const authority = await requestResult(stores.meta.get(AUTHORITY_KEY));
-          if (!isWellFormedAuthorityRecord(authority) || authority.status !== 'reverted') return false;
-          for (const name of EMPTY_CHECK_STORES) if (await requestResult(stores[name].count()) > 0) return false;
+          if (!isWellFormedAuthorityRecord(authority) || authority.status !== 'reverted') return 'authority-changed';
+          const attempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
+          if (attempt !== undefined) return 'attempt-present';
+          for (const name of EMPTY_CHECK_STORES) if (await requestResult(stores[name].count()) > 0) return 'refused';
           for (const name of ENTITY_STORES) {
             const keys = await requestResult(stores[name].getAllKeys());
             for (const key of keys) stores[name].delete(key);
@@ -441,53 +466,62 @@ export function createStorageAuthorityController({
           for (const key of EXTRA_META_KEYS) stores.meta.delete(key);
           stores.meta.delete(MARKER_KEY);
           stores.meta.delete(AUTHORITY_KEY);
-          return true;
+          return 'reset';
         },
       );
     } catch {
-      return false;
+      return 'refused';
     }
   }
 
-  async function bootAuthorityReverted() {
+  async function bootAuthorityReverted({ reentries }) {
     const hint = classifyHint(storage);
     if (hint.kind === 'unreadable') return finish('STORAGE_UNAVAILABLE', { reason: 'hint-unreadable' });
     if (hint.kind === 'valid' || hint.kind === 'malformed') {
       const removed = removeHintVerified(storage);
       if (!removed) return finish('STORAGE_UNAVAILABLE', { reason: 'hint-removal-failed' });
     }
-    const resetOk = await revertedResetTransaction();
-    if (!resetOk) return finish('STORAGE_UNAVAILABLE', { reason: 'reverted-reset-blocked' });
-    return runMigrationAndSwitch({ switchId: newId() });
+    const reset = await revertedResetTransaction();
+    if (reset === 'attempt-present') return finish('STORAGE_UNAVAILABLE', { reason: 'revert-attempt-orphan' });
+    if (reset === 'authority-changed' && reentries <= MAX_REENTRIES) return reenterForward(reentries);
+    if (reset !== 'reset') return finish('STORAGE_UNAVAILABLE', { reason: 'reverted-reset-blocked' });
+    if (reentries > MAX_REENTRIES) return finish('LEGACY');
+    return runMigrationAndSwitch({ switchId: newId(), reentries });
   }
 
-  async function forwardFindsRevertingTransaction(expectedCurrent, nextRecord) {
+  // Section 1a forward row, decided entirely from the authority and attempt values read inside this
+  // one meta transaction; nothing computed from the boot-time read is trusted.
+  async function forwardFindsRevertingTransaction(expectedSwitchId) {
     return replica.transact(['meta'], 'readwrite', async ({ stores }) => {
       const current = await requestResult(stores.meta.get(AUTHORITY_KEY));
-      if (!isWellFormedAuthorityRecord(current) || current.status !== 'reverting' || current.switchId !== expectedCurrent.switchId) return false;
-      stores.meta.put(nextRecord);
-      stores.meta.delete(ATTEMPT_KEY);
-      return true;
+      const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
+      if (!isWellFormedAuthorityRecord(current) || current.status !== 'reverting' || current.switchId !== expectedSwitchId) return { kind: 'authority-changed' };
+      const attemptClass = classifyBootAttempt(current, currentAttempt);
+      if (attemptClass.kind === 'orphan') return { kind: 'orphan' };
+      const legacyUntrusted = attemptClass.kind === 'valid'
+        ? current.legacyUntrusted || attemptClass.attempt.phase !== 'started'
+        : true;
+      const next = { ...current, status: 'active', legacyUntrusted };
+      stores.meta.put(next);
+      if (currentAttempt !== undefined) stores.meta.delete(ATTEMPT_KEY);
+      return { kind: 'converged', record: next };
     });
   }
 
-  async function bootAuthorityReverting(authorityRaw, attemptClass) {
-    const invalidUnderReverting = attemptClass.kind === 'invalid-under-reverting';
-    const legacyUntrusted = invalidUnderReverting
-      ? true
-      : authorityRaw.legacyUntrusted || attemptClass.attempt.phase !== 'started';
-    const next = { ...authorityRaw, status: 'active', legacyUntrusted };
-    let ok;
+  async function bootAuthorityReverting(authorityRaw, { reentries }) {
+    let transition;
     try {
-      ok = await forwardFindsRevertingTransaction(authorityRaw, next);
+      transition = await forwardFindsRevertingTransaction(authorityRaw.switchId);
     } catch {
-      ok = false;
+      return finish('STORAGE_UNAVAILABLE', { reason: 'authority-transition-failed' });
     }
-    if (!ok) return finish('STORAGE_UNAVAILABLE', { reason: 'authority-transition-failed' });
-    return bootAuthorityActive(next);
+    if (transition.kind === 'converged') return bootAuthorityActive(transition.record);
+    if (transition.kind === 'orphan') return finish('STORAGE_UNAVAILABLE', { reason: 'revert-attempt-orphan' });
+    if (reentries <= MAX_REENTRIES) return reenterForward(reentries);
+    return finish('STORAGE_UNAVAILABLE', { reason: 'authority-transition-failed' });
   }
 
-  async function bootForward() {
+  async function bootForward({ reentries = 0 } = {}) {
     let metaRead;
     try {
       metaRead = await readAuthorityAndAttempt();
@@ -498,10 +532,11 @@ export function createStorageAuthorityController({
     if (authorityRaw !== undefined && !isWellFormedAuthorityRecord(authorityRaw)) return finish('STORAGE_UNAVAILABLE', { reason: 'authority-malformed' });
     const attemptClass = classifyBootAttempt(authorityRaw, attemptRaw);
     if (attemptClass.kind === 'orphan') return finish('STORAGE_UNAVAILABLE', { reason: 'revert-attempt-orphan' });
-    if (authorityRaw === undefined) return bootAuthorityAbsent();
-    if (authorityRaw.status === 'reverted') return bootAuthorityReverted();
+    const context = { reentries };
+    if (authorityRaw === undefined) return bootAuthorityAbsent(context);
+    if (authorityRaw.status === 'reverted') return bootAuthorityReverted(context);
     if (authorityRaw.status === 'active') return bootAuthorityActive(authorityRaw);
-    return bootAuthorityReverting(authorityRaw, attemptClass);
+    return bootAuthorityReverting(authorityRaw, context);
   }
 
   // ---- revert boot (Section 6) ----------------------------------------------------------------
@@ -728,23 +763,34 @@ export function createStorageAuthorityController({
     });
   }
 
-  async function compensateAndFail(authority, attempt, backupSet) {
-    const verified = compensate(backupSet.backups);
+  // Compensation is owned by one meta readwrite transaction. The exact durable guard is checked FIRST;
+  // only while it holds are the backups re-read and the three shared keys restored and verified,
+  // synchronously, with no await between the first restore write and the authority/attempt writes.
+  // A failed guard means zero compensation writes and zero attempt cleanup.
+  async function compensateAndFail(authority, attempt) {
+    let verified = null;
+    let outcome;
     try {
-      await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
+      outcome = await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
         const currentAuthority = await requestResult(stores.meta.get(AUTHORITY_KEY));
         const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
         if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting' || currentAuthority.switchId !== authority.switchId
           || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.switchId !== authority.switchId
           || currentAttempt.attemptId !== attempt.attemptId || currentAttempt.phase !== 'backups-verified'
-          || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) throw new Error('compensation-guard-failed');
-        const next = verified ? { ...currentAuthority, status: 'active' } : { ...currentAuthority, status: 'active', legacyUntrusted: true };
-        stores.meta.put(next);
+          || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) return 'guard-failed';
+        const backupSet = readBackupSet(authority.switchId, attempt.attemptId);
+        if (!backupSet.ok) return 'backups-lost';
+        verified = compensate(backupSet.backups);
+        stores.meta.put(verified ? { ...currentAuthority, status: 'active' } : { ...currentAuthority, status: 'active', legacyUntrusted: true });
         stores.meta.delete(ATTEMPT_KEY);
+        return 'compensated';
       });
     } catch {
+      if (verified === null) return finish('REVERT_FAILED', { reason: 'revert-compensation-not-run' });
       return finish('REVERT_FAILED', { reason: verified ? 'revert-compensation-verified-write-failed' : 'revert-compensation-failed-write-failed' });
     }
+    if (outcome === 'guard-failed') return finish('REVERT_FAILED', { reason: 'revert-compensation-guard-failed' });
+    if (outcome === 'backups-lost') return finish('REVERT_FAILED', { reason: 'revert-backups-lost' });
     return finish('REVERT_FAILED', { reason: verified ? 'revert-compensation-verified' : 'revert-compensation-failed' });
   }
 
@@ -821,7 +867,7 @@ export function createStorageAuthorityController({
       }
       const backupSet = readBackupSet(authority.switchId, attempt.attemptId);
       if (!backupSet.ok) return finish('REVERT_FAILED', { reason: 'revert-backups-lost' });
-      return compensateAndFail(authority, attempt, backupSet);
+      return compensateAndFail(authority, attempt);
     }
 
     if (attempt.phase === 'started') {
@@ -847,11 +893,11 @@ export function createStorageAuthorityController({
       exported = false;
     }
     if (exported && !verifyExportedLegacy(snapshot)) exported = false;
-    if (!exported) return compensateAndFail(authority, attempt, backupSet);
+    if (!exported) return compensateAndFail(authority, attempt);
 
     const completed = await completeRevert(authority, attempt);
     if (completed === 'failed-unknown') return finish('REVERT_FAILED', { reason: 'revert-complete-reread-failed' });
-    if (completed === 'compensate') return compensateAndFail(authority, attempt, backupSet);
+    if (completed === 'compensate') return compensateAndFail(authority, attempt);
     const removed = removeHintVerified(storage);
     if (!removed) return finish('STORAGE_UNAVAILABLE', { reason: 'hint-removal-failed' });
     return finish('LEGACY');
