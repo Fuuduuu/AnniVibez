@@ -76,8 +76,20 @@ Final implementation `d2d1dad0e688706609b80172e8b10a50c54d138d` (implementation 
 
 Opened at baseline `590a2a7c56f63a5895a4fd56da7668ad879b95c6`, following the accepted plan `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Section 4 multi-tab/runtime-write rules; Section 5 items 5 and 6; Section 6 quota behavior; Section 7 row C5; Section 8 C5; Section 10 STOP conditions). The C4 prerequisite is satisfied. Purpose: dormant IndexedDB domain repositories for household, places, and calendar + waste. Runtime behavior change: NONE; C5 stays dormant; the application still uses the accepted legacy/localStorage runtime paths.
 
+**RUNTIME_CUTOVER_C5_CALENDAR_READ_SCOPE_AMEND** (baseline `02b5ff1824258bf28d16121517c072d90d0b892a`): discovered during C5 TDD, before the calendar RED→GREEN cycle could proceed, that `replica.listCalendarEvents()` does not exist. The accepted `src/storage/localReplica.js` already exposes `getHouseholdProfile()`, `getWasteState()`, `getMeta(key)` and `listSharedPlaces()` as ready-made collection/singleton read accessors that `replicaRepositories.js` can call without touching `replica.transact` itself, but it has no equivalent collection-read accessor for the `calendarEvents` store — only `getCalendarEvent(id)`, which needs a known id. This is an interface gap in the storage foundation's read surface, not a reason to weaken the C3 mutation/transaction boundary: `replicaRepositories.js` still must never call `replica.transact(...)` or `runTransaction(...)` directly, and it is not added to the direct-transaction-caller allowlist. The fix widens C5's exact production scope by exactly one additive, read-only accessor:
+- new `src/storage/localReplica.js` export: `listCalendarEvents()` — mirrors the existing accepted `listSharedPlaces()` collection-read pattern exactly (uses the module's own internal `transact(...)` helper, which is already an accepted direct-transaction caller); returns every `calendarEvents` record in canonical `id` ascending order; performs zero writes, zero authority mutation, zero `commitCount` change; no calendar/event/waste semantic logic is added to `localReplica.js` (it only enumerates stored records; `createEventRepository`/`eventModel.js` remain the only calendar semantic authority). No other `localReplica.js` behavior changes. Implementation (not yet written; a separate source pass) follows this normative shape:
+  ```js
+  listCalendarEvents: async () => {
+    const records = await transact('calendarEvents', 'readonly', ({ stores }) => requestResult(stores.calendarEvents.getAll()));
+    return records.sort((left, right) => left.id.localeCompare(right.id));
+  },
+  ```
+- the future C5 calendar `load()` path uses `replica.listCalendarEvents()`, `replica.getWasteState()` and `replica.getMeta('calendarLegacyEnvelopeExtras')` to validate the loaded runtime records, rebuild the semantic envelope (canonical id order, preserved extras, preserved `wasteImports` semantics) and report validity — with no direct IndexedDB transaction in `replicaRepositories.js`.
+- required focused coverage for the later implementation pass: `listCalendarEvents` returns every record; returns canonical id order; performs zero writes; existing `localReplica.js` behavior is otherwise unchanged. Calendar repository parity tests then use this public accessor.
+
 **Exact production scope (no other production file):**
 - new `src/storage/replicaRepositories.js`
+- `src/storage/localReplica.js`, restricted to the one additive `listCalendarEvents()` read-only accessor above (no other change to that file)
 
 **Exact test scope (no other test file):**
 - `scripts/storage/storage.test.mjs`
@@ -86,7 +98,7 @@ Opened at baseline `590a2a7c56f63a5895a4fd56da7668ad879b95c6`, following the acc
 **Locked architecture — implement exactly the already-accepted plan text; do not redesign or simplify it.**
 
 **Core write path:**
-- runtime domain repositories in `replicaRepositories.js` MUST mutate only through the accepted C3 `runReplicaMutation(...)` (`src/storage/runtimeWrites.js`); `replicaRepositories.js` must NOT call `replica.transact(...)` or `runTransaction(...)` directly;
+- runtime domain repositories in `replicaRepositories.js` MUST mutate only through the accepted C3 `runReplicaMutation(...)` (`src/storage/runtimeWrites.js`); `replicaRepositories.js` must NOT call `replica.transact(...)` or `runTransaction(...)` directly, for mutations or for reads; the accepted direct-transaction-caller allowlist (`src/storage/localReplica.js`, `src/storage/legacyMigration.js`, `src/storage/runtimeWrites.js`, `src/storage/storageAuthority.js`) is unchanged and does not gain `replicaRepositories.js`;
 - C3 owns the transaction discipline (READ → synchronous PLAN → VALIDATE → synchronous WRITE); every mutation includes the `meta` authority guard, requires `status === 'active'` with the matching `switchId`, increments `commitCount` exactly once on commit, and writes zero records on failure.
 
 **Domain semantics — reused, never reimplemented:**
@@ -131,14 +143,14 @@ Opened at baseline `590a2a7c56f63a5895a4fd56da7668ad879b95c6`, following the acc
 | C2 (ACCEPTED / CHECKPOINTED) | new `src/places/savedPlaces.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js`, new `scripts/places/saved-places.test.mjs`, `scripts/storage/storage.test.mjs` (parity oracle), `src/storage/legacyMigration.js` (comment only); behavior-preserving prerequisite for C3 |
 | C3 (ACCEPTED / CHECKPOINTED) | new `src/storage/runtimeRecords.js`, new `src/storage/runtimeWrites.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C4 (ACCEPTED / CHECKPOINTED) | `src/storage/storageAuthority.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
-| C5 (OPEN) | new `src/storage/replicaRepositories.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
+| C5 (OPEN) | new `src/storage/replicaRepositories.js`, `src/storage/localReplica.js` (additive `listCalendarEvents()` only, per the calendar-read scope amendment), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C6 | runtime wiring files listed in the plan; desktop human smoke |
 | C7 | preview deploy and Android/installed-PWA human gate, including the rollback drill |
 | C8 | production deploy gate |
 
 ## Forbidden at this gate
 
-- any `src/**`, `scripts/**`, package or config change outside the C5 production file and the two C5 test files (C1-C4 source scopes are CLOSED)
+- any `src/**`, `scripts/**`, package or config change outside the two C5 production files (`replicaRepositories.js`; `localReplica.js` limited to the additive `listCalendarEvents()` accessor) and the two C5 test files (C1-C4 source scopes are CLOSED)
 - redesigning, simplifying or narrowing any locked C5 contract item relative to the accepted plan text; reimplementing household, places or calendar/waste domain semantics instead of reusing the accepted repositories/modules
 - calling `replica.transact(...)` or `runTransaction(...)` directly from `replicaRepositories.js` instead of `runReplicaMutation(...)`
 - opening any phase C6-C8 without its own scope-open pass (C6 not before the C5 checkpoint)

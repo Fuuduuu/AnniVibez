@@ -333,6 +333,22 @@
 - runtime behavior change: NONE; storage foundation stays DORMANT
 - C6-C8: LOCKED (C6 not before C5 is implemented, independently reviewed and checkpointed)
 
+### RUNTIME_CUTOVER_C5_CALENDAR_READ_SCOPE_AMEND
+- status: AMENDED (C5 remains OPEN; implementation in a separate pass)
+- baseline: `02b5ff1824258bf28d16121517c072d90d0b892a`
+- origin: discovered during C5 TDD, before the calendar RED→GREEN cycle could proceed
+- root cause: C5 must implement `calendar.load()` by rebuilding the calendar semantic envelope from `calendarEvents`, `wasteState` and `calendarLegacyEnvelopeExtras`. The accepted `src/storage/localReplica.js` already exposes `getCalendarEvent(id)`, `getWasteState()`, `getMeta(key)`, `listSharedPlaces()` and `getHouseholdProfile()`, but has no collection-read accessor for all `calendarEvents` records. `replicaRepositories.js` cannot correctly implement calendar `load()` while also preserving the rule that it never calls `replica.transact(...)`/`runTransaction(...)` directly — an interface gap in the storage foundation's read surface, not a reason to weaken the C3 mutation/transaction boundary
+- resolution: widen C5's exact production scope by exactly one existing foundation file, `src/storage/localReplica.js`, for exactly one additive method, `listCalendarEvents()`: read-only, no mutation, no authority mutation, no `commitCount` change, no browser global, no new transaction abstraction; reads all `calendarEvents` records via the module's own already-accepted internal `transact(...)` helper; returns them in canonical `id` ascending order; mirrors the existing accepted `listSharedPlaces()` collection-read pattern exactly; no other `localReplica.js` behavior changes
+- updated C5 exact production scope: new `src/storage/replicaRepositories.js`; `src/storage/localReplica.js` limited to the additive `listCalendarEvents()` accessor
+- updated C5 exact test scope (unchanged): `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`
+- direct-transaction-caller allowlist: unchanged (`src/storage/localReplica.js`, `src/storage/legacyMigration.js`, `src/storage/runtimeWrites.js`, `src/storage/storageAuthority.js`); `replicaRepositories.js` is explicitly NOT added to it
+- future C5 calendar load path: `replica.listCalendarEvents()` + `replica.getWasteState()` + `replica.getMeta('calendarLegacyEnvelopeExtras')`, then validate the loaded runtime records, rebuild the semantic envelope in canonical id order, preserve extras and `wasteImports` semantics; no direct IndexedDB transaction in `replicaRepositories.js`; no domain behavior moved into `localReplica.js` (it only enumerates stored records)
+- required focused coverage for the implementation pass: `listCalendarEvents` returns every record; returns canonical id order; performs zero writes; existing `localReplica.js` behavior otherwise unchanged
+- full amended contract in `docs/ACTIVE_SCOPE_LOCK.md` (Runtime cutover C5 scope)
+- this pass was docs/governance only; no source, test, package or config file changed; the interrupted C5 implementation draft (`src/storage/replicaRepositories.js`, `scripts/storage/storage.test.mjs`) was preserved byte-for-byte, uncommitted
+- runtime behavior change: NONE; storage foundation stays DORMANT
+- C6-C8: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
