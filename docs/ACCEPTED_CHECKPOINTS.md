@@ -288,6 +288,39 @@
 - C3 source scope: CLOSED
 - next project gate: `RUNTIME_CUTOVER_C4_SCOPE_OPEN` (docs-only C4 scope-open pass); C4 implementation LOCKED until that pass; C5-C8 LOCKED
 
+### RUNTIME_CUTOVER_C4
+- status: ACCEPTED / CHECKPOINTED
+- implementation history: `bf4c598f5b494bb289d748d48632c77d4be96be9` (`feat: add dormant storage authority controller`), `fa4b81055a4d4449bac89ac40fb9dc44f851abef` (`fix: harden authority snapshot and revert guards`), `858d777e0b15ef8a61197d9c49262f1818030a20` (`fix: close authority concurrency races`), `d2d1dad0e688706609b80172e8b10a50c54d138d` (`fix: complete mounted authority state handling`)
+- final implementation: `d2d1dad0e688706609b80172e8b10a50c54d138d`
+- review history (recorded as supplied; the final checkpoint pass did not itself rerun a separate reviewer's commands):
+  - initial implementation review: AMEND — found and fixed: missing READY snapshot/runtime validation; missing revert snapshot validation; incomplete durable authority/attempt transition guards; ambiguous revert-complete stale-attempt risk; explicit backup/preparation failure coverage gaps
+  - second independent review: AMEND — found and fixed: concurrent switch loser incorrectly reaching `LEGACY`; forward-build reverting convergence using stale boot-time attempt state; stale compensation before the durable attempt guard; reset/attempt races
+  - final mounted-state review: AMEND — found and fixed: mounted `READY` divergence/hint/authority rechecks missing; mounted `LEGACY` authority/hint reaction missing; `REVERTING` state missing
+  - final independent source review: PASS / ACCEPT; remaining C4 source blocker: NONE FOUND
+  - verified at final review: live `main == d2d1dad0e688706609b80172e8b10a50c54d138d`; parent `== 858d777e0b15ef8a61197d9c49262f1818030a20`; final amendment scope == exact C4 files; mounted-state controller semantics PASS; `REVERTING` state path PASS; prior concurrency guards retained PASS; prior durable revert guards retained PASS; storage remains dormant PASS
+- changed files (final amendment `858d777..d2d1dad`): `src/storage/storageAuthority.js`, `scripts/storage/indexeddb-browser.test.mjs`, `scripts/storage/storage.test.mjs`
+- accepted contracts (full locked list in `docs/ACTIVE_SCOPE_LOCK.md` Runtime cutover C4 section):
+  - authority controller: exact 9-field `storageAuthorityV1`, exact 5-field `storageRevertAttemptV1`, exact hint contract, strict authority/attempt validation, guarded mutations, `persist()` lifecycle, hint gate, `LEGACY` write guard
+  - boot state machine: `BOOTING`, `LEGACY`, `READY`, `READY + LEGACY_DIVERGED`, `DOMAIN_INVALID` (per domain), `AUTHORITY_HINT_PENDING`, `BLOCKED`, `STORAGE_UNAVAILABLE`, `STORAGE_LOST`, `RELOAD_REQUIRED`, `REVERTING`, `REVERT_STORAGE_LOST`, `REVERT_FAILED`
+  - authority switch: unknown authority never `LEGACY`; atomic switch; hint gate after switch; post-switch divergence confirmation; concurrent migration/switch convergence; exactly one authority creation; concurrent clean boots converge on the winning authority (Web Locks supplemental; IndexedDB transaction guards are authoritative)
+  - divergence (no re-adopt): IndexedDB stays authoritative; no automatic merge/re-adopt, reset, re-migration, second switch, authority/domain deletion or shared legacy write; `READY + LEGACY_DIVERGED`; a mounted `READY` tab rechecks divergence from runtime signals on the same controller, never creating a new one
+  - runtime mounted state: public `handleRuntimeSignal(signal)`; C4 owns every state decision, C6 only wires browser events/signals to it; `READY` shared-key signal -> divergence recheck; `READY` hint signal -> hint gate -> `READY` or `AUTHORITY_HINT_PENDING`; `READY` foreground/authority signal -> durable authority/attempt recheck -> `RELOAD_REQUIRED` on identity/status change; `LEGACY` hint/authority-changed signal -> `RELOAD_REQUIRED`; a mounted recheck never runs the forward reverting -> active convergence; no browser globals read in `src/storage/`
+  - domain validity: same C3 runtime validators on load; invalid household/calendar+waste/places+order give per-domain `DOMAIN_INVALID` with no auto-repair; other valid domains stay usable
+  - connection lifecycle: `versionchange`, browser close, `ReplicaConnectionLostError`, `VersionError` all resolve `RELOAD_REQUIRED`, never `LEGACY`; controller subscription exists before the first database open
+  - revert (Sections 6a-6d): authoritative semantic export of all three domains; empty-domain and deleted-data semantics; durable revert attempt; collision-checked `attemptId`; write-once backups with a verified pointer; `started -> backups-verified` only; resume semantics; exact backup-set ownership; byte-for-byte compensation; ambiguous-completion reread; confirm-only `REVERT_STORAGE_LOST`; forward-build convergence from `reverting`
+  - durable transition/concurrency guarantees: begin-revert transaction-time switch guard; abort-before-export/backups-verified-transition/compensation/revert-complete each validate the exact durable attempt (compensation validates it before the first restore write); ambiguous complete rereads authority and attempt; forward-build reverting classification uses transaction-time attempt state, not the boot-time read; reset transactions re-read the attempt key
+  - `REVERTING` state: a revert build with a valid active or reverting authority actually beginning or resuming a revert observes `BOOTING -> REVERTING ->` a terminal state (`LEGACY` / `REVERT_FAILED` / `STORAGE_UNAVAILABLE` / `RELOAD_REQUIRED`); never entered for authority absent, malformed/unknown or already-reverted authority
+- evidence (supplied execution evidence from the implementation pass; not rerun by a separate reviewer in this checkpoint pass):
+  - C4 node/storage: `82/82 PASS`; C4 Chromium: `41/41 PASS`
+  - storage full: `82` Node + `66` Chromium PASS
+  - IndexedDB/Chromium full: `66/66 PASS`
+  - saved places `12/12 PASS`; calendar `13/13 PASS`; calendar UI `20/20 PASS`; app shell `52/52 PASS`; reminders + UI + native `80/80` real assertions PASS; waste + UI `53/53 PASS`
+  - build PASS; `git diff --check` PASS
+  - harness note: Windows Chromium profile cleanup `EPERM` reproduced against the unchanged `858d777` baseline; the affected reminder/native-notification runs had their own assertion bodies pass before the cleanup failure; a standalone `app-shell.test.mjs` run passed cleanly; recorded as a pre-existing Windows harness cleanup flake, not silently counted as a clean process-level PASS
+- runtime behavior change: NONE; storage foundation: DORMANT; application runtime still uses the accepted legacy/localStorage paths; nothing outside `src/storage/` imports the storage foundation
+- C4 source scope: CLOSED
+- next project gate: `RUNTIME_CUTOVER_C5_SCOPE_OPEN` (docs-only C5 scope-open pass); C5 implementation LOCKED until that pass; C6-C8 LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
