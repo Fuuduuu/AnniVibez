@@ -1,6 +1,7 @@
 import { requestResult } from './indexedDb.js';
 import { createLocalReplica, validateCalendarEventRecord } from './localReplica.js';
 import { runLegacyMigration, readLegacySources, sourceDigest, LEGACY_SHARED_KEYS } from './legacyMigration.js';
+import { validateRuntimeRecord, validateSharedPlaceOrders } from './runtimeRecords.js';
 import { normalizePlaces } from '../places/savedPlaces.js';
 import { createEventRepository } from '../calendar/eventRepository.js';
 import { createHouseholdRepository } from '../waste/householdRepository.js';
@@ -44,6 +45,56 @@ function sameValue(left, right) {
   const rightKeys = Object.keys(right);
   return leftKeys.length === rightKeys.length
     && leftKeys.every(key => Object.hasOwn(right, key) && sameValue(left[key], right[key]));
+}
+
+// Domain load/validation boundary (Section 2 snapshot load, Section 3 DOMAIN_INVALID, Section 5 item 6,
+// Section 6c step 3). Reuses the C3 runtime validators; domain semantics are never reimplemented here.
+// Returns the names of every domain ('household', 'calendar', 'places') whose stored records fail
+// validation. 'calendar' covers both calendarEvents and wasteState, matching the C3 domain grouping.
+function classifyDomainValidity({ householdProfile, calendarEvents, wasteState, sharedPlaces }) {
+  const invalid = new Set();
+  if (householdProfile !== null) {
+    try {
+      validateRuntimeRecord('householdProfile', householdProfile);
+    } catch {
+      invalid.add('household');
+    }
+  }
+  let calendarInvalid = false;
+  for (const record of calendarEvents) {
+    try {
+      validateRuntimeRecord('calendarEvents', record);
+    } catch {
+      calendarInvalid = true;
+      break;
+    }
+  }
+  if (!calendarInvalid && wasteState !== null) {
+    try {
+      validateRuntimeRecord('wasteState', wasteState);
+    } catch {
+      calendarInvalid = true;
+    }
+  }
+  if (calendarInvalid) invalid.add('calendar');
+  let placesInvalid = false;
+  for (const record of sharedPlaces) {
+    try {
+      validateRuntimeRecord('sharedPlaces', record);
+    } catch {
+      placesInvalid = true;
+      break;
+    }
+  }
+  if (!placesInvalid) {
+    try {
+      validateSharedPlaceOrders(sharedPlaces);
+    } catch {
+      placesInvalid = true;
+    }
+  }
+  if (placesInvalid) invalid.add('places');
+  return [...invalid];
 }
 
 // Authority/hint timestamps follow the same strict rule as Task 2 record timestamps.
@@ -262,6 +313,19 @@ export function createStorageAuthorityController({
 
   // ---- forward boot (Section 2) --------------------------------------------------------------
 
+  // Section 2 "load initial domain snapshots" / Section 5 item 6 "the same validators run on every
+  // load". A read failure (for example ReplicaConnectionLostError) is not caught here: it propagates
+  // to boot()'s own classifyOpenError mapping, same as every other transact() call in this controller.
+  async function loadAndValidateDomains() {
+    const data = await replica.transact(['householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState'], 'readonly', async ({ stores }) => ({
+      householdProfile: (await requestResult(stores.householdProfile.get('household'))) ?? null,
+      wasteState: (await requestResult(stores.wasteState.get('waste'))) ?? null,
+      calendarEvents: await requestResult(stores.calendarEvents.getAll()),
+      sharedPlaces: await requestResult(stores.sharedPlaces.getAll()),
+    }));
+    return classifyDomainValidity(data);
+  }
+
   async function bootAuthorityActive(authority) {
     const hint = classifyHint(storage);
     const matches = hint.kind === 'valid' && hintMatches(hint.value, authority);
@@ -272,7 +336,13 @@ export function createStorageAuthorityController({
     }
     const diverged = await checkDivergence(authority);
     await persistLifecycle(authority);
-    return finish('READY', diverged ? { divergence: 'LEGACY_DIVERGED' } : {});
+    // Every domain stays independently usable: an invalid domain is reported, not repaired, and
+    // never blocks the other domains or the overall READY mount (Section 3 DOMAIN_INVALID is per domain).
+    const domainInvalid = await loadAndValidateDomains();
+    const detail = {};
+    if (diverged) detail.divergence = 'LEGACY_DIVERGED';
+    if (domainInvalid.length > 0) detail.domainInvalid = domainInvalid;
+    return finish('READY', detail);
   }
 
   async function switchTransaction({ switchId, switchedAt, legacyDigestAtSwitch }) {
@@ -629,9 +699,10 @@ export function createStorageAuthorityController({
       await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
         const currentAuthority = await requestResult(stores.meta.get(AUTHORITY_KEY));
         const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
-        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting'
-          || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.attemptId !== attempt.attemptId
-          || currentAttempt.phase !== 'started') throw new Error('abort-guard-failed');
+        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting' || currentAuthority.switchId !== authority.switchId
+          || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.switchId !== authority.switchId
+          || currentAttempt.attemptId !== attempt.attemptId || currentAttempt.phase !== 'started'
+          || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) throw new Error('abort-guard-failed');
         stores.meta.put({ ...currentAuthority, status: 'active' });
         stores.meta.delete(ATTEMPT_KEY);
       });
@@ -663,8 +734,10 @@ export function createStorageAuthorityController({
       await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
         const currentAuthority = await requestResult(stores.meta.get(AUTHORITY_KEY));
         const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
-        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting'
-          || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.attemptId !== attempt.attemptId) throw new Error('compensation-guard-failed');
+        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting' || currentAuthority.switchId !== authority.switchId
+          || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.switchId !== authority.switchId
+          || currentAttempt.attemptId !== attempt.attemptId || currentAttempt.phase !== 'backups-verified'
+          || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) throw new Error('compensation-guard-failed');
         const next = verified ? { ...currentAuthority, status: 'active' } : { ...currentAuthority, status: 'active', legacyUntrusted: true };
         stores.meta.put(next);
         stores.meta.delete(ATTEMPT_KEY);
@@ -680,7 +753,7 @@ export function createStorageAuthorityController({
       return await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
         const currentAuthority = await requestResult(stores.meta.get(AUTHORITY_KEY));
         const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
-        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting'
+        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting' || currentAuthority.switchId !== authority.switchId
           || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.switchId !== authority.switchId
           || currentAttempt.attemptId !== attempt.attemptId || currentAttempt.phase !== 'started'
           || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) return null;
@@ -693,14 +766,15 @@ export function createStorageAuthorityController({
     }
   }
 
-  async function completeRevert(attempt) {
+  async function completeRevert(authority, attempt) {
     try {
       const ok = await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
         const currentAuthority = await requestResult(stores.meta.get(AUTHORITY_KEY));
         const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
-        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting'
-          || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.attemptId !== attempt.attemptId
-          || currentAttempt.phase !== 'backups-verified') return false;
+        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting' || currentAuthority.switchId !== authority.switchId
+          || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.switchId !== authority.switchId
+          || currentAttempt.attemptId !== attempt.attemptId || currentAttempt.phase !== 'backups-verified'
+          || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) return false;
         stores.meta.put({ ...currentAuthority, status: 'reverted' });
         stores.meta.delete(ATTEMPT_KEY);
         return true;
@@ -709,14 +783,23 @@ export function createStorageAuthorityController({
     } catch {
       // fall through to the ambiguous re-read
     }
+    // Ambiguous failure: re-read BOTH records before deciding. Compensation may only run against the
+    // exact same attempt identity that was just exported; anything else (including a newer, different
+    // attempt) is REVERT_FAILED with no further shared-key write, never a compensation from a stale set.
     let reread;
     try {
-      reread = await replica.transact(['meta'], 'readonly', ({ stores }) => requestResult(stores.meta.get(AUTHORITY_KEY)));
+      reread = await replica.transact(['meta'], 'readonly', async ({ stores }) => ({
+        authority: await requestResult(stores.meta.get(AUTHORITY_KEY)),
+        attempt: await requestResult(stores.meta.get(ATTEMPT_KEY)),
+      }));
     } catch {
       return 'failed-unknown';
     }
-    if (isWellFormedAuthorityRecord(reread) && reread.status === 'reverted') return true;
-    if (isWellFormedAuthorityRecord(reread) && reread.status === 'reverting') return 'compensate';
+    if (isWellFormedAuthorityRecord(reread.authority) && reread.authority.status === 'reverted' && reread.attempt === undefined) return true;
+    if (isWellFormedAuthorityRecord(reread.authority) && reread.authority.status === 'reverting' && reread.authority.switchId === authority.switchId
+      && isWellFormedRevertAttemptRecord(reread.attempt) && reread.attempt.switchId === authority.switchId
+      && reread.attempt.attemptId === attempt.attemptId && reread.attempt.phase === 'backups-verified'
+      && reread.attempt.commitCountAtStart === reread.authority.commitCount) return 'compensate';
     return 'failed-unknown';
   }
 
@@ -726,6 +809,10 @@ export function createStorageAuthorityController({
     let payloads;
     try {
       snapshot = await readDomainSnapshotForExport();
+      // Section 6c step 3: read AND VALIDATE all three domain snapshots before export. An invalid
+      // record must never be exported merely because the legacy repository can parse the result.
+      const invalidDomains = classifyDomainValidity(snapshot);
+      if (invalidDomains.length > 0) throw new Error(`revert snapshot invalid: ${invalidDomains.join(',')}`);
       payloads = buildExportPayloads(snapshot);
     } catch {
       if (attempt.phase === 'started') {
@@ -762,7 +849,7 @@ export function createStorageAuthorityController({
     if (exported && !verifyExportedLegacy(snapshot)) exported = false;
     if (!exported) return compensateAndFail(authority, attempt, backupSet);
 
-    const completed = await completeRevert(attempt);
+    const completed = await completeRevert(authority, attempt);
     if (completed === 'failed-unknown') return finish('REVERT_FAILED', { reason: 'revert-complete-reread-failed' });
     if (completed === 'compensate') return compensateAndFail(authority, attempt, backupSet);
     const removed = removeHintVerified(storage);
@@ -771,13 +858,17 @@ export function createStorageAuthorityController({
   }
 
   async function beginRevert(authorityRaw) {
-    const selection = await selectAttemptId(authorityRaw.switchId);
+    // The candidate is probed under this exact switchId (Section 6b). If the authority's switchId has
+    // since changed, the candidate's collision-freeness was never verified in the new namespace, so the
+    // begin transaction must refuse rather than reuse it there.
+    const expectedSwitchId = authorityRaw.switchId;
+    const selection = await selectAttemptId(expectedSwitchId);
     if (!selection.ok) return finish('REVERT_FAILED', { reason: selection.reason });
     let began;
     try {
       began = await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
         const current = await requestResult(stores.meta.get(AUTHORITY_KEY));
-        if (!isWellFormedAuthorityRecord(current) || current.status !== 'active') return null;
+        if (!isWellFormedAuthorityRecord(current) || current.status !== 'active' || current.switchId !== expectedSwitchId) return null;
         const existingAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
         if (existingAttempt !== undefined) return null;
         const nextAuthority = { ...current, status: 'reverting' };
