@@ -237,6 +237,17 @@
 - C2 source scope: CLOSED
 - next project gate: `RUNTIME_CUTOVER_C3_SCOPE_OPEN` (docs-only C3 scope-open pass); C3 implementation LOCKED until that pass; C4-C8 LOCKED
 
+### RUNTIME_CUTOVER_C4_SCOPE_OPEN
+- status: OPEN (docs-only scope open; implementation in a separate pass)
+- baseline: `e2514e401ad93f66b24a4e2f282b7daecaa322e8`
+- plan: `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Sections 1-6; Section 7 row C4; Section 8 C4 acceptance tests; Section 10 STOP conditions); C3 prerequisite satisfied
+- purpose: authority controller and the complete dormant cutover state machine
+- production scope: new `src/storage/storageAuthority.js`
+- test scope: `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`
+- locked contract: exact 9-field `storageAuthorityV1` (Section 1a), exact `majandus_storage_authority_v1` hint (Section 1b), exact 5-field `storageRevertAttemptV1` (Section 1c), the full Section 3 startup state machine, the exact Section 2 switch ordering, the no-re-adopt divergence rule, the Section 5 item 4a connection-event contract and the Section 6a-6d revert/backup/compensation contract, each exactly as already accepted; this pass does not redesign or simplify any of them
+- runtime behavior change: NONE; storage foundation stays DORMANT
+- C5-C8: LOCKED (C5 not before C4 is implemented, independently reviewed and checkpointed)
+
 ### RUNTIME_CUTOVER_C3_SCOPE_OPEN
 - status: OPEN (docs-only scope open; implementation in a separate pass)
 - baseline: `65e34d702fed498960c07dc88ebefd2fc917c346`
