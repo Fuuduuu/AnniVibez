@@ -96,6 +96,7 @@ function paddedEntries(ordered) {
 // is left untouched (no rewritten updatedAt) -- this is the only way padded defaults become real rows.
 function planPlacesMutation(records, transform, { newId, clock }) {
   for (const record of records) validateRuntimeRecord('sharedPlaces', record);
+  validateSharedPlaceOrders(records);
   const ordered = [...records].sort((left, right) => left.order - right.order);
   const currentEntries = paddedEntries(ordered);
   const nextEntries = transform(currentEntries);

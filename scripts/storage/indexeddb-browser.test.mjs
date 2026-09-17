@@ -51,7 +51,9 @@ async function createBrowserHarness() {
         import { createStorageAuthorityController, isWellFormedAuthorityRecord, isWellFormedRevertAttemptRecord, classifyHint, hintMatches, canWriteLegacy } from './src/storage/storageAuthority.js';
         import { createReplicaRepositories } from './src/storage/replicaRepositories.js';
         import { normalizeWasteResult } from './src/waste/providers.js';
-        window.storageApi = { DB_NAME, DB_VERSION, STORE_NAMES, upgradeSchema, openMajandusDb, closeDb, requestResult, runTransaction, validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord, createLocalReplica, legacy, validateRuntimeRecord, validateSharedPlaceOrders, runReplicaMutation, normalizePlace, normalizePlaces, createStorageAuthorityController, isWellFormedAuthorityRecord, isWellFormedRevertAttemptRecord, classifyHint, hintMatches, canWriteLegacy, createReplicaRepositories, normalizeWasteResult };
+        import { createHouseholdRepository } from './src/waste/householdRepository.js';
+        import { createEventRepository } from './src/calendar/eventRepository.js';
+        window.storageApi = { DB_NAME, DB_VERSION, STORE_NAMES, upgradeSchema, openMajandusDb, closeDb, requestResult, runTransaction, validateHouseholdProfileRecord, validateCalendarEventRecord, validateSharedPlaceRecord, validateWasteStateRecord, validateOutboxRecord, createLocalReplica, legacy, validateRuntimeRecord, validateSharedPlaceOrders, runReplicaMutation, normalizePlace, normalizePlaces, createStorageAuthorityController, isWellFormedAuthorityRecord, isWellFormedRevertAttemptRecord, classifyHint, hintMatches, canWriteLegacy, createReplicaRepositories, normalizeWasteResult, createHouseholdRepository, createEventRepository };
       `,
     },
   });
@@ -802,16 +804,22 @@ test('local replica listCalendarEvents returns every record in canonical id orde
       await replica.putCalendarEvent(envelope('event-b'));
       await replica.putCalendarEvent(envelope('event-a'));
       await replica.putCalendarEvent(envelope('event-c'));
+      // 'event-Z' and 'event-a': verified in this exact browser to sort differently under the
+      // relational '<'/'>' comparator (event-Z, event-a) than under localeCompare (event-a, event-Z).
+      await replica.putCalendarEvent(envelope('event-Z'));
       const authorityBefore = await replica.getMeta('storageAuthorityV1');
       const listed = await replica.listCalendarEvents();
       const authorityAfter = await replica.getMeta('storageAuthorityV1');
       const single = await replica.getCalendarEvent('event-a');
       const household = await replica.getHouseholdProfile();
+      const relational = [...listed.map(r => r.id)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+      const localized = [...listed.map(r => r.id)].sort((a, b) => a.localeCompare(b));
       await replica.close();
-      return { empty, ids: listed.map(record => record.id), authorityBefore, authorityAfter, single, household };
+      return { empty, ids: listed.map(record => record.id), authorityBefore, authorityAfter, single, household, relational, localized };
     })()`);
     assert.deepEqual(result.empty, []);
-    assert.deepEqual(result.ids, ['event-a', 'event-b', 'event-c']);
+    assert.notDeepEqual(result.relational, result.localized, 'the fixture must genuinely distinguish the two comparators in this browser');
+    assert.deepEqual(result.ids, result.relational, 'listCalendarEvents uses the locale-independent relational comparator, matching C4');
     assert.equal(result.authorityBefore, undefined, 'listCalendarEvents never writes or creates an authority record');
     assert.equal(result.authorityAfter, undefined, 'listCalendarEvents never writes or creates an authority record');
     assert.equal(result.single.id, 'event-a', 'getCalendarEvent(id) still works unchanged');
@@ -3489,8 +3497,10 @@ const C5_PAGE = `window.__c5 = (() => {
   const putMeta = (replica, record) => replica.transact(['meta'], 'readwrite', ({ stores }) => api.requestResult(stores.meta.put(record)));
   const failure = error => ({ name: error && error.name, message: String(error && error.message) });
   const attempt = async promise => { try { return { ok: true, value: await promise }; } catch (error) { return { ok: false, error: failure(error) }; } };
-  // Wraps one store's put/delete to throw once, simulating a write-request-level failure (e.g. quota).
-  const wrapReplicaTransact = (replica, hook) => {
+  // Wraps one store's put/delete to throw once, simulating a write-request-level failure. Defaults to
+  // QuotaExceededError; pass makeError to inject a different write-request-level failure (e.g. a
+  // generic/other IndexedDB error).
+  const wrapReplicaTransact = (replica, hook, makeError = () => new DOMException('injected failure', 'QuotaExceededError')) => {
     const base = replica.transact;
     replica.transact = (names, mode, body) => base(names, mode, ({ stores }) => {
       const wrapped = Object.create(null);
@@ -3498,7 +3508,7 @@ const C5_PAGE = `window.__c5 = (() => {
         wrapped[name] = new Proxy(stores[name], {
           get(target, prop) {
             if ((prop === 'put' || prop === 'delete') && hook(name, prop)) {
-              return () => { throw new DOMException('injected failure', 'QuotaExceededError'); };
+              return () => { throw makeError(); };
             }
             const value = target[prop];
             return typeof value === 'function' ? value.bind(target) : value;
@@ -3614,6 +3624,30 @@ test('C5 household: a write failure atomically preserves previous state and comm
   }
 });
 
+test('C5 household: a distinct generic (non-quota) write error also atomically preserves previous state and commitCount', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c5Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { setup, makeRepos, dump, attempt, wrapReplicaTransact } = window.__c5;
+      const replica = await setup();
+      const repos = makeRepos(replica);
+      await repos.household.save({ name: 'Kodu', address: '' });
+      const before = await dump(replica);
+      const restore = wrapReplicaTransact(replica, name => name === 'householdProfile', () => new DOMException('injected generic write failure', 'UnknownError'));
+      const failed = await attempt(repos.household.save({ name: 'Uus', address: '' }));
+      restore();
+      const after = await dump(replica);
+      await replica.close();
+      return { failed, before, after };
+    })()`);
+    assert.equal(result.failed.ok, false);
+    assert.equal(result.failed.error.name, 'UnknownError', 'a generic write error is distinct from QuotaExceededError');
+    assert.deepEqual(result.after, result.before, 'the generic write failure changed nothing, including commitCount: zero partial writes, no legacy fallback');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
 test('C5 household: two concurrent mutations both persist and the second reads current durable state, never a stale snapshot', { concurrency: false, timeout: 120000 }, async () => {
   const harness = await c5Harness();
   try {
@@ -3639,6 +3673,55 @@ test('C5 household: two concurrent mutations both persist and the second reads c
     // state and never a caller-held stale snapshot: the result is deterministic regardless of order.
     const { serverHouseholdId, ...finalProfile } = result.after.household[0].payload;
     assert.deepEqual(finalProfile, { name: 'A', address: 'B street' }, 'no lost update from either concurrent mutation');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C5 household: TRUE parity against the legacy createHouseholdRepository oracle, plus retained extras left untouched', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c5Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { createHouseholdRepository, createLocalReplica, requestResult } = window.__c5.api;
+      const HOUSEHOLD_KEY = 'majamajandus_household_profile_v1';
+      const cases = [
+        { name: 'normal save into an empty household', seed: null, patch: { name: 'Kodu Pere', address: 'Tamme 5' } },
+        { name: 'trim/normalization', seed: { name: 'Vana Nimi', address: 'Vana 1' }, patch: { name: '  Uus Nimi  ' } },
+        { name: 'partial patch preserves the existing field', seed: { name: 'Olemas', address: 'Vana aadress' }, patch: { address: 'Uus aadress' } },
+        { name: 'empty accepted value', seed: { name: 'X', address: 'Y' }, patch: { name: 'X', address: '' } },
+      ];
+      const outcomes = [];
+      for (const testCase of cases) {
+        // Legacy world: an in-memory legacy-shaped storage seeded (or not) with the case's profile.
+        const legacyValues = new Map();
+        if (testCase.seed) legacyValues.set(HOUSEHOLD_KEY, JSON.stringify({ version: 1, profile: testCase.seed }));
+        const legacyStorage = { getItem: k => (legacyValues.has(k) ? legacyValues.get(k) : null), setItem: (k, v) => legacyValues.set(k, String(v)) };
+        const legacyResult = createHouseholdRepository(legacyStorage).save(testCase.patch);
+
+        // IndexedDB world: a fresh replica seeded with the semantically equivalent householdProfile record.
+        await window.__t.reset();
+        const replica = createLocalReplica({ indexedDb: indexedDB });
+        await replica.transact(['meta'], 'readwrite', ({ stores }) => requestResult(stores.meta.put(window.__c5.AUTHORITY)));
+        if (testCase.seed) {
+          await replica.transact(['householdProfile'], 'readwrite', ({ stores }) => stores.householdProfile.put({ key: 'household', payload: { ...testCase.seed, serverHouseholdId: null }, revision: 0, updatedAt: window.__c5.STAMP, deletedAt: null, syncStatus: 'local' }));
+        }
+        // Retained IndexedDB extras (parallel to the calendar envelope extras concept): C5's household
+        // repository never reads or writes this meta key, so it must stay byte-identical.
+        const extrasBefore = { key: 'householdLegacyEnvelopeExtras', value: { sourceVersion: 1, fields: { theme: 'dark' } } };
+        await replica.transact(['meta'], 'readwrite', ({ stores }) => stores.meta.put(extrasBefore));
+        const repos = window.__c5.makeRepos(replica);
+        const c5Result = await repos.household.save(testCase.patch);
+        const extrasAfter = await replica.getMeta('householdLegacyEnvelopeExtras');
+        await replica.close();
+
+        outcomes.push({ name: testCase.name, legacyProfile: legacyResult.profile, c5Profile: c5Result.profile, extrasBefore, extrasAfter });
+      }
+      return outcomes;
+    })()`);
+    for (const outcome of result) {
+      assert.deepEqual(outcome.c5Profile, outcome.legacyProfile, `${outcome.name}: C5's final semantic profile must equal the legacy createHouseholdRepository oracle`);
+      assert.deepEqual(outcome.extrasAfter, outcome.extrasBefore, `${outcome.name}: retained IndexedDB extras stay semantically unchanged`);
+    }
   } finally {
     await harness.cleanup();
   }
@@ -3747,6 +3830,39 @@ test('C5 places: authority mismatch writes nothing, an invalid stored order is r
   }
 });
 
+test('C5 places: a mutation refuses to run against an already-invalid existing collection, with zero writes and no auto-repair', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c5Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { setup, makeRepos, dump, attempt } = window.__c5;
+      const replica = await setup();
+      // Two individually valid records that together form an invalid collection (duplicate order 0).
+      await replica.transact(['sharedPlaces'], 'readwrite', ({ stores }) => {
+        stores.sharedPlaces.put({ id: 'p1', order: 0, payload: { name: 'A', address: '', lat: null, lon: null }, revision: 0, updatedAt: window.__c5.STAMP, deletedAt: null, syncStatus: 'local' });
+        stores.sharedPlaces.put({ id: 'p2', order: 0, payload: { name: 'B', address: '', lat: null, lon: null }, revision: 0, updatedAt: window.__c5.STAMP, deletedAt: null, syncStatus: 'local' });
+      });
+      const before = await dump(replica);
+      const repos = makeRepos(replica);
+      const updateRejected = await attempt(repos.places.update(0, { address: 'x' }));
+      const afterUpdate = await dump(replica);
+      const addRejected = await attempt(repos.places.add({ name: 'C' }));
+      const afterAdd = await dump(replica);
+      const removeRejected = await attempt(repos.places.remove(0));
+      const afterRemove = await dump(replica);
+      await replica.close();
+      return { before, updateRejected, afterUpdate, addRejected, afterAdd, removeRejected, afterRemove };
+    })()`);
+    assert.equal(result.updateRejected.ok, false, 'update() must refuse to plan against an invalid existing collection, not silently reindex it');
+    assert.deepEqual(result.afterUpdate, result.before, 'zero writes: the invalid stored records and authority/commitCount are byte-identical after the rejected update');
+    assert.equal(result.addRejected.ok, false, 'add() must also refuse');
+    assert.deepEqual(result.afterAdd, result.before, 'zero writes from the rejected add');
+    assert.equal(result.removeRejected.ok, false, 'remove() must also refuse');
+    assert.deepEqual(result.afterRemove, result.before, 'zero writes from the rejected remove');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
 test('C5 places: the inherited C3 order guard still rejects an invalid resulting order on the places domain, with zero writes', { concurrency: false, timeout: 120000 }, async () => {
   // The C5 diff always re-derives a fresh contiguous 0..n-1 order on every mutation, so a legitimate
   // repos.places.* call can never itself construct a duplicate/invalid resulting order. This proves
@@ -3774,6 +3890,70 @@ test('C5 places: the inherited C3 order guard still rejects an invalid resulting
     assert.equal(result.rejected.ok, false, 'a plan leaving a duplicate order 0 is rejected by the inherited C3 guard');
     assert.deepEqual(result.afterRejected.places, result.before.places, 'zero writes from the rejected mutation');
     assert.equal(result.afterRejected.authority.commitCount, result.before.authority.commitCount, 'commitCount does not advance on a rejected mutation');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C5 places: TRUE parity against the C2 neutral module oracle (update/add/remove/padding), plus id stability and contiguous order', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c5Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { normalizePlace, normalizePlaces, createLocalReplica, requestResult } = window.__c5.api;
+      const place = (name, address = '') => ({ name, address, lat: null, lon: null });
+      const cases = [
+        { name: 'update', seed: [place('A'), place('B'), place('C')], legacyOp: prev => prev.map((p, i) => (i === 1 ? { ...p, address: 'new' } : p)), run: repos => repos.places.update(1, { address: 'new' }) },
+        { name: 'add', seed: [place('A')], legacyOp: prev => [...prev, normalizePlace({ name: 'New' }, prev.length)], run: repos => repos.places.add({ name: 'New' }) },
+        { name: 'remove', seed: [place('A'), place('B'), place('C')], legacyOp: prev => prev.filter((_, i) => i !== 0), run: repos => repos.places.remove(0) },
+        { name: 'padding on a short list', seed: [place('Solo', 'X')], legacyOp: prev => prev.map((p, i) => (i === 0 ? { ...p, address: 'Changed' } : p)), run: repos => repos.places.update(0, { address: 'Changed' }) },
+      ];
+      const outcomes = [];
+      for (const testCase of cases) {
+        // Legacy/C2 oracle: normalizePlaces (the accepted padded semantic view) then the same array
+        // transform the hook performs, then normalizePlaces again at persist time.
+        const paddedSeed = normalizePlaces(testCase.seed);
+        const legacyPersisted = normalizePlaces(testCase.legacyOp(paddedSeed));
+
+        // IndexedDB world: seed ONLY the real (unpadded) records.
+        await window.__t.reset();
+        const replica = createLocalReplica({ indexedDb: indexedDB });
+        await replica.transact(['meta'], 'readwrite', ({ stores }) => requestResult(stores.meta.put(window.__c5.AUTHORITY)));
+        await replica.transact(['sharedPlaces'], 'readwrite', ({ stores }) => {
+          testCase.seed.forEach((payload, order) => stores.sharedPlaces.put({ id: 'seed-' + order, order, payload, revision: 0, updatedAt: window.__c5.STAMP, deletedAt: null, syncStatus: 'local' }));
+        });
+        const before = await replica.transact(['sharedPlaces'], 'readonly', ({ stores }) => requestResult(stores.sharedPlaces.getAll()));
+        const beforeIds = before.slice().sort((a, b) => a.order - b.order).map(r => r.id);
+
+        const repos = window.__c5.makeRepos(replica, { ids: ['new-1', 'new-2', 'new-3', 'new-4'] });
+        const c5Result = await testCase.run(repos);
+        const afterRecords = await replica.transact(['sharedPlaces'], 'readonly', ({ stores }) => requestResult(stores.sharedPlaces.getAll()));
+        await replica.close();
+        const afterOrdered = afterRecords.slice().sort((a, b) => a.order - b.order);
+        outcomes.push({
+          name: testCase.name,
+          legacyPersisted, c5Persisted: c5Result.places,
+          beforeIds, afterIds: afterOrdered.map(r => r.id), afterOrders: afterOrdered.map(r => r.order),
+        });
+      }
+      return outcomes;
+    })()`);
+    for (const outcome of result) {
+      assert.deepEqual(outcome.c5Persisted, outcome.legacyPersisted, `${outcome.name}: C5's final semantic list must equal the C2 module oracle`);
+      assert.deepEqual(outcome.afterOrders, outcome.afterOrders.map((_, i) => i), `${outcome.name}: orders stay contiguous 0..n-1`);
+      if (outcome.name === 'update' || outcome.name === 'padding on a short list') {
+        assert.deepEqual(outcome.afterIds.slice(0, outcome.beforeIds.length), outcome.beforeIds, `${outcome.name}: every real existing record keeps its own id`);
+        for (const id of outcome.afterIds.slice(outcome.beforeIds.length)) {
+          assert.ok(!outcome.beforeIds.includes(id), `${outcome.name}: a newly materialized padded slot gets a brand-new id`);
+        }
+      } else if (outcome.name === 'add') {
+        assert.equal(outcome.afterIds[0], outcome.beforeIds[0], 'add: the pre-existing record keeps its id');
+        for (const id of outcome.afterIds.slice(1)) assert.ok(!outcome.beforeIds.includes(id), 'add: every materialized/appended slot gets a brand-new id');
+      } else if (outcome.name === 'remove') {
+        assert.equal(outcome.afterIds[0], outcome.beforeIds[1], 'remove: the surviving record at the old second position keeps its own id, only its order moves');
+        assert.equal(outcome.afterIds[1], outcome.beforeIds[2], 'remove: the surviving record at the old third position keeps its own id, only its order moves');
+        assert.ok(!outcome.beforeIds.includes(outcome.afterIds[2]), 'remove: the re-padded default slot gets a brand-new id');
+      }
+    }
   } finally {
     await harness.cleanup();
   }
@@ -3968,6 +4148,146 @@ test('C5 calendar: authority mismatch and malformed authority reject with zero w
     assert.equal(result.invalidLoad.writable, false);
     assert.deepEqual(result.invalidLoad.events, []);
     assert.equal(result.afterInvalidLoad.events.length, 1, 'the invalid stored event record is left exactly as it was, never repaired or deleted');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C5 calendar: TRUE parity against the legacy createEventRepository oracle (create/update occurrence/update series/remove/importWaste/imported-event protection/extras)', { concurrency: false, timeout: 180000 }, async () => {
+  const harness = await c5Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { createEventRepository, createLocalReplica, requestResult, normalizeWasteResult } = window.__c5.api;
+      const EVENT_STORAGE_KEY = 'majamajandus_household_events_v1';
+      const idSeq = () => { let n = 0; return () => 'gen-' + (++n); };
+
+      const recurringSeed = {
+        id: 'ev-1', title: 'Prügivedu', category: 'waste', subtype: 'bio', date: '2026-09-20', time: null,
+        recurrence: { frequency: 'weekly', interval: 1 }, reminder: { daysBefore: 0 }, source: 'manual',
+        householdId: null, notes: '', seriesId: 'series:ev-1', excludedDates: ['2026-09-27'],
+        overrides: { '2026-09-20': { title: 'Occurrence override' } },
+      };
+      const importedSeed = {
+        id: 'ev-imported', title: 'Imporditud', category: 'waste', subtype: 'mixed', date: '2026-09-22', time: null,
+        recurrence: { frequency: 'none', interval: 1 }, reminder: { daysBefore: 0 }, source: 'imported',
+        householdId: null, notes: '', seriesId: null, excludedDates: [], overrides: {},
+        importMeta: { provider: 'fixture', providerName: 'Test source', addressKey: 'k', address: 'a', externalId: 'x1', importedAt: '2026-09-01T00:00:00.000Z' },
+      };
+
+      async function runCase({ seedEvents = [], extras = null, wasteImports = null, operate }) {
+        // World A: the legacy in-memory adapter, seeded with a semantically equivalent envelope.
+        const legacyEnvelope = { version: extras ? extras.sourceVersion : 1, ...(extras ? extras.fields : {}), events: seedEvents, ...(wasteImports ? { wasteImports } : {}) };
+        const legacyValues = new Map([[EVENT_STORAGE_KEY, JSON.stringify(legacyEnvelope)]]);
+        const legacyStorage = { getItem: k => (legacyValues.has(k) ? legacyValues.get(k) : null), setItem: (k, v) => legacyValues.set(k, String(v)) };
+        const legacyRepo = createEventRepository(legacyStorage, idSeq());
+        let legacyOutcome = null, legacyError = null;
+        try { legacyOutcome = await operate(legacyRepo); } catch (error) { legacyError = error.message; }
+        const legacyFinal = JSON.parse(legacyValues.get(EVENT_STORAGE_KEY));
+
+        // World B: IndexedDB, seeded with the same semantic state via the accepted stores directly.
+        await window.__t.reset();
+        const replica = createLocalReplica({ indexedDb: indexedDB });
+        await replica.transact(['meta'], 'readwrite', ({ stores }) => requestResult(stores.meta.put(window.__c5.AUTHORITY)));
+        await replica.transact(['calendarEvents'], 'readwrite', ({ stores }) => {
+          seedEvents.forEach(event => stores.calendarEvents.put({ id: event.id, payload: event, revision: 0, updatedAt: window.__c5.STAMP, deletedAt: null, syncStatus: 'local' }));
+        });
+        if (extras) await replica.transact(['meta'], 'readwrite', ({ stores }) => stores.meta.put({ key: 'calendarLegacyEnvelopeExtras', value: extras }));
+        if (wasteImports) await replica.transact(['wasteState'], 'readwrite', ({ stores }) => stores.wasteState.put({ key: 'waste', payload: { wasteImports }, revision: 0, updatedAt: window.__c5.STAMP, deletedAt: null, syncStatus: 'local' }));
+        const repos = window.__c5.makeRepos(replica, { newId: idSeq() });
+        let c5Outcome = null, c5Error = null;
+        try { c5Outcome = await operate(repos.calendar); } catch (error) { c5Error = error.message; }
+        const finalRecords = await replica.listCalendarEvents();
+        const finalWasteRecord = await replica.getWasteState();
+        const finalExtrasRecord = await replica.getMeta('calendarLegacyEnvelopeExtras');
+        await replica.close();
+
+        return {
+          legacyError, c5Error,
+          legacyEvents: legacyFinal.events, c5Events: finalRecords.map(record => record.payload),
+          legacyWasteImports: legacyFinal.wasteImports ?? null, c5WasteImports: finalWasteRecord ? finalWasteRecord.payload.wasteImports : null,
+          legacyExtraFields: extras ? Object.fromEntries(Object.keys(extras.fields).map(key => [key, legacyFinal[key]])) : {},
+          c5ExtrasRecord: finalExtrasRecord ?? null,
+          legacyVersion: legacyFinal.version,
+        };
+      }
+
+      const cases = {};
+
+      cases.create = await runCase({
+        seedEvents: [],
+        operate: repo => repo.create({ title: 'Uus sündmus', category: 'general', date: '2026-09-20' }),
+      });
+
+      cases.updateOccurrence = await runCase({
+        seedEvents: [recurringSeed],
+        operate: repo => repo.update('ev-1', { title: 'Selle korra pealkiri' }, { scope: 'occurrence', occurrenceDate: '2026-10-04' }),
+      });
+
+      cases.updateSeriesWithDateChange = await runCase({
+        seedEvents: [recurringSeed],
+        operate: repo => repo.update('ev-1', { title: 'Uus sarja pealkiri', date: '2026-09-21' }, { scope: 'series' }),
+      });
+
+      cases.remove = await runCase({
+        seedEvents: [recurringSeed],
+        operate: repo => repo.remove('ev-1', { scope: 'series' }),
+      });
+
+      cases.importWaste = await runCase({
+        seedEvents: [],
+        operate: repo => repo.importWaste(normalizeWasteResult({ id: 'fixture', name: 'Test source' }, 'Testi 1, Rakvere', { entries: [{ externalId: 'source-1', date: '2026-09-14', subtype: 'bio', title: 'Biojäätmed' }] }), new Date('2026-09-13T12:00:00Z')),
+      });
+
+      cases.importedEventProtection = await runCase({
+        seedEvents: [importedSeed],
+        operate: repo => repo.update('ev-imported', { date: '2026-10-01' }, {}),
+      });
+
+      cases.extrasPreservation = await runCase({
+        seedEvents: [],
+        extras: { sourceVersion: 1, fields: { theme: 'dark' } },
+        operate: repo => repo.create({ title: 'Extras test', category: 'general', date: '2026-09-25' }),
+      });
+
+      return cases;
+    })()`);
+
+    const byId = events => new Map(events.map(event => [event.id, event]));
+    for (const [name, outcome] of Object.entries(result)) {
+      assert.equal(outcome.c5Error === null, outcome.legacyError === null, `${name}: both worlds must agree on success/failure (legacy: ${outcome.legacyError}, c5: ${outcome.c5Error})`);
+      if (outcome.legacyError !== null) continue; // failure-semantics case: no event/waste comparison needed once both worlds refused identically.
+      const legacyById = byId(outcome.legacyEvents);
+      const c5ById = byId(outcome.c5Events);
+      assert.deepEqual([...c5ById.keys()].sort(), [...legacyById.keys()].sort(), `${name}: same set of event ids (id-keyed comparison, not array position)`);
+      for (const id of legacyById.keys()) assert.deepEqual(c5ById.get(id), legacyById.get(id), `${name}: event ${id} semantic payload must match the legacy oracle`);
+      assert.deepEqual(outcome.c5WasteImports, outcome.legacyWasteImports, `${name}: wasteImports must match the legacy oracle`);
+      if (outcome.c5ExtrasRecord) {
+        assert.equal(outcome.c5ExtrasRecord.value.sourceVersion, outcome.legacyVersion, `${name}: extras version preserved`);
+        for (const [key, value] of Object.entries(outcome.legacyExtraFields)) {
+          assert.deepEqual(outcome.c5ExtrasRecord.value.fields[key], value, `${name}: extras field ${key} preserved`);
+        }
+      }
+    }
+    // Case-specific semantic proofs the id-keyed loop above does not already cover.
+    assert.equal(result.updateOccurrence.legacyError, null);
+    const occEvent = result.updateOccurrence.c5Events.find(e => e.id === 'ev-1');
+    assert.equal(occEvent.overrides['2026-10-04'].title, 'Selle korra pealkiri', 'occurrence override applied');
+    assert.equal(occEvent.title, 'Prügivedu', 'series base title unaffected by an occurrence edit');
+    assert.deepEqual(occEvent.excludedDates, ['2026-09-27'], 'pre-existing excludedDates untouched by an occurrence edit');
+
+    const seriesEvent = result.updateSeriesWithDateChange.c5Events.find(e => e.id === 'ev-1');
+    assert.equal(seriesEvent.date, '2026-09-21');
+    assert.deepEqual(seriesEvent.excludedDates, [], 'a series date change resets excludedDates, per the legacy oracle');
+    assert.deepEqual(seriesEvent.overrides, {}, 'a series date change resets overrides, per the legacy oracle');
+
+    assert.equal(result.remove.c5Events.length, 0, 'the series was fully removed in both worlds');
+
+    assert.equal(result.importWaste.c5WasteImports.length, 1);
+    assert.equal(result.importWaste.c5Events.some(e => e.source === 'imported'), true);
+
+    assert.notEqual(result.importedEventProtection.legacyError, null, 'the legacy oracle refuses the forbidden imported-event edit');
+    assert.notEqual(result.importedEventProtection.c5Error, null, 'C5 must refuse the same forbidden imported-event edit');
+    assert.equal(result.importedEventProtection.legacyError, result.importedEventProtection.c5Error, 'both worlds refuse with the same accepted error message');
   } finally {
     await harness.cleanup();
   }

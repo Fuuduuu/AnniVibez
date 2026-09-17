@@ -196,7 +196,8 @@ export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = (
     putCalendarEvent: record => put('calendarEvents', record, validateCalendarEventRecord),
     listCalendarEvents: async () => {
       const records = await transact('calendarEvents', 'readonly', ({ stores }) => requestResult(stores.calendarEvents.getAll()));
-      return records.sort((left, right) => left.id.localeCompare(right.id));
+      // Locale-independent, matching the same comparator C4's revert/export already uses.
+      return records.sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
     },
     listSharedPlaces: async () => {
       const records = await transact('sharedPlaces', 'readonly', ({ stores }) => requestResult(stores.sharedPlaces.getAll()));
