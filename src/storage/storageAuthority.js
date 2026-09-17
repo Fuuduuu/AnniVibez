@@ -245,13 +245,44 @@ export function createStorageAuthorityController({
   // (Section 5 item 4a-5): a boot step racing the event must never overwrite it with LEGACY or anything
   // else, however far its own async chain had already progressed.
   let connectionLost = false;
+  // Mounted-READY identity and notices (Issue A). Reset on every fresh BOOTING entry so a stale
+  // identity from a previous boot never leaks into the next one's mounted-signal handling.
+  let mountedAuthority = null;
+  let divergenceNoticeActive = false;
+  let domainInvalidList = [];
 
   const setState = (next, detail = {}) => {
     state = next;
+    if (next === 'BOOTING') {
+      mountedAuthority = null;
+      divergenceNoticeActive = false;
+      domainInvalidList = [];
+    }
     lastResult = { state: next, ...detail };
     for (const listener of listeners) listener(lastResult);
     return lastResult;
   };
+
+  // Section 3 READY detail, derived from the mounted notices tracked above rather than recomputed
+  // ad hoc at each call site, so every mounted recheck reports a consistent shape.
+  const readyDetail = () => {
+    const detail = {};
+    if (divergenceNoticeActive) detail.divergence = 'LEGACY_DIVERGED';
+    if (domainInvalidList.length > 0) detail.domainInvalid = domainInvalidList;
+    return detail;
+  };
+
+  // Section 2 step 8 hint gate, shared by the initial boot and every mounted-READY hint recheck
+  // (Issue A). Returns true once the hint is valid and matching (rewriting it first if needed).
+  async function ensureHintGate(authority) {
+    const hint = classifyHint(storage);
+    const matches = hint.kind === 'valid' && hintMatches(hint.value, authority);
+    if (matches) return true;
+    const gated = writeHintGate(storage, authority);
+    if (!gated) return false;
+    try { broadcast?.postMessage?.({ type: 'authority-changed' }); } catch { /* best-effort */ }
+    return true;
+  }
   const finish = (next, detail = {}) => (connectionLost && next !== 'RELOAD_REQUIRED' ? setState('RELOAD_REQUIRED') : setState(next, detail));
 
   // Subscribed immediately after creating the replica, before any boot step opens the database.
@@ -327,22 +358,17 @@ export function createStorageAuthorityController({
   }
 
   async function bootAuthorityActive(authority) {
-    const hint = classifyHint(storage);
-    const matches = hint.kind === 'valid' && hintMatches(hint.value, authority);
-    if (!matches) {
-      const gated = writeHintGate(storage, authority);
-      if (!gated) return finish('AUTHORITY_HINT_PENDING');
-      try { broadcast?.postMessage?.({ type: 'authority-changed' }); } catch { /* best-effort */ }
-    }
+    const gated = await ensureHintGate(authority);
+    if (!gated) return finish('AUTHORITY_HINT_PENDING');
     const diverged = await checkDivergence(authority);
     await persistLifecycle(authority);
     // Every domain stays independently usable: an invalid domain is reported, not repaired, and
     // never blocks the other domains or the overall READY mount (Section 3 DOMAIN_INVALID is per domain).
     const domainInvalid = await loadAndValidateDomains();
-    const detail = {};
-    if (diverged) detail.divergence = 'LEGACY_DIVERGED';
-    if (domainInvalid.length > 0) detail.domainInvalid = domainInvalid;
-    return finish('READY', detail);
+    mountedAuthority = authority;
+    divergenceNoticeActive = diverged;
+    domainInvalidList = domainInvalid;
+    return finish('READY', readyDetail());
   }
 
   // Distinguishes the three outcomes a caller must never conflate: this execution created authority;
@@ -961,9 +987,122 @@ export function createStorageAuthorityController({
     if (attemptClass.kind === 'orphan') return finish('STORAGE_UNAVAILABLE', { reason: 'revert-attempt-orphan' });
     if (authorityRaw === undefined) return bootRevertAuthorityAbsent();
     if (authorityRaw.status === 'reverted') return bootRevertAuthorityReverted();
-    if (authorityRaw.status === 'active') return beginRevert(authorityRaw);
+    if (authorityRaw.status === 'active') {
+      // Section 3: REVERTING is entered only once the revert is actually beginning (a valid active
+      // authority, about to transition). Authority-absent and already-reverted paths above never pass
+      // through here, and a malformed/unknown authority already returned before this point.
+      setState('REVERTING');
+      return beginRevert(authorityRaw);
+    }
     if (attemptClass.kind === 'invalid-under-reverting') return finish('REVERT_FAILED', { reason: 'revert-attempt-invalid' });
+    // Resuming a genuinely in-progress revert (a valid durable attempt under a reverting authority).
+    setState('REVERTING');
     return continueReverting(authorityRaw, attemptClass.attempt);
+  }
+
+  // ---- mounted runtime signals (Issue A) --------------------------------------------------------
+  // C6 owns the actual browser event wiring (storage events, focus/visibilitychange, the injected
+  // broadcast channel); this controller owns only the resulting state decisions. No browser global is
+  // read here -- every capability stays injected, same as boot().
+
+  const LEGACY_KEY_SET = new Set(LEGACY_SHARED_KEYS);
+
+  // Section 2 divergence re-check for an already-mounted READY tab. Sticky: once flagged, the notice
+  // is never cleared by a later signal (no re-adopt; every occurrence is a STOP condition).
+  async function recheckLegacyDivergenceInReady() {
+    if (state !== 'READY' || !mountedAuthority) return;
+    if (!divergenceNoticeActive) {
+      const diverged = await checkDivergence(mountedAuthority);
+      if (diverged) divergenceNoticeActive = true;
+    }
+    if (state === 'READY') finish('READY', readyDetail());
+  }
+
+  // Section 1b hint watch for an already-mounted READY tab: reclassify, and rewrite through the same
+  // hint gate boot() uses on any non-matching result. A gate failure moves out of READY; it never
+  // falls back to LEGACY.
+  async function recheckHintInReady() {
+    if (state !== 'READY' || !mountedAuthority) return;
+    const gated = await ensureHintGate(mountedAuthority);
+    if (!gated) { finish('AUTHORITY_HINT_PENDING'); return; }
+    if (state === 'READY') finish('READY', readyDetail());
+  }
+
+  // Section 5 item 6 domain re-validation for an already-mounted READY tab (used by the generic
+  // foreground/focus recheck below; it never repairs, only reports).
+  async function recheckDomainsInReady() {
+    if (state !== 'READY' || !mountedAuthority) return;
+    domainInvalidList = await loadAndValidateDomains();
+    if (state === 'READY') finish('READY', readyDetail());
+  }
+
+  // Generic foreground/authority recheck for an already-mounted READY tab (focus/visibilitychange,
+  // or an authority-changed broadcast). Re-reads the durable authority and attempt records and
+  // compares identity against what this tab mounted with. A changed, missing or non-active authority
+  // always means RELOAD_REQUIRED here -- this mounted recheck never runs the forward-boot
+  // reverting -> active convergence transition; that belongs to a fresh boot() only.
+  async function recheckAuthorityIdentityInReady() {
+    if (state !== 'READY' || !mountedAuthority) return;
+    let metaRead;
+    try {
+      metaRead = await readAuthorityAndAttempt();
+    } catch (error) {
+      finish(...classifyOpenError(error));
+      return;
+    }
+    const { authority: raw, attempt: attemptRaw } = metaRead;
+    if (raw === undefined) { finish('RELOAD_REQUIRED'); return; }
+    if (!isWellFormedAuthorityRecord(raw)) { finish('STORAGE_UNAVAILABLE', { reason: 'authority-malformed' }); return; }
+    if (raw.status !== 'active' || raw.switchId !== mountedAuthority.switchId) { finish('RELOAD_REQUIRED'); return; }
+    const attemptClass = classifyBootAttempt(raw, attemptRaw);
+    if (attemptClass.kind === 'orphan') { finish('STORAGE_UNAVAILABLE', { reason: 'revert-attempt-orphan' }); return; }
+    mountedAuthority = raw;
+    await recheckHintInReady();
+    if (state !== 'READY') return;
+    await recheckLegacyDivergenceInReady();
+    if (state !== 'READY') return;
+    await recheckDomainsInReady();
+  }
+
+  // storage event (or storage.clear(), key === null) for one of the 3 shared legacy keys and/or the
+  // hint key. A mounted LEGACY tab responds only to the hint case (Section 1b LEGACY write guard
+  // already covers the write path itself; this covers the already-open-tab response).
+  async function handleStorageSignal(key) {
+    const affectsLegacy = key === null || LEGACY_KEY_SET.has(key);
+    const affectsHint = key === null || key === HINT_KEY;
+    if (!affectsLegacy && !affectsHint) return;
+    if (state === 'READY') {
+      if (affectsLegacy) await recheckLegacyDivergenceInReady();
+      if (affectsHint && state === 'READY') await recheckHintInReady();
+      return;
+    }
+    if (state === 'LEGACY' && affectsHint) {
+      const hint = classifyHint(storage);
+      // Any non-absent classification (valid, malformed or unreadable) means a new build switched
+      // elsewhere; this LEGACY tab must reload rather than silently boot itself into READY.
+      if (hint.kind !== 'absent') finish('RELOAD_REQUIRED');
+    }
+  }
+
+  async function handleAuthorityChangedBroadcast() {
+    if (state === 'LEGACY') { finish('RELOAD_REQUIRED'); return; }
+    if (state === 'READY') await recheckAuthorityIdentityInReady();
+  }
+
+  async function handleForegroundSignal() {
+    if (state === 'READY') await recheckAuthorityIdentityInReady();
+  }
+
+  // Narrow C6-facing entrypoint: C4 owns every state decision; C6 only forwards the raw signal
+  // (a storage event, a focus/visibilitychange event, or a received broadcast message) here. C4 does
+  // not subscribe to the injected broadcast capability itself, so close() has no extra listener to
+  // detach for it.
+  async function handleRuntimeSignal(signal) {
+    if (!isPlainObject(signal)) return lastResult;
+    if (signal.type === 'authority-changed') { await handleAuthorityChangedBroadcast(); return lastResult; }
+    if (signal.type === 'storage') { await handleStorageSignal(signal.key === undefined ? null : signal.key); return lastResult; }
+    if (signal.type === 'focus' || signal.type === 'visibility') { await handleForegroundSignal(); return lastResult; }
+    return lastResult;
   }
 
   // ---- public entrypoints ----------------------------------------------------------------------
@@ -1028,6 +1167,7 @@ export function createStorageAuthorityController({
     retry: boot,
     confirmStorageLost,
     confirmRevertStorageLost,
+    handleRuntimeSignal,
     close: () => replica.close(),
   };
 }

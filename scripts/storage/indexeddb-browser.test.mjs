@@ -3239,3 +3239,187 @@ test('C4 stale reset re-reads the attempt key inside its transaction: a raced-in
     await harness.cleanup();
   }
 });
+
+// ---- Runtime cutover C4 mounted-state amendment (Issues A and B) ---------------------------------
+
+test('C4 mounted READY: handleRuntimeSignal for a shared legacy key re-checks divergence on the same controller with zero re-adopt/reset/migration', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { switchedSetup, dump, legacyBytes } = window.__c4;
+      const [CAL] = window.__t.legacy.LEGACY_SHARED_KEYS;
+      const { controller } = await switchedSetup({}, { ids: ['switch-1', 'prep-1'] });
+      const before = await dump();
+      localStorage.setItem(CAL, JSON.stringify({ version: 1, events: [{ id:'e1', title:'X', category:'other', subtype:null, date:'2026-09-20', time:null, recurrence:{frequency:'none',interval:1}, reminder:{daysBefore:0}, source:'manual', householdId:null, notes:'', seriesId:null, excludedDates:[], overrides:{} }] }));
+      const legacyEdited = legacyBytes();
+      const signalResult = await controller.handleRuntimeSignal({ type: 'storage', key: CAL });
+      const after = await dump();
+      const legacyAfter = legacyBytes();
+      await controller.close();
+      return { signalResult, before, after, legacyEdited, legacyAfter };
+    })()`);
+    assert.equal(result.signalResult.state, 'READY');
+    assert.equal(result.signalResult.divergence, 'LEGACY_DIVERGED');
+    assert.deepEqual(result.after, result.before, 'zero IndexedDB writes from the mounted divergence recheck');
+    assert.deepEqual(result.legacyAfter, result.legacyEdited, 'the old-build legacy edit stays exactly as written, never adopted or reverted');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 mounted READY: a hint-clear signal with a blocked gate gives AUTHORITY_HINT_PENDING with zero legacy writes, and recovers once the gate is writable again', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const HINT_KEY = 'majandus_storage_authority_v1';
+      const { switchedSetup, dump } = window.__c4;
+      let blockHintSet = false;
+      const storage = {
+        getItem: k => localStorage.getItem(k),
+        setItem: (k, v) => { if (blockHintSet && k === HINT_KEY) throw new Error('blocked'); localStorage.setItem(k, v); },
+        removeItem: k => localStorage.removeItem(k),
+      };
+      const { controller, result: bootResult } = await switchedSetup({}, { ids: ['switch-1', 'prep-1'], storage });
+      const legacyBefore = window.__c4.legacyBytes();
+      localStorage.removeItem(HINT_KEY);
+      blockHintSet = true;
+      const pending = await controller.handleRuntimeSignal({ type: 'storage', key: HINT_KEY });
+      const dataWhilePending = await dump();
+      const legacyWhilePending = window.__c4.legacyBytes();
+      blockHintSet = false;
+      const retried = await controller.retry();
+      const hintAfterRetry = localStorage.getItem(HINT_KEY);
+      await controller.close();
+      return { bootResult, pending, authorityWhilePending: dataWhilePending.meta.find(r => r.key === 'storageAuthorityV1'), legacyBefore, legacyWhilePending, retried, hintAfterRetry };
+    })()`);
+    assert.equal(result.bootResult.state, 'READY');
+    assert.deepEqual(result.pending, { state: 'AUTHORITY_HINT_PENDING' });
+    assert.equal(result.authorityWhilePending.status, 'active', 'authority stays active while the mounted hint gate is pending');
+    assert.deepEqual(result.legacyWhilePending, result.legacyBefore, 'zero shared legacy writes from the mounted hint recheck');
+    assert.equal(result.retried.state, 'READY');
+    assert.ok(result.hintAfterRetry, 'the hint is restored once the gate is writable again');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 mounted LEGACY: a hint-key signal for a non-absent hint gives RELOAD_REQUIRED, never a silent boot into READY', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const HINT_KEY = 'majandus_storage_authority_v1';
+      const { reset, seed, makeController } = window.__c4;
+      await reset();
+      seed({ calendar: 'not json' });
+      const controller = makeController();
+      const legacyResult = await controller.boot();
+      localStorage.setItem(HINT_KEY, JSON.stringify({ version: 1, switchId: 'other', legacyDigestAtSwitch: 'a'.repeat(64), switchedAt: '2026-09-16T10:00:00.000Z' }));
+      const signalResult = await controller.handleRuntimeSignal({ type: 'storage', key: HINT_KEY });
+      await controller.close();
+      return { legacyResult, signalResult };
+    })()`);
+    assert.equal(result.legacyResult.state, 'LEGACY');
+    assert.deepEqual(result.signalResult, { state: 'RELOAD_REQUIRED' });
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 mounted LEGACY: an authority-changed broadcast signal gives RELOAD_REQUIRED', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController } = window.__c4;
+      await reset();
+      seed({ calendar: 'not json' });
+      const controller = makeController();
+      const legacyResult = await controller.boot();
+      const signalResult = await controller.handleRuntimeSignal({ type: 'authority-changed' });
+      await controller.close();
+      return { legacyResult, signalResult };
+    })()`);
+    assert.equal(result.legacyResult.state, 'LEGACY');
+    assert.deepEqual(result.signalResult, { state: 'RELOAD_REQUIRED' });
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 mounted READY: a foreground signal after a second connection changes the durable authority gives RELOAD_REQUIRED without running the forward reverting-to-active convergence', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { switchedSetup, dump, authorityOf } = window.__c4;
+      const { controller, result: bootResult } = await switchedSetup({}, { ids: ['switch-1', 'prep-1'] });
+      const before = await dump();
+      const authority = authorityOf(before);
+      await window.__t.put('meta', { ...authority, status: 'reverting' });
+      const signalResult = await controller.handleRuntimeSignal({ type: 'focus' });
+      const after = await dump();
+      await controller.close();
+      return { bootResult, signalResult, authorityAfter: authorityOf(after) };
+    })()`);
+    assert.equal(result.bootResult.state, 'READY');
+    assert.deepEqual(result.signalResult, { state: 'RELOAD_REQUIRED' });
+    assert.equal(result.authorityAfter.status, 'reverting', 'the mounted tab never runs the forward reverting -> active convergence on its own');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 REVERTING: a successful revert observes BOOTING, REVERTING, LEGACY in order', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { switchedSetup, makeController } = window.__c4;
+      const forward = await switchedSetup({}, { ids: ['switch-1', 'prep-1'] });
+      await forward.controller.close();
+      const states = [];
+      const revert = makeController({ mode: 'revert', ids: ['attempt-1'] });
+      revert.subscribe(r => states.push(r.state));
+      const finalResult = await revert.boot();
+      await revert.close();
+      return { states, finalResult };
+    })()`);
+    assert.deepEqual(result.states, ['BOOTING', 'REVERTING', 'LEGACY']);
+    assert.equal(result.finalResult.state, 'LEGACY');
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 REVERTING: a forced failure after the revert genuinely begins observes BOOTING, REVERTING, REVERT_FAILED, and leaves authority active with legacy bytes untouched', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { switchedSetup, makeController, dump, legacyBytes } = window.__c4;
+      const forward = await switchedSetup({}, { ids: ['switch-1', 'prep-1'] });
+      await forward.controller.close();
+      const legacyBefore = legacyBytes();
+      const throwKey = 'majandus_legacy_backup_v1_switch-1_attempt-1_calendar';
+      const storage = {
+        getItem: k => localStorage.getItem(k),
+        setItem: (k, v) => { if (k === throwKey) throw new Error('blocked'); localStorage.setItem(k, v); },
+        removeItem: k => localStorage.removeItem(k),
+      };
+      const states = [];
+      const revert = makeController({ mode: 'revert', ids: ['attempt-1'], storage });
+      revert.subscribe(r => states.push(r.state));
+      const finalResult = await revert.boot();
+      const data = await dump();
+      const legacyAfter = legacyBytes();
+      await revert.close();
+      const authority = data.meta.find(r => r.key === 'storageAuthorityV1');
+      const attempt = data.meta.find(r => r.key === 'storageRevertAttemptV1');
+      return { states, finalResult, authority, attempt, legacyBefore, legacyAfter };
+    })()`);
+    assert.deepEqual(result.states, ['BOOTING', 'REVERTING', 'REVERT_FAILED']);
+    assert.equal(result.finalResult.state, 'REVERT_FAILED');
+    assert.equal(result.finalResult.reason, 'revert-preparation-failed');
+    assert.equal(result.authority.status, 'active', 'aborted before export: authority returns to active');
+    assert.equal(result.attempt, undefined, 'the attempt record is cleaned up on abort-before-export');
+    assert.deepEqual(result.legacyAfter, result.legacyBefore, 'zero shared legacy writes: export never began');
+  } finally {
+    await harness.cleanup();
+  }
+});

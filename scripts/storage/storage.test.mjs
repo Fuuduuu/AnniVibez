@@ -1341,7 +1341,7 @@ test('C4 controller starts BOOTING and exposes exactly the minimal public API', 
   const controller = createStorageAuthorityController({ storage: fakeStorage(), newId: () => 'id' });
   assert.equal(controller.getState(), 'BOOTING');
   assert.deepEqual(controller.getResult(), { state: 'BOOTING' });
-  assert.deepEqual(Object.keys(controller).sort(), ['boot', 'close', 'confirmRevertStorageLost', 'confirmStorageLost', 'getResult', 'getState', 'replica', 'retry', 'subscribe']);
+  assert.deepEqual(Object.keys(controller).sort(), ['boot', 'close', 'confirmRevertStorageLost', 'confirmStorageLost', 'getResult', 'getState', 'handleRuntimeSignal', 'replica', 'retry', 'subscribe']);
   assert.equal(controller.retry, controller.boot);
 });
 
