@@ -1,16 +1,15 @@
-import { useEffect, useState } from 'react';
-import { createHouseholdRepository, HOUSEHOLD_KEY } from './householdRepository';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
-export function useHousehold() {
-  const [repository]=useState(()=>{
-    let storage;try {storage=window.localStorage;} catch {storage=null;}
-    return createHouseholdRepository(storage);
-  });
-  const [snapshot,setSnapshot]=useState(()=>repository.load());
-  useEffect(()=>{
-    const reload=event=>{if(event.key === HOUSEHOLD_KEY || event.key === null) setSnapshot(repository.load());};
-    window.addEventListener('storage',reload);
-    return ()=>window.removeEventListener('storage',reload);
-  },[repository]);
-  return {...snapshot,save(patch) {const next=repository.save(patch);setSnapshot(next);return next;}};
+const SAVE_FAILED = 'Salvestamine ebaõnnestus. Proovi uuesti.';
+const EMPTY_PROFILE = { name: '', address: '' };
+
+// Dual-mode adapter over the runtime session's household store: LEGACY runs the accepted
+// createHouseholdRepository over localStorage, READY the accepted C5 IndexedDB household repository.
+export function useHousehold(session) {
+  const store = session.stores.household;
+  const view = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const save = useCallback(patch => store.mutate(repository => repository.save(patch), SAVE_FAILED), [store]);
+  return useMemo(() => ({
+    ...view.data, profile: view.data?.profile ?? EMPTY_PROFILE, loading: view.loading, writable: view.writable, error: view.error, save,
+  }), [view, save]);
 }

@@ -17,6 +17,7 @@ export function EventDialog({selection,calendar,onClose}) {
   const [scope,setScope]=useState(null);
   const [form,setForm]=useState(()=>fields(selection.item || {date:selection.date,...selection.defaults}));
   const [error,setError]=useState('');
+  const [pending,setPending]=useState(false);
   const [advancedOpen,setAdvancedOpen]=useState(false);
   const dialog=useRef(null);
   const recurring=source?.recurrence.frequency !== 'none' && !!source;
@@ -34,20 +35,24 @@ export function EventDialog({selection,calendar,onClose}) {
     setAdvancedOpen(imported || hasAdvanced(values));
     setMode('edit');
   }
-  function save(event) {
-    event.preventDefault();setError('');
+  // The dialog closes and reports success only after the mutation has committed; a failure keeps the form.
+  async function save(event) {
+    event.preventDefault();
+    if(pending) return;
+    setError('');setPending(true);
     const patch=imported ? {reminder:form.reminder,notes:form.notes} : {...form,subtype:form.category === 'waste' ? form.subtype : null};
     try {
-      if(selection.item) calendar.update(selection.item.eventId,patch,{scope,occurrenceDate:selection.item.occurrenceDate});
-      else calendar.create(patch);
+      if(selection.item) await calendar.update(selection.item.eventId,patch,{scope,occurrenceDate:selection.item.occurrenceDate});
+      else await calendar.create(patch);
       selection.onSaved?.(source?.source === 'imported' ? source.date : patch.date);
       onClose();
-    } catch (failure) { setError(failure.message); }
+    } catch (failure) { setError(failure.message);setPending(false); }
   }
-  function remove() {
-    setError('');
-    try { calendar.remove(selection.item.eventId,{scope,occurrenceDate:selection.item.occurrenceDate});onClose(); }
-    catch(failure) { setError(failure.message); }
+  async function remove() {
+    if(pending) return;
+    setError('');setPending(true);
+    try { await calendar.remove(selection.item.eventId,{scope,occurrenceDate:selection.item.occurrenceDate});onClose(); }
+    catch(failure) { setError(failure.message);setPending(false); }
   }
   const title=mode === 'view' ? 'Sündmus' : mode.startsWith('choose') ? 'Millist osa sarjast?' : mode === 'delete' ? 'Kustuta sündmus' : selection.item ? 'Muuda sündmust' : 'Lisa sündmus';
   const missing=selection.item && !source;
@@ -82,7 +87,7 @@ export function EventDialog({selection,calendar,onClose}) {
         <p>{scope === 'series' ? 'See kustutab kogu sarja koos kõigi üksikkordade ja eranditega.' : 'See kustutab ainult valitud sündmuse või üksikkorra.'}</p>
         <p><strong>{selection.item.title}</strong></p>
         {imported && <p>See eemaldab sündmuse ainult siit seadmest. Kui allikas tagastab kuupäeva uuesti, võib värskendamine selle tagasi lisada.</p>}
-        <button className="mm-button mm-delete-confirm" onClick={remove}>Kinnita kustutamine</button>
+        <button className="mm-button mm-delete-confirm" onClick={remove} disabled={pending || !calendar.writable}>Kinnita kustutamine</button>
       </>}
       {!missing && mode === 'edit' && <form onSubmit={save}>
         {scope && <p className="mm-notice">{scope === 'series' ? 'Muudad kogu sarja. Alguskuupäeva või korduse muutmine eemaldab varasemad üksikkordade erandid ja kustutused.' : 'Muudad ainult seda üksikkorda. Ülejäänud sari jääb alles.'}</p>}
@@ -109,7 +114,7 @@ export function EventDialog({selection,calendar,onClose}) {
         </details>
         <footer className="mm-event-footer">
           <button className="mm-button mm-button-secondary" type="button" onClick={onClose}>Tühista</button>
-          <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable}>Salvesta sündmus</button>
+          <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable || pending}>Salvesta sündmus</button>
         </footer>
       </form>}
     </div>

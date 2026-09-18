@@ -1167,7 +1167,11 @@ test('storage import guard detects every equivalent static, side-effect, re-expo
   for (const source of safe) assert.deepEqual(storageImportFindings(source, 'src/components/Example.jsx'), [], source);
 });
 
-test('no runtime source outside src/storage imports the storage foundation', () => {
+// C6: the Task 6 dormant guard becomes the runtime importer allowlist. Only these files may import the storage
+// foundation from outside src/storage/; a component, another hook or any other runtime file must not.
+const C6_STORAGE_IMPORTER_ALLOWLIST = ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/hooks/useSavedPlaces.js', 'src/main.jsx', 'src/waste/useHousehold.js'];
+
+test('only the accepted C6 runtime importers import the storage foundation from outside src/storage', () => {
   const files = runtimeSourceFiles();
   assert.ok(files.includes('src/main.jsx') && files.includes('src/App.jsx'), 'the walk reaches the application entry points');
   assert.ok(files.every(path => !path.startsWith(`${STORAGE_DIRECTORY}/`)));
@@ -1175,26 +1179,41 @@ test('no runtime source outside src/storage imports the storage foundation', () 
   assert.deepEqual(unknown, [], 'every src file is either scanned code or known non-code');
   const scanned = files.filter(path => CODE_FILE.test(path));
   assert.ok(scanned.length >= 40, `scanned ${scanned.length} runtime source files`);
-  const violations = scanned.flatMap(path => storageImportFindings(readFileSync(join(repositoryRoot, path), 'utf8'), path)
-    .map(finding => `${path}: ${finding}`));
-  assert.deepEqual(violations, []);
+  const importers = new Map();
+  for (const path of scanned) {
+    const findings = storageImportFindings(readFileSync(join(repositoryRoot, path), 'utf8'), path);
+    if (findings.length > 0) importers.set(path, findings);
+  }
+  const unexpected = [...importers.keys()].filter(path => !C6_STORAGE_IMPORTER_ALLOWLIST.includes(path));
+  assert.deepEqual(unexpected, [], 'no runtime file outside the C6 allowlist may import src/storage');
+  assert.ok(importers.has('src/main.jsx') && importers.has('src/App.jsx'), 'the runtime wiring and the App runtime do import the storage foundation');
+  for (const path of scanned.filter(path => path.startsWith('src/components/'))) {
+    assert.ok(!importers.has(path), `${path}: components never import storage internals`);
+  }
+  assert.ok(!importers.has('src/hooks/useSettings.js'), 'useSettings removed its places writer and is not a storage importer');
 });
 
-// Same entry/build shape as scripts/shell/app-shell.test.mjs, with its optional test fixtures off.
-function buildAppShellBundle(extraContents = '') {
+// C6: browser globals are read only at the runtime wiring boundary (src/main.jsx). Every other runtime file that
+// touches the storage foundation receives its capabilities by injection.
+test('C6 browser capabilities are read only in src/main.jsx, never in the runtime, the shared hooks or the status UI', () => {
+  const globals = /\b(?:indexedDB|BroadcastChannel|localStorage|sessionStorage|navigator|crypto)\b/;
+  for (const path of ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/waste/useHousehold.js', 'src/hooks/useSavedPlaces.js', 'src/components/StorageStatus.jsx']) {
+    const code = readFileSync(join(repositoryRoot, path), 'utf8').replace(/\/\/.*$/gm, '');
+    assert.doesNotMatch(code, globals, `${path} must not read browser capabilities`);
+  }
+  const main = readFileSync(join(repositoryRoot, 'src/main.jsx'), 'utf8');
+  for (const token of ['indexedDB', 'localStorage', 'navigator.locks', 'BroadcastChannel', 'persist', 'crypto', 'VITE_STORAGE_AUTHORITY_MODE']) {
+    assert.ok(main.includes(token), `src/main.jsx wires ${token}`);
+  }
+});
+
+// The application bundle is built from its real entry point, src/main.jsx.
+function buildAppShellBundle() {
   return build({
     absWorkingDir: repositoryRoot, bundle: true, write: false, outfile: 'shell.js', metafile: true,
     jsx: 'automatic', loader: { '.png': 'dataurl' },
     define: { 'import.meta.env': '{}' },
-    stdin: { resolveDir: repositoryRoot, contents: `
-      import React from 'react';
-      import {createRoot} from 'react-dom/client';
-      import App from './src/App.jsx';
-      ${extraContents}
-      const wasteLookup=undefined;
-      const notificationService=undefined;
-      createRoot(document.getElementById('root')).render(<React.StrictMode><App wasteLookup={wasteLookup} notificationService={notificationService} /></React.StrictMode>);
-    `, loader: 'jsx' },
+    entryPoints: ['src/main.jsx'],
   });
 }
 
@@ -1203,28 +1222,32 @@ const bundleStorageInputs = bundle => bundleInputs(bundle)
   .filter(path => path === STORAGE_DIRECTORY || path.startsWith(`${STORAGE_DIRECTORY}/`)).sort();
 const bundleJavaScript = bundle => bundle.outputFiles.find(file => file.path.endsWith('.js')).text;
 
-test('the application bundle contains no storage foundation module, directly or transitively', { timeout: 120000 }, async () => {
-  // schema.js and indexedDb.js are reached only transitively from these two modules.
-  const control = await buildAppShellBundle(`
-    import * as migrationControl from './src/storage/legacyMigration.js';
-    import * as replicaControl from './src/storage/localReplica.js';
-    window.storageControl = { migrationControl, replicaControl };
-  `);
-  assert.deepEqual(bundleStorageInputs(control), ['src/storage/indexedDb.js', 'src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/schema.js'],
-    'control: the metafile check sees direct and transitive storage modules');
-  assert.ok(bundleJavaScript(control).includes('majandus_local_v1') && bundleJavaScript(control).includes('legacyMigrationV1'),
-    'control: storage tokens are detectable in bundle output');
-
+test('the application bundle contains the storage foundation only through the accepted C6 importers', { timeout: 120000 }, async () => {
   const app = await buildAppShellBundle();
   const inputs = bundleInputs(app);
-  assert.ok(inputs.includes('src/App.jsx') && inputs.filter(path => path.startsWith('src/')).length >= 40, 'the real application graph was bundled');
-  assert.deepEqual(bundleStorageInputs(app), []);
+  assert.ok(inputs.includes('src/main.jsx') && inputs.includes('src/App.jsx') && inputs.filter(path => path.startsWith('src/')).length >= 40, 'the real application graph was bundled');
+  const every = ['src/storage/indexedDb.js', 'src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/replicaRepositories.js',
+    'src/storage/runtimeRecords.js', 'src/storage/runtimeWrites.js', 'src/storage/schema.js', 'src/storage/storageAuthority.js'];
+  assert.deepEqual(bundleStorageInputs(app), every, 'the storage foundation is now part of the application bundle');
+  // Who pulls it in: every metafile edge from a non-storage input into src/storage must come from an allowlisted importer.
+  const importers = new Set();
+  for (const [path, meta] of Object.entries(app.metafile.inputs)) {
+    const from = path.split('\\').join('/');
+    if (from === STORAGE_DIRECTORY || from.startsWith(`${STORAGE_DIRECTORY}/`)) continue;
+    for (const edge of meta.imports) {
+      const target = edge.path.split('\\').join('/');
+      if (target === STORAGE_DIRECTORY || target.startsWith(`${STORAGE_DIRECTORY}/`)) importers.add(from);
+    }
+  }
+  assert.deepEqual([...importers].sort(), ['src/App.jsx', 'src/main.jsx'], 'src/storage enters the bundle only through accepted C6 importers');
+  for (const path of [...importers]) assert.ok(C6_STORAGE_IMPORTER_ALLOWLIST.includes(path), `${path} is an allowlisted importer`);
   const js = bundleJavaScript(app);
-  assert.ok(!js.includes('majandus_local_v1'), 'no IndexedDB database name in the app bundle');
-  assert.ok(!js.includes('legacyMigrationV1'), 'no migration marker in the app bundle');
+  assert.ok(js.includes('majandus_local_v1'), 'the IndexedDB database name is in the bundle');
+  assert.ok(js.includes('legacyMigrationV1'), 'the migration marker is in the bundle');
+  assert.ok(js.includes('majandus:replica'), 'the accepted broadcast channel name is in the bundle');
 });
 
-test('storage foundation modules stay dormant: no network, global storage, UI or unexpected imports', () => {
+test('storage foundation modules stay injection-only: no network, global storage, UI or unexpected imports', () => {
   const modules = readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).sort();
   assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'replicaRepositories.js', 'runtimeRecords.js', 'runtimeWrites.js', 'schema.js', 'storageAuthority.js']);
   // C3 extends the accepted imports only with the pure domain modules named by the runtime cutover plan.
@@ -1342,8 +1365,9 @@ test('C4 controller starts BOOTING and exposes exactly the minimal public API', 
   const controller = createStorageAuthorityController({ storage: fakeStorage(), newId: () => 'id' });
   assert.equal(controller.getState(), 'BOOTING');
   assert.deepEqual(controller.getResult(), { state: 'BOOTING' });
-  assert.deepEqual(Object.keys(controller).sort(), ['boot', 'close', 'confirmRevertStorageLost', 'confirmStorageLost', 'getResult', 'getState', 'handleRuntimeSignal', 'replica', 'retry', 'subscribe']);
+  assert.deepEqual(Object.keys(controller).sort(), ['boot', 'close', 'confirmRevertStorageLost', 'confirmStorageLost', 'getReadyAuthorityIdentity', 'getResult', 'getState', 'handleRuntimeSignal', 'replica', 'retry', 'subscribe']);
   assert.equal(controller.retry, controller.boot);
+  assert.equal(controller.getReadyAuthorityIdentity(), null, 'no READY identity before any boot');
 });
 
 test('C4 unknown authority (blocked open) resolves BLOCKED, never LEGACY, with zero storage reads', async () => {

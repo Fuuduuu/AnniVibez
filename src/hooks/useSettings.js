@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
-import { SAVED_PLACE_DEFAULTS, normalizePlaces } from '../places/savedPlaces.js';
+import { SAVED_PLACE_DEFAULTS } from '../places/savedPlaces.js';
 
 const PROFILE_KEY = 'sade_profile';
-const PLACES_KEY  = 'sade_saved_places';
 
 export const DEFAULT_PLACES = SAVED_PLACE_DEFAULTS;
 
@@ -14,22 +13,14 @@ function write(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
+// Device-local profile only. Shared saved places have exactly one runtime path: useSavedPlaces.
 export function useSettings() {
   const [profile, setProfile] = useState(() => read(PROFILE_KEY, { name: '' }));
-  const [places,  setPlaces]  = useState(() => normalizePlaces(read(PLACES_KEY, DEFAULT_PLACES)));
 
   const saveName = useCallback((name) => {
     const next = { name: name.trim() };
     setProfile(next);
     write(PROFILE_KEY, next);
-  }, []);
-
-  const updatePlace = useCallback((idx, patch) => {
-    setPlaces(prev => {
-      const next = normalizePlaces(prev.map((p, i) => i === idx ? { ...p, ...patch } : p));
-      write(PLACES_KEY, next);
-      return next;
-    });
   }, []);
 
   const resolvePlaceAddress = useCallback(async ({ address }) => {
@@ -40,5 +31,5 @@ export function useSettings() {
     return { ok: false, message: 'Aadressi otsing pole veel ühendatud. Salvesta nimi ja aadress, koordinaadid lisame järgmisena.' };
   }, []);
 
-  return { profile, places, saveName, updatePlace, resolvePlaceAddress };
+  return { profile, saveName, resolvePlaceAddress };
 }

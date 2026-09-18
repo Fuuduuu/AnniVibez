@@ -3411,7 +3411,114 @@ test('C4 mounted READY: a foreground signal after a second connection changes th
   }
 });
 
-test('C4 REVERTING: a successful revert observes BOOTING, REVERTING, LEGACY in order', { concurrency: false, timeout: 120000 }, async () => {
+test('C6 authority identity accessor: null before boot and in LEGACY, the exact mounted switchId in READY (also with divergence and domainInvalid detail)', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { switchedSetup, makeController, reset, seed, dump, authorityOf } = window.__c4;
+      const [CAL] = window.__t.legacy.LEGACY_SHARED_KEYS;
+      const out = {};
+      // Before boot: the controller is BOOTING and exposes no identity.
+      const idle = makeController();
+      out.hasAccessor = typeof idle.getReadyAuthorityIdentity;
+      out.beforeBoot = idle.getReadyAuthorityIdentity();
+      await idle.close();
+      // LEGACY (invalid calendar source keeps the device on LEGACY): no identity.
+      await reset();
+      seed({ calendar: 'not json' });
+      const legacyController = makeController();
+      out.legacyState = (await legacyController.boot()).state;
+      out.legacyIdentity = legacyController.getReadyAuthorityIdentity();
+      await legacyController.close();
+      // READY: the exact authority C4 mounted against, as a fresh minimal object.
+      const { controller, result: bootResult } = await switchedSetup({}, { ids: ['switch-A', 'prep-1'] });
+      out.readyState = bootResult.state;
+      const first = controller.getReadyAuthorityIdentity();
+      const second = controller.getReadyAuthorityIdentity();
+      out.ready = first;
+      out.readyKeys = first && Object.keys(first);
+      out.freshObject = first !== second;
+      out.getResultHasSwitchId = Object.hasOwn(controller.getResult(), 'switchId');
+      // READY + LEGACY_DIVERGED keeps the same identity.
+      localStorage.setItem(CAL, JSON.stringify({ version: 1, events: [] }));
+      const diverged = await controller.handleRuntimeSignal({ type: 'storage', key: CAL });
+      out.divergedDetail = diverged.divergence;
+      out.divergedIdentity = controller.getReadyAuthorityIdentity();
+      // READY with domainInvalid detail keeps the same identity.
+      await window.__t.put('householdProfile', { key: 'household', payload: { name: 'Kodu' }, revision: 0, updatedAt: '2026-09-16T10:00:00.000Z', deletedAt: null, syncStatus: 'local' });
+      const invalid = await controller.handleRuntimeSignal({ type: 'focus' });
+      out.invalidDetail = invalid.domainInvalid;
+      out.invalidIdentity = controller.getReadyAuthorityIdentity();
+      await controller.close();
+      return out;
+    })()`);
+    assert.equal(result.hasAccessor, 'function', 'the controller exposes getReadyAuthorityIdentity');
+    assert.equal(result.beforeBoot, null);
+    assert.equal(result.legacyState, 'LEGACY');
+    assert.equal(result.legacyIdentity, null);
+    assert.equal(result.readyState, 'READY');
+    assert.deepEqual(result.ready, { switchId: 'switch-A' });
+    assert.deepEqual(result.readyKeys, ['switchId'], 'only switchId is exposed');
+    assert.equal(result.freshObject, true, 'each call returns a fresh object, never the internal authority record');
+    assert.equal(result.getResultHasSwitchId, false, 'getResult() payloads are unchanged');
+    assert.equal(result.divergedDetail, 'LEGACY_DIVERGED');
+    assert.deepEqual(result.divergedIdentity, { switchId: 'switch-A' });
+    assert.deepEqual(result.invalidDetail, ['household']);
+    assert.deepEqual(result.invalidIdentity, { switchId: 'switch-A' });
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C6 authority identity accessor: an authority change moves the tab to RELOAD_REQUIRED with a null identity, a racing durable change never leaks into the mounted identity, and a fresh boot never exposes the old one', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await c4Harness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { switchedSetup, dump, authorityOf } = window.__c4;
+      const out = {};
+      const { controller } = await switchedSetup({}, { ids: ['switch-A', 'prep-1'] });
+      const authority = authorityOf(await dump());
+      // Race: durable authority becomes B, but this controller has not accepted B (no signal yet).
+      await window.__t.put('meta', { ...authority, switchId: 'switch-B' });
+      const raced = controller.getReadyAuthorityIdentity();
+      out.racedThenable = typeof (raced && raced.then);
+      out.raced = await raced;
+      out.stateWhileRaced = controller.getState();
+      // The accepted signal path now moves the mounted tab to RELOAD_REQUIRED.
+      const signalResult = await controller.handleRuntimeSignal({ type: 'authority-changed' });
+      out.signalState = signalResult.state;
+      out.stateAfterSignal = controller.getState();
+      out.identityAfterSignal = controller.getReadyAuthorityIdentity();
+      await controller.close();
+
+      // A fresh boot on a restored authority never exposes the old identity while BOOTING.
+      const fresh = await switchedSetup({}, { ids: ['switch-C', 'prep-1'] });
+      const seenWhileBooting = [];
+      fresh.controller.subscribe(update => { if (update.state === 'BOOTING') seenWhileBooting.push(fresh.controller.getReadyAuthorityIdentity()); });
+      out.beforeRetry = fresh.controller.getReadyAuthorityIdentity();
+      const retried = await fresh.controller.retry();
+      out.retryState = retried.state;
+      out.seenWhileBooting = seenWhileBooting;
+      out.afterRetry = fresh.controller.getReadyAuthorityIdentity();
+      await fresh.controller.close();
+      return out;
+    })()`);
+    assert.equal(result.racedThenable, 'undefined', 'the identity is synchronous: it is never read from durable storage');
+    assert.deepEqual(result.raced, { switchId: 'switch-A' }, 'the mounted identity stays A while durable authority is already B');
+    assert.equal(result.stateWhileRaced, 'READY');
+    assert.equal(result.signalState, 'RELOAD_REQUIRED');
+    assert.equal(result.stateAfterSignal, 'RELOAD_REQUIRED');
+    assert.equal(result.identityAfterSignal, null);
+    assert.deepEqual(result.beforeRetry, { switchId: 'switch-C' });
+    assert.equal(result.retryState, 'READY');
+    assert.deepEqual(result.seenWhileBooting, [null], 'the old identity is not exposed once a fresh boot begins');
+    assert.deepEqual(result.afterRetry, { switchId: 'switch-C' });
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('C4 REVERTING: a successful revert observes BOOTING, REVERTING, LEGACY in order',{ concurrency: false, timeout: 120000 }, async () => {
   const harness = await c4Harness();
   try {
     const result = await harness.evaluate(`(async () => {

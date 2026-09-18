@@ -12,9 +12,9 @@ const ENTRIES_KEY = 'sade_diary_entries';
 function wPin(p)  { try { localStorage.setItem(PIN_KEY, btoa(p)); } catch {} }
 function clrAll() { try { localStorage.removeItem(PIN_KEY); localStorage.removeItem(ENTRIES_KEY); } catch {} }
 
-function SaveBtn({ saved, onClick, label = 'Salvesta' }) {
+function SaveBtn({ saved, onClick, label = 'Salvesta', disabled = false }) {
   return (
-    <button onClick={onClick} className={`mm-button mm-button-primary mm-settings-save${saved ? ' mm-is-saved' : ''}`}>
+    <button onClick={onClick} disabled={disabled} className={`mm-button mm-button-primary mm-settings-save${saved ? ' mm-is-saved' : ''}`}>
       {saved ? '✓ Salvestatud' : label}
     </button>
   );
@@ -52,13 +52,15 @@ function ProfileSection({ profile, saveName }) {
   );
 }
 
-function PlaceRow({ place, idx, onUpdate, onResolve }) {
+function PlaceRow({ place, idx, onUpdate, onResolve, writable }) {
   const [name, setName] = useState(place.name);
   const [address, setAddress] = useState(place.address || '');
   const [saved, setSaved] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [resolveState, setResolveState] = useState(place.lat != null && place.lon != null ? 'found' : 'idle');
   const [resolveMsg, setResolveMsg] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   async function resolveAddress() {
     setResolving(true);
@@ -73,12 +75,17 @@ function PlaceRow({ place, idx, onUpdate, onResolve }) {
       const lat = Number.parseFloat(result?.coords?.lat);
       const lon = Number.parseFloat(result?.coords?.lon);
       if (result?.ok && Number.isFinite(lat) && Number.isFinite(lon)) {
-        onUpdate(idx, {
-          name: name.trim(),
-          address: address.trim(),
-          lat,
-          lon,
-        });
+        try {
+          await onUpdate(idx, {
+            name: name.trim(),
+            address: address.trim(),
+            lat,
+            lon,
+          });
+        } catch (failure) {
+          setSaveError(failure.message);
+          return;
+        }
         setResolveState('found');
         return;
       }
@@ -92,14 +99,25 @@ function PlaceRow({ place, idx, onUpdate, onResolve }) {
     }
   }
 
-  function save() {
+  // "Salvestatud" is shown only after the place update has committed; a failure keeps the edited values.
+  async function save() {
+    if (saving) return;
     const nextAddress = address.trim();
     const addressChanged = nextAddress !== (place.address || '');
-    onUpdate(idx, {
-      name: name.trim(),
-      address: nextAddress,
-      ...(addressChanged ? { lat: null, lon: null } : {}),
-    });
+    setSaveError('');
+    setSaving(true);
+    try {
+      await onUpdate(idx, {
+        name: name.trim(),
+        address: nextAddress,
+        ...(addressChanged ? { lat: null, lon: null } : {}),
+      });
+    } catch (failure) {
+      setSaveError(failure.message);
+      return;
+    } finally {
+      setSaving(false);
+    }
     if (addressChanged) {
       setResolveState('idle');
       setResolveMsg('');
@@ -144,20 +162,22 @@ function PlaceRow({ place, idx, onUpdate, onResolve }) {
           {resolveMsg}
         </div>
       )}
-      <SaveBtn saved={saved} onClick={save} />
+      {saveError && <div className="mm-field-error" role="alert">{saveError}</div>}
+      <SaveBtn saved={saved} onClick={save} disabled={!writable || saving} />
     </div>
   );
 }
 
-function PlacesSection({ places, updatePlace, resolvePlaceAddress }) {
+function PlacesSection({ places, updatePlace, resolvePlaceAddress, writable, error }) {
   return (
     <>
       <SectionTitle>Salvestatud kohad</SectionTitle>
       <p className="mm-settings-intro">
         Salvestatud nimed ja aadressid jäävad alles. Aadressiotsing pole veel ühendatud.
       </p>
+      {error && <div className="mm-field-error" role="alert">{error}</div>}
       {places.map((p, i) => (
-        <PlaceRow key={i} place={p} idx={i} onUpdate={updatePlace} onResolve={resolvePlaceAddress} />
+        <PlaceRow key={i} place={p} idx={i} onUpdate={updatePlace} onResolve={resolvePlaceAddress} writable={writable} />
       ))}
     </>
   );
@@ -262,12 +282,12 @@ function PinSection() {
 }
 
 export function SeadedTab(props = {}) {
+  // The device-local profile may fall back to useSettings; shared saved places come from useSavedPlaces only.
   const fallback = useSettings();
   const profile = props.profile ?? fallback.profile;
-  const places = props.places ?? fallback.places;
   const saveName = props.saveName ?? fallback.saveName;
-  const updatePlace = props.updatePlace ?? fallback.updatePlace;
   const resolvePlaceAddress = props.resolvePlaceAddress ?? fallback.resolvePlaceAddress;
+  const { places = [], updatePlace, placesWritable = true, placesError = null } = props;
 
   useEffect(() => {
     if (!props.initialSection) return;
@@ -294,7 +314,7 @@ export function SeadedTab(props = {}) {
         <h2 className="mm-section-label" id="bus-settings-heading">Buss</h2>
         <details className="mm-card">
           <summary>Salvestatud kohad</summary>
-          <PlacesSection places={places} updatePlace={updatePlace} resolvePlaceAddress={resolvePlaceAddress} />
+          <PlacesSection places={places} updatePlace={updatePlace} resolvePlaceAddress={resolvePlaceAddress} writable={placesWritable} error={placesError} />
         </details>
       </section>
       <section className="mm-settings-group" aria-labelledby="application-heading">

@@ -247,6 +247,14 @@ body { margin: 0; }
 }
 .mm-bus-headsign { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mm-nearby-departures li + li { border-top: 1px solid var(--mm-border); }
+/* Runtime storage status (C6): splash, blocking screens, the reload banner and the LEGACY_DIVERGED notice. */
+.mm-storage-splash { min-height: 60vh; display: flex; align-items: center; justify-content: center; color: var(--mm-soft); font-size: 15px; }
+.mm-storage-status { max-width: 520px; margin: 24px auto 0; padding: 18px 16px; display: grid; gap: 14px; }
+.mm-storage-status p, .mm-storage-banner p { font-size: 15px; color: var(--mm-ink); }
+.mm-storage-banner { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; background: var(--mm-danger-tint); border-bottom: 1px solid var(--mm-danger); }
+.mm-storage-banner .mm-button { min-height: 44px; flex-shrink: 0; }
+.mm-storage-notice { max-width: 520px; margin: 12px auto 0; }
 @keyframes mm-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes mm-section-enter { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @keyframes mm-mark-enter { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }

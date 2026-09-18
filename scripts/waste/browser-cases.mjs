@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export async function runWasteChecks({t,nav,click,input,evaluate,waitFor,body,send}) {
+export async function runWasteChecks({t,nav,click,input,evaluate,waitFor,body,send,readCalendarEvents,readHouseholdProfile,calendarRaw,householdRaw,corruptHousehold,repairHousehold,failWrites,restoreWrites}) {
   const screenshot=async name=>{
     if(!process.env.MJM_SCREENSHOTS) return;
     await evaluate("document.querySelector('#prugivedu').scrollIntoView({block:'start'})");
@@ -12,7 +12,7 @@ export async function runWasteChecks({t,nav,click,input,evaluate,waitFor,body,se
   const select=async(id,value)=>{
     await evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   };
-  const events=()=>evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1'))?.events || []");
+  const events=readCalendarEvents;
   const editAddress=async(address)=>{
     await evaluate("document.querySelector('#household-profile').open=true");
     await input('#household-address',address);await click('Salvesta majapidamine');
@@ -28,7 +28,7 @@ export async function runWasteChecks({t,nav,click,input,evaluate,waitFor,body,se
     assert.match(await body(),/Majapidamine salvestatud/);
     assert.equal(await evaluate("document.querySelector('#household-profile').open"),true);
     await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Seaded');
-    assert.equal(await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_profile_v1')).profile.address"),'Testi 1, Rakvere');
+    assert.equal((await readHouseholdProfile()).address,'Testi 1, Rakvere');
   });
   await t.test('MJM03 unsupported lookup leads to manual recurring waste visible in Calendar and Home',async()=>{
     await click('Leia prügipäevad');await waitFor("document.querySelector('#prugivedu').innerText.includes('ühendatud automaatset allikat')");
@@ -89,15 +89,33 @@ export async function runWasteChecks({t,nav,click,input,evaluate,waitFor,body,se
     assert.equal((await events()).length,1);assert.equal((await events())[0].source,'imported');
     assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'),true);
   });
+  await t.test('MJM03 a failed import save shows no success, keeps the previous snapshot and leaves the calendar unchanged',async()=>{
+    await nav('Seaded');await editAddress('Fixture 1');
+    await evaluate("window.wasteFail=false;window.wasteDelay=false;window.wasteReply={entries:[{externalId:'fail-one',title:'Ei salvestu',subtype:'bio',date:'2026-09-17'}]}");
+    await waitFor("[...document.querySelectorAll('#prugivedu button')].some(b=>b.textContent==='Värskenda graafikut')");
+    const before=await calendarRaw();
+    await failWrites('calendar');
+    try {
+      await click('Värskenda graafikut');
+      await waitFor("!!document.querySelector('#prugivedu [role=alert]')");
+      const section=await evaluate("document.querySelector('#prugivedu').innerText");
+      assert.match(section,/Salvestamine ebaõnnestus/);
+      assert.doesNotMatch(section,/Kalender uuendatud/,'no success notice before the commit');
+    } finally { await restoreWrites(); }
+    assert.equal(await calendarRaw(),before,'the previous persisted calendar is untouched');
+    assert.ok(!(await events()).some(e=>e.title==='Ei salvestu'));
+    await editAddress('Teine aadress');
+  });
   await t.test('MJM03 malformed household profile leaves manual setup usable and original storage intact',async()=>{
-    await evaluate("localStorage.setItem('majamajandus_household_profile_v1','{broken')");
+    await corruptHousehold();
+    const corrupt=await householdRaw();
     await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Seaded');await click('Lisa aadress');
     assert.match(await body(),/Majapidamise andmeid ei saanud lugeda/);
     assert.equal(await evaluate("document.querySelector('.mm-household-form button').disabled"),true);
     await click('Lisa käsitsi graafik');await waitFor("!!document.querySelector('#event-title')");await click('Tühista');
-    assert.equal(await evaluate("localStorage.getItem('majamajandus_household_profile_v1')"),'{broken');
+    assert.equal(await householdRaw(),corrupt,'an unreadable household profile is never overwritten');
     assert.equal((await events()).length,1);
-    await evaluate("localStorage.removeItem('majamajandus_household_profile_v1')");
+    await repairHousehold();
     await send('Page.reload');await waitFor("!!document.querySelector('nav')");
   });
 }

@@ -16,6 +16,7 @@ function WastePanel({household,calendar,onAdd,onOpen,onSchedule,lookup=findWaste
   const now=useCalendarNow(),today=localDate(now),address=household.profile.address;
   const [result,setResult]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
   const [notice,setNotice]=useState('');
+  const [saving,setSaving]=useState(false);
   const request=useRef(null);
   useEffect(()=>()=>{request.current?.abort();request.current=null;},[]);
   const key=addressKey(address);
@@ -24,12 +25,15 @@ function WastePanel({household,calendar,onAdd,onOpen,onSchedule,lookup=findWaste
   const otherAddressCount=calendar.events.filter(e=>e.source === 'imported' && e.category === 'waste' && e.importMeta?.addressKey !== key).length;
   const manual=calendar.events.filter(e=>e.source === 'manual' && e.category === 'waste');
   const next=upcomingOccurrences(imported,now,5);
-  function accept(batch) {
+  // The notice appears only after the import has committed; a failure keeps the previous calendar snapshot.
+  async function accept(batch) {
+    setSaving(true);
     try {
-      calendar.importWaste(batch,new Date());
+      await calendar.importWaste(batch,new Date());
       setNotice('Kalender uuendatud. Puuduvaid varasemaid kuupäevi automaatselt ei kustutata.');
       setError('');setResult(null);
     } catch(failure) {setError(failure.message);}
+    finally {setSaving(false);}
   }
   async function search(refresh=false) {
     if(request.current || !address) return;
@@ -41,7 +45,7 @@ function WastePanel({household,calendar,onAdd,onOpen,onSchedule,lookup=findWaste
       setResult(found);
       if(found.status === 'ERROR') setError(found.message);
       else if(refresh && ['SUPPORTED_WITH_RESULTS','SUPPORTED_NO_RESULTS'].includes(found.status)) {
-        accept(found);
+        await accept(found);
         if(found.status === 'SUPPORTED_NO_RESULTS') setResult(found);
       }
     } catch {
@@ -72,7 +76,7 @@ function WastePanel({household,calendar,onAdd,onOpen,onSchedule,lookup=findWaste
       {result?.status === 'SUPPORTED_WITH_RESULTS' && <div className="mm-waste-preview">
         <p>Leitud {result.entries.length} kogumispäeva · {result.provider.name}</p>
         <p>{[...new Set(result.entries.map(e=>WASTE_SUBTYPES[e.subtype]))].join(', ')}</p>
-        <button className="mm-button mm-button-primary" disabled={!calendar.writable} onClick={()=>accept(result)}>Impordi kalendrisse</button>
+        <button className="mm-button mm-button-primary" disabled={!calendar.writable || saving} onClick={()=>accept(result)}>Impordi kalendrisse</button>
       </div>}
       <CalendarError error={error} />
       {error && <button className="mm-button mm-button-secondary" disabled={busy} onClick={()=>search(batches.length > 0)}>Proovi uuesti</button>}

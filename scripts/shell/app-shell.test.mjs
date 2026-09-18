@@ -7,12 +7,16 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { waitForBrowserEndpoint } from '../bus/browser-lifecycle.mjs';
 import { runCalendarChecks } from '../calendar/browser-cases.mjs';
 import { runWasteChecks } from '../waste/browser-cases.mjs';
 import { runReminderChecks } from '../reminders/browser-cases.mjs';
 import { runVisualChecks } from './visual-cases.mjs';
 import { createEvent } from '../../src/calendar/eventModel.js';
+import { createEventRepository } from '../../src/calendar/eventRepository.js';
+import { normalizeWasteResult } from '../../src/waste/providers.js';
+import { WASTE_SUBTYPES } from '../../src/calendar/eventModel.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const browser = [process.env.BUS_TEST_BROWSER,
@@ -22,34 +26,50 @@ const browser = [process.env.BUS_TEST_BROWSER,
 ].find(path => path && existsSync(path));
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
+// The real runtime wiring in src/main.jsx is bundled and exercised in both storage modes.
+//   LEGACY: a real C4 controller whose migration is refused (an invalid saved-places source) so it settles in LEGACY.
+//   READY:  a real C4 controller on an empty profile: real migration, real authority switch, real C5 repositories.
+// SHELL_RUNTIME_MODE=LEGACY|READY selects one mode; unset runs both.
+const MODES = process.env.SHELL_RUNTIME_MODE ? [process.env.SHELL_RUNTIME_MODE] : ['LEGACY', 'READY'];
+// The cutover acceptance checks run with the plain shell suite; the feature wrappers (calendar, waste, reminder, ...) skip them.
+const OTHER_SUITE_FLAGS = ['CALENDAR_TESTS', 'WASTE_TESTS', 'REMINDER_TESTS', 'NATIVE_NOTIFICATION_TEST', 'VISUAL_TESTS'];
+const SHARED_KEYS = ['majamajandus_household_events_v1', 'majamajandus_household_profile_v1', 'sade_saved_places'];
+const HINT_KEY = 'majandus_storage_authority_v1';
+const STAMP = '2026-09-14T06:00:00.000Z';
+
+for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)`, { timeout: 240000 }, async t => {
   assert.ok(browser, 'Chromium is required; shell checks must not silently skip');
+  const shim = `
+    import RealApp, {createStorageRuntime} from './src/App.jsx';
+    ${process.env.WASTE_TESTS === '1' ? `import {createWasteLookup} from './src/waste/providers.js';
+    const wasteLookup=createWasteLookup([{id:'fixture',name:'Controlled test source',supports:address=>address.startsWith('Fixture'),lookup:async()=>{
+      if(window.wasteFail) throw Error('controlled failure');
+      if(window.wasteDelay) return new Promise(resolve=>{window.resolveWaste=resolve;});
+      return window.wasteReply || {entries:[{externalId:'one',title:'Allika bio',subtype:'bio',date:'2026-09-15'}]};
+    }}]);` : 'const wasteLookup=undefined;'}
+    ${process.env.REMINDER_TESTS === '1' ? `import {createNotificationService} from './src/reminders/capability.js';
+    const notificationService=createNotificationService({isSecureContext:true,document,
+      get Notification(){return !sessionStorage.getItem('notificationMode') ? undefined : {
+        get permission(){return sessionStorage.getItem('notificationMode');},
+        async requestPermission(){sessionStorage.setItem('permissionCalls',String(Number(sessionStorage.getItem('permissionCalls')||0)+1));
+          const answer=sessionStorage.getItem('permissionAnswer')||'granted';sessionStorage.setItem('notificationMode',answer);return answer;}
+      };},navigator:{locks:navigator.locks,serviceWorker:{getRegistration:async()=>({active:{},showNotification:async()=>{
+        sessionStorage.setItem('notificationCalls',String(Number(sessionStorage.getItem('notificationCalls')||0)+1));
+      }})}}
+    });` : 'const notificationService=undefined;'}
+    export {createStorageRuntime};
+    export default function App(props) { return <RealApp {...props} wasteLookup={wasteLookup} notificationService={notificationService} />; }
+  `;
+  // src/main.jsx is the entry point under test; only its './App' import is redirected to add the test fixtures above.
+  const shimPlugin = { name: 'app-shim', setup(b) {
+    b.onResolve({ filter: /^\.\/App$/ }, args => (args.importer.split(String.fromCharCode(92)).join('/').endsWith('src/main.jsx') ? { path: 'app-shim', namespace: 'app-shim' } : undefined));
+    b.onLoad({ filter: /.*/, namespace: 'app-shim' }, () => ({ contents: shim, loader: 'jsx', resolveDir: root }));
+  } };
   const bundle = await build({
     absWorkingDir: root, bundle: true, write: false, outfile: 'shell.js', metafile: true,
     jsx: 'automatic', loader: { '.png': 'dataurl' },
     define: { 'import.meta.env': '{}' },
-    stdin: { resolveDir: root, contents: `
-      import React from 'react';
-      import {createRoot} from 'react-dom/client';
-      import App from './src/App.jsx';
-      ${process.env.WASTE_TESTS === '1' ? `import {createWasteLookup} from './src/waste/providers.js';
-      const wasteLookup=createWasteLookup([{id:'fixture',name:'Controlled test source',supports:address=>address.startsWith('Fixture'),lookup:async()=>{
-        if(window.wasteFail) throw Error('controlled failure');
-        if(window.wasteDelay) return new Promise(resolve=>{window.resolveWaste=resolve;});
-        return window.wasteReply || {entries:[{externalId:'one',title:'Allika bio',subtype:'bio',date:'2026-09-15'}]};
-      }}]);` : 'const wasteLookup=undefined;'}
-      ${process.env.REMINDER_TESTS === '1' ? `import {createNotificationService} from './src/reminders/capability.js';
-      const notificationService=createNotificationService({isSecureContext:true,document,
-        get Notification(){return !sessionStorage.getItem('notificationMode') ? undefined : {
-          get permission(){return sessionStorage.getItem('notificationMode');},
-          async requestPermission(){sessionStorage.setItem('permissionCalls',String(Number(sessionStorage.getItem('permissionCalls')||0)+1));
-            const answer=sessionStorage.getItem('permissionAnswer')||'granted';sessionStorage.setItem('notificationMode',answer);return answer;}
-        };},navigator:{locks:navigator.locks,serviceWorker:{getRegistration:async()=>({active:{},showNotification:async()=>{
-          sessionStorage.setItem('notificationCalls',String(Number(sessionStorage.getItem('notificationCalls')||0)+1));
-        }})}}
-      });` : 'const notificationService=undefined;'}
-      createRoot(document.getElementById('root')).render(<React.StrictMode><App wasteLookup={wasteLookup} notificationService={notificationService} /></React.StrictMode>);
-    `, loader: 'jsx' },
+    entryPoints: ['src/main.jsx'], plugins: [shimPlugin],
   });
   assert.ok(Object.keys(bundle.metafile.inputs).every(path => !path.startsWith('docs/')),
     'Design reference and its bundled runtime must never enter the production app');
@@ -77,8 +97,80 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
           {id:'preserved',date:'2026-09-14',title:'Säiliv päevik',emoji:'',free:'Minu kirje'}
         ]));
         localStorage.setItem('annivibe_saved_ideas', JSON.stringify([{idea_title:'Säiliv idee'}]));
+        // LEGACY runtime: an invalid saved-places source makes the real migration refuse, so the real controller settles in LEGACY.
+        if (${JSON.stringify(mode)} === 'LEGACY') localStorage.setItem('sade_saved_places', 'not json');
         sessionStorage.seeded = 'yes';
       }
+      // ---- test-only fault injection and observation (flag-gated through sessionStorage; no production seam) ----
+      (() => {
+        const nativeSet = Storage.prototype.setItem, nativeGet = Storage.prototype.getItem;
+        window.__sharedReads = []; window.__idbOpens = 0;
+        if (nativeGet.call(sessionStorage, 'c6HoldLock') === '1' && navigator.locks) {
+          navigator.locks.request('majandus:storage-authority', () => new Promise(resolve => { window.__releaseLock = resolve; }));
+        }
+        Storage.prototype.setItem = function(key, value) {
+          if (key === '${HINT_KEY}' && nativeGet.call(sessionStorage, 'c6HintFail') === '1') throw new Error('hint blocked');
+          return nativeSet.call(this, key, value);
+        };
+        Storage.prototype.getItem = function(key) {
+          if (${JSON.stringify(SHARED_KEYS)}.includes(key)) window.__sharedReads.push(key);
+          if (key === '${HINT_KEY}' && this === localStorage && nativeGet.call(sessionStorage, 'c6HintUnreadable') === '1') throw new Error('hint unreadable');
+          return nativeGet.call(this, key);
+        };
+        if (nativeGet.call(sessionStorage, 'c6NoBroadcast') === '1') window.BroadcastChannel = undefined;
+        // A blocked open (another connection refusing to close), simulated per call while the flag is set.
+        const nativeOpenDb = IDBFactory.prototype.open;
+        IDBFactory.prototype.open = function(...args) {
+          window.__idbOpens += 1;
+          if (nativeGet.call(sessionStorage, 'c6Blocked') !== '1') return nativeOpenDb.apply(this, args);
+          const request = {};
+          setTimeout(() => request.onblocked && request.onblocked(new Event('blocked')), 0);
+          return request;
+        };
+        window.__rwActive = 0; window.__rwStarted = 0; window.__rwDone = 0; window.__bcLog = [];
+        const nativeTransaction = IDBDatabase.prototype.transaction;
+        IDBDatabase.prototype.transaction = function(...args) {
+          const tx = nativeTransaction.apply(this, args);
+          if (args[1] === 'readwrite') {
+            window.__rwActive += 1; window.__rwStarted += 1;
+            const done = () => { window.__rwActive -= 1; window.__rwDone += 1; };
+            tx.addEventListener('complete', done); tx.addEventListener('abort', done);
+          }
+          return tx;
+        };
+        if (window.BroadcastChannel) {
+          const nativePost = BroadcastChannel.prototype.postMessage;
+          BroadcastChannel.prototype.postMessage = function(message) {
+            window.__bcLog.push({message, rwActive: window.__rwActive, rwStarted: window.__rwStarted, rwDone: window.__rwDone});
+            return nativePost.call(this, message);
+          };
+        }
+        // Raw IndexedDB access for seeding and reading the authoritative READY state.
+        const open = () => new Promise((resolve, reject) => {
+          const request = indexedDB.open('majandus_local_v1');
+          request.onupgradeneeded = () => request.transaction.abort();
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        const run = async (store, mode, work) => {
+          const db = await open();
+          try {
+            return await new Promise((resolve, reject) => {
+              const tx = db.transaction(store, mode);
+              const request = work(tx.objectStore(store));
+              tx.oncomplete = () => resolve(request && 'result' in request ? request.result : undefined);
+              tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+            });
+          } finally { db.close(); }
+        };
+        window.__idb = {
+          getAll: store => run(store, 'readonly', s => s.getAll()),
+          get: (store, key) => run(store, 'readonly', s => s.get(key)),
+          put: (store, record) => run(store, 'readwrite', s => s.put(record)),
+          delete: (store, key) => run(store, 'readwrite', s => s.delete(key)),
+          clear: store => run(store, 'readwrite', s => s.clear()),
+        };
+      })();
     </script><script src="/app.js"></script>`);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -91,6 +183,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
   let send;
   try {
     const port = new URL(await waitForBrowserEndpoint(child)).port;
+    const cdpPort = port;
     const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
     socket = new WebSocket(targets.find(t => t.type === 'page').webSocketDebuggerUrl);
     await new Promise((resolve, reject) => {
@@ -143,6 +236,62 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
     };
     const body = () => evaluate('document.body.innerText');
     const storage = () => evaluate('JSON.stringify(Object.fromEntries(Object.keys(localStorage).sort().map(k=>[k,localStorage.getItem(k)])))');
+    // ---- mode-aware TEST-ONLY state helpers: they observe the ACTIVE authority, never a frozen legacy copy ----
+    const asRecord = (id, payload) => ({ id, payload, revision: 0, updatedAt: STAMP, deletedAt: null, syncStatus: 'local' });
+    const readCalendarEvents = () => evaluate(mode === 'READY'
+      ? "__idb.getAll('calendarEvents').then(records=>records.map(record=>record.payload))"
+      : "JSON.parse(localStorage.getItem('majamajandus_household_events_v1'))?.events || []");
+    const readHouseholdProfile = () => evaluate(mode === 'READY'
+      ? "__idb.get('householdProfile','household').then(record=>record ? (({serverHouseholdId,...profile})=>profile)(record.payload) : null)"
+      : "JSON.parse(localStorage.getItem('majamajandus_household_profile_v1'))?.profile ?? null");
+    const readSavedPlaces = () => evaluate(mode === 'READY'
+      ? "__idb.getAll('sharedPlaces').then(records=>records.sort((a,b)=>a.order-b.order).map(record=>record.payload))"
+      : "JSON.parse(localStorage.getItem('sade_saved_places'))");
+    // Comparable raw snapshots (a string), used to prove that an unreadable or failed domain was never overwritten.
+    const calendarRaw = () => evaluate(mode === 'READY'
+      ? "__idb.getAll('calendarEvents').then(records=>JSON.stringify(records))"
+      : "localStorage.getItem('majamajandus_household_events_v1')");
+    const householdRaw = () => evaluate(mode === 'READY'
+      ? "__idb.getAll('householdProfile').then(records=>JSON.stringify(records))"
+      : "localStorage.getItem('majamajandus_household_profile_v1')");
+    const placesRaw = () => evaluate(mode === 'READY'
+      ? "__idb.getAll('sharedPlaces').then(records=>JSON.stringify(records))"
+      : "localStorage.getItem('sade_saved_places')");
+    const snapshotCalendar = () => evaluate(mode === 'READY'
+      ? "__idb.getAll('calendarEvents')" : "localStorage.getItem('majamajandus_household_events_v1')");
+    const restoreCalendar = snapshot => evaluate(mode === 'READY'
+      ? `__idb.clear('calendarEvents').then(()=>Promise.all(${JSON.stringify(snapshot)}.map(record=>__idb.put('calendarEvents',record)))).then(()=>true)`
+      : (snapshot === null ? "localStorage.removeItem('majamajandus_household_events_v1')"
+        : `localStorage.setItem('majamajandus_household_events_v1',${JSON.stringify(snapshot)})`));
+    const seedCalendar = events => evaluate(mode === 'READY'
+      ? `__idb.clear('calendarEvents').then(()=>Promise.all(${JSON.stringify(events.map(event => asRecord(event.id, event)))}.map(record=>__idb.put('calendarEvents',record)))).then(()=>true)`
+      : `localStorage.setItem('majamajandus_household_events_v1',${JSON.stringify(JSON.stringify({ version: 1, events }))})`);
+    const corruptCalendar = () => evaluate(mode === 'READY'
+      ? `__idb.put('calendarEvents',${JSON.stringify(asRecord('broken-record', { id: 'other-id', title: 'X' }))})`
+      : "localStorage.setItem('majamajandus_household_events_v1','{broken')");
+    const repairCalendar = () => evaluate(mode === 'READY'
+      ? "__idb.delete('calendarEvents','broken-record')" : "localStorage.removeItem('majamajandus_household_events_v1')");
+    const corruptHousehold = () => evaluate(mode === 'READY'
+      ? `__idb.put('householdProfile',{key:'household',payload:{name:'Katki'},revision:0,updatedAt:${JSON.stringify(STAMP)},deletedAt:null,syncStatus:'local'})`
+      : "localStorage.setItem('majamajandus_household_profile_v1','{broken')");
+    const repairHousehold = () => evaluate(mode === 'READY'
+      ? "__idb.delete('householdProfile','household')" : "localStorage.removeItem('majamajandus_household_profile_v1')");
+    // Write failures use the mode's own real write path: Storage.setItem (LEGACY) or IDBObjectStore.put (READY).
+    const failWrites = async domain => {
+      const stores = { calendar: ['calendarEvents', 'wasteState'], household: ['householdProfile'], places: ['sharedPlaces'] }[domain];
+      const keys = { calendar: 'majamajandus_household_events_v1', household: 'majamajandus_household_profile_v1', places: 'sade_saved_places' }[domain];
+      await evaluate(mode === 'READY'
+        ? `(()=>{window.__nativePut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(...args){
+            if(${JSON.stringify(stores)}.includes(this.name)) throw new DOMException('quota','QuotaExceededError');
+            return window.__nativePut.apply(this,args);};})()`
+        : `(()=>{window.__nativeSet=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){
+            if(key===${JSON.stringify(keys)}) throw new DOMException('quota','QuotaExceededError');
+            return window.__nativeSet.call(this,key,value);};})()`);
+    };
+    const restoreWrites = () => evaluate(mode === 'READY' ? 'IDBObjectStore.prototype.put=window.__nativePut;true' : 'Storage.prototype.setItem=window.__nativeSet;true');
+    const ready = () => waitFor("!!document.querySelector('nav')");
+    const shared = { mode, readCalendarEvents, readHouseholdProfile, readSavedPlaces, calendarRaw, householdRaw, placesRaw,
+      corruptCalendar, repairCalendar, corruptHousehold, repairHousehold, failWrites, restoreWrites };
     await send('Runtime.enable');
     await send('Page.enable');
     await send('Network.enable');
@@ -152,6 +301,20 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
     await send('Page.navigate', {url:`http://127.0.0.1:${server.address().port}`});
     await waitFor("!!document.querySelector('nav')");
     const initialStorage = await storage();
+
+    await t.test(`the mounted runtime is the ${mode} authority and no shared legacy key was written`, async () => {
+      const authority = await evaluate("__idb.get('meta','storageAuthorityV1')");
+      const hint = await evaluate(`localStorage.getItem('${HINT_KEY}')`);
+      if (mode === 'READY') {
+        assert.equal(authority.status, 'active');
+        assert.equal(JSON.parse(hint).switchId, authority.switchId, 'READY requires the verified hint');
+      } else {
+        assert.equal(authority, undefined, 'LEGACY: authority is proven absent');
+        assert.equal(hint, null);
+      }
+      for (const key of SHARED_KEYS.slice(0, 2)) assert.equal(await evaluate(`localStorage.getItem('${key}')`), null, key);
+      assert.equal(await evaluate("!!document.querySelector('[data-storage-state]')"), false, 'no storage status screen or banner in the normal state');
+    });
 
     await t.test('five primary destinations, identity and truthful Home hierarchy', async () => {
       assert.deepEqual(await evaluate("[...document.querySelectorAll('nav button')].map(b=>b.textContent.trim())"),
@@ -436,14 +599,13 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
     const toggleAdvanced = () => evaluate("document.querySelector('.mm-event-dialog details > summary').click()");
     const withEvents = async (events,check) => {
-      const before=await evaluate("localStorage.getItem('majamajandus_household_events_v1')");
+      const before=await snapshotCalendar();
       try {
-        await evaluate(`localStorage.setItem('majamajandus_household_events_v1',${JSON.stringify(JSON.stringify({version:1,events}))})`);
+        await seedCalendar(events);
         await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Kalender');
         await check();
       } finally {
-        await evaluate(before === null ? "localStorage.removeItem('majamajandus_household_events_v1')" :
-          `localStorage.setItem('majamajandus_household_events_v1',${JSON.stringify(before)})`);
+        await restoreCalendar(before);
         await send('Page.reload');await waitFor("!!document.querySelector('nav')");
       }
     };
@@ -495,10 +657,10 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
           await input('#event-title','UX quick event');await click('Salvesta sündmus');
           await waitFor("!document.querySelector('dialog[open]')");
           assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/UX quick event/);
-          const saved=await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events[0]");
+          const saved=(await readCalendarEvents())[0];
           assert.equal(saved.date,'2026-09-18');assert.equal(saved.recurrence.frequency,'none');assert.equal(saved.reminder.daysBefore,0);
           await evaluate("document.querySelector('#selected-events [data-occurrence]').click()");await click('Kustuta');await click('Kinnita kustutamine');
-          assert.equal(await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events.length"),0);
+          assert.equal((await readCalendarEvents()).length,0);
         } finally { if(await evaluate("!!document.querySelector('dialog[open]')")) await click('Tühista'); }
       });
     });
@@ -518,7 +680,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
         await input('#event-title','UX renamed');await click('Salvesta sündmus');await waitFor("!document.querySelector('dialog[open]')");
         assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/UX renamed/);
         await evaluate("document.querySelector('#selected-events [data-occurrence]').click()");await click('Kustuta');await click('Kogu sari');await click('Kinnita kustutamine');
-        assert.equal(await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events.length"),0);
+        assert.equal((await readCalendarEvents()).length,0);
       });
     });
     await t.test('Calendar UX V2: each existing advanced setting and imported edit is disclosed without weakening source fields',async()=>{
@@ -534,7 +696,7 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
             for(const id of ['reminder','notes']) assert.ok(await evaluate(`!document.querySelector('#event-${id}').matches(':disabled') && document.querySelector('#event-${id}').checkVisibility()`));
             await selectField('#event-reminder','7');await click('Salvesta sündmus');
             await waitFor("!document.querySelector('dialog[open]')");
-            const saved=await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events[0]");
+            const saved=(await readCalendarEvents())[0];
             assert.equal(saved.reminder.daysBefore,7);assert.equal(saved.title,event.title);assert.equal(saved.date,event.date);assert.equal(saved.source,'imported');
           } else await click('Tühista');
         });
@@ -544,13 +706,13 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
       await runVisualChecks({t,nav,click,input,evaluate,waitFor,body,send});
     }
     if (process.env.CALENDAR_TESTS === '1') {
-      await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send});
+      await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
     }
     if (process.env.WASTE_TESTS === '1') {
-      await runWasteChecks({t,nav,click,input,evaluate,waitFor,body,send});
+      await runWasteChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
     }
     if (process.env.REMINDER_TESTS === '1') {
-      await runReminderChecks({t,nav,click,input,evaluate,waitFor,body,send});
+      await runReminderChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
     }
     if (process.env.NATIVE_NOTIFICATION_TEST === '1') {
       await t.test('MJM04 native Chromium service-worker notification acceptance and reload dedupe',async()=>{
@@ -566,6 +728,361 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
         await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Seaded');
         assert.equal(await evaluate("localStorage.getItem('majamajandus_reminder_delivery_v1')"),before);
         await evaluate("navigator.serviceWorker.getRegistration().then(r=>r.getNotifications()).then(items=>items.forEach(n=>n.close()))");
+      });
+    }
+
+    if (process.env.CUTOVER_TESTS === '1' || OTHER_SUITE_FLAGS.every(flag => process.env[flag] !== '1')) {
+      // ---- C6 cutover acceptance: real controller, real migration/switch, real repositories, real browser signals ----
+      const appUrl = `http://127.0.0.1:${server.address().port}`;
+      const memory = () => { const values = new Map(); return { getItem: key => (values.has(key) ? values.get(key) : null), setItem: (key, value) => { values.set(key, String(value)); } }; };
+      const FIXTURE_ADDRESS = 'Fixture 1';
+      let seedIds = 0;
+      const legacyProfile = () => {
+        const store = memory();
+        const repository = createEventRepository(store, () => `seed-event-${++seedIds}`);
+        repository.create({ title: 'Käsitsi hooldus', category: 'maintenance', date: '2026-09-16', time: '09:30', notes: 'Märge', reminder: { daysBefore: 1 } });
+        repository.create({ title: 'Iganädalane kohtumine', category: 'general', date: '2026-09-14', recurrence: { frequency: 'weekly', interval: 1 } });
+        repository.importWaste(normalizeWasteResult({ id: 'fixture', name: 'Controlled test source' }, FIXTURE_ADDRESS, { entries: [
+          { externalId: 'w1', title: 'Seeme bio', subtype: 'bio', date: '2026-09-15' }, { externalId: 'w2', title: 'Seeme paber', subtype: 'paper', date: '2026-09-17' }] }), new Date(2026, 8, 14, 6));
+        const places = [
+          { name: 'Kodu', address: 'Tamme 1, Rakvere', lat: 59.34, lon: 26.35 }, { name: 'Kool', address: '', lat: null, lon: null },
+          { name: 'Trenn', address: '', lat: null, lon: null }, { name: 'Pood', address: 'Keskväljak 2', lat: 59.35, lon: 26.36 }];
+        const household = { version: 1, profile: { name: 'Meie kodu', address: FIXTURE_ADDRESS } };
+        return { calendar: store.getItem('majamajandus_household_events_v1'), household: JSON.stringify(household), places: JSON.stringify(places), placesValue: places, householdValue: household.profile };
+      };
+      const legacyKeys = seed => ({ majamajandus_household_events_v1: seed.calendar, majamajandus_household_profile_v1: seed.household, sade_saved_places: seed.places });
+      const legacyBytes = () => evaluate(`Object.fromEntries(${JSON.stringify(SHARED_KEYS)}.map(key=>[key,localStorage.getItem(key)]))`);
+      const byId = events => [...events].sort((a, b) => (a.id < b.id ? -1 : 1));
+      const snapshotCalendarRecords = () => evaluate("__idb.getAll('calendarEvents').then(records=>JSON.stringify(records))");
+      // A fresh device: drop IndexedDB (the mounted connection closes on versionchange), reset the shared legacy keys and hint, then reload.
+      const resetProfile = async ({ legacy = {}, flags = [], wait = true } = {}) => {
+        await evaluate("new Promise(resolve=>{const r=indexedDB.deleteDatabase('majandus_local_v1');r.onsuccess=()=>resolve(true);r.onerror=()=>resolve(false);r.onblocked=()=>{};})");
+        await evaluate(`${JSON.stringify([...SHARED_KEYS, HINT_KEY])}.forEach(key=>localStorage.removeItem(key))`);
+        for (const [key, value] of Object.entries(legacy)) await evaluate(`localStorage.setItem(${JSON.stringify(key)},${JSON.stringify(value)})`);
+        for (const key of ['c6HintFail', 'c6HintUnreadable', 'c6NoBroadcast', 'c6Blocked', 'c6HoldLock']) await evaluate(`sessionStorage.removeItem('${key}')`);
+        for (const key of flags) await evaluate(`sessionStorage.setItem('${key}','1')`);
+        await send('Page.reload');
+        if (wait) await ready();
+      };
+      const stateOf = () => evaluate("document.querySelector('[data-storage-state]')?.dataset.storageState ?? null");
+      const noSharedControls = () => evaluate(`!document.querySelector('[aria-label="Lisa sündmus"]') && !document.querySelector('#household-name')`);
+      const attach = async () => {
+        const target = await (await fetch(`http://127.0.0.1:${cdpPort}/json/new?${appUrl}`, { method: 'PUT' })).json();
+        const tabSocket = new WebSocket(target.webSocketDebuggerUrl);
+        await new Promise((resolve, reject) => { tabSocket.addEventListener('open', resolve, { once: true }); tabSocket.addEventListener('error', reject, { once: true }); });
+        let tabId = 0; const waiting = new Map();
+        tabSocket.addEventListener('message', event => { const message = JSON.parse(event.data); const request = waiting.get(message.id);
+          if (request) { waiting.delete(message.id); if (message.error) request.reject(new Error(JSON.stringify(message.error))); else request.resolve(message.result); } });
+        const call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++tabId; waiting.set(id, { resolve, reject }); tabSocket.send(JSON.stringify({ id, method, params })); });
+        const run = async expression => { const result = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+          assert.equal(result.exceptionDetails, undefined, JSON.stringify(result.exceptionDetails)); return result.result.value; };
+        const until = async expression => { for (let i = 0; i < 100; i++) { if (await run(expression)) return; await pause(30); } assert.fail('Second tab condition not met: ' + expression); };
+        const press = async (text, within = 'document') => { await run(`[...${within}.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(text)}||b.getAttribute('aria-label')===${JSON.stringify(text)}).click()`); await pause(80); };
+        const fill = async (selector, value) => { await run(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`); await pause(60); };
+        await call('Runtime.enable'); await call('Page.enable');
+        await until("!!document.querySelector('nav')");
+        return { run, until, press, fill, close: async () => { tabSocket.close(); await fetch(`http://127.0.0.1:${cdpPort}/json/close/${target.id}`); } };
+      };
+      const addEventInTab = async (tab, title) => {
+        await tab.press('Kalender', "document.querySelector('nav')");
+        await tab.press('Lisa sündmus'); await tab.until("!!document.querySelector('#event-title')");
+        await tab.fill('#event-title', title); await tab.press('Salvesta sündmus'); await tab.until("!document.querySelector('dialog[open]')");
+      };
+      const seeded = legacyProfile();
+      const seededKeys = legacyKeys(seeded);
+      const legacyModeSeed = { ...seededKeys, sade_saved_places: 'not json' };
+
+      await t.test('C6 cutover: nothing shared is read or mounted while the controller is still BOOTING', async () => {
+        await resetProfile({ legacy: mode === 'READY' ? seededKeys : legacyModeSeed, flags: ['c6HoldLock'], wait: false });
+        await waitFor("!!document.querySelector('[data-storage-state=BOOTING]')");
+        await pause(600);
+        assert.equal(await evaluate('window.__sharedReads.length'), 0, 'no shared legacy key is read before the controller resolves');
+        assert.equal(await evaluate('window.__idbOpens'), 0, 'IndexedDB is not opened before the controller boots');
+        assert.equal(await evaluate("!!document.querySelector('nav') || !!document.querySelector('#event-title')"), false, 'only the minimal splash is shown');
+        await evaluate('window.__releaseLock()');
+        await ready();
+        assert.ok(await evaluate('window.__sharedReads.length') > 0, 'the controller itself reads the legacy sources once it boots');
+        await evaluate("sessionStorage.removeItem('c6HoldLock')");
+      });
+
+      if (mode === 'READY') {
+        await t.test('C6 cutover: a real seeded legacy profile switches, mounts READY and shows semantically identical data', async () => {
+          await resetProfile({ legacy: seededKeys });
+          const authority = await evaluate("__idb.get('meta','storageAuthorityV1')");
+          assert.equal(authority.status, 'active');
+          assert.equal(JSON.parse(await evaluate(`localStorage.getItem('${HINT_KEY}')`)).switchId, authority.switchId);
+          const expected = JSON.parse(seeded.calendar);
+          assert.deepEqual(byId(await readCalendarEvents()), byId(expected.events), 'calendar events equal the legacy events as an id-keyed set');
+          assert.deepEqual((await evaluate("__idb.get('wasteState','waste')")).payload.wasteImports, expected.wasteImports, 'waste imports carried over');
+          assert.deepEqual(await readHouseholdProfile(), seeded.householdValue);
+          assert.deepEqual(await readSavedPlaces(), seeded.placesValue);
+          assert.deepEqual(await legacyBytes(), seededKeys, 'legacy shared bytes are unchanged by the switch');
+          assert.equal(await stateOf(), null, 'no blocking or notice state in the normal READY state');
+          await nav('Kalender');
+          assert.match(await evaluate("document.querySelector('#selected-events').innerText"), /Iganädalane kohtumine/);
+          await evaluate('document.querySelector(\'[data-date="2026-09-16"]\').click()');
+          await waitFor("document.querySelector('#selected-events').innerText.includes('Käsitsi hooldus')");
+          await nav('Seaded');
+          assert.equal(await evaluate("document.querySelector('#household-name').value"), 'Meie kodu');
+          assert.equal(await evaluate("document.querySelector('#household-address').value"), FIXTURE_ADDRESS);
+          assert.deepEqual(await evaluate("[...document.querySelectorAll('.mm-place-name')].map(e=>e.value)"), seeded.placesValue.map(p => p.name));
+          const wasteText = await evaluate("document.querySelector('#prugivedu').innerText");
+          for (const subtype of ['bio', 'paper']) assert.ok(wasteText.includes(WASTE_SUBTYPES[subtype]), `imported subtype label ${subtype}`);
+        });
+        await t.test('C6 cutover: READY mutations persist across reload, and no shared legacy key is ever written', async () => {
+          await nav('Kalender'); await click('Lisa sündmus'); await input('#event-title', 'Pärast lülitust'); await click('Salvesta sündmus');
+          await waitFor("!document.querySelector('dialog[open]')");
+          await nav('Seaded');
+          await evaluate("document.querySelector('#household-profile').open=true");
+          await input('#household-name', 'Uus kodu'); await click('Salvesta majapidamine'); await waitFor("document.body.innerText.includes('Majapidamine salvestatud')");
+          const beforeReload = { events: byId(await readCalendarEvents()), household: await readHouseholdProfile() };
+          assert.ok(beforeReload.events.some(e => e.title === 'Pärast lülitust'));
+          assert.equal(beforeReload.household.name, 'Uus kodu');
+          await send('Page.reload'); await ready();
+          assert.deepEqual(byId(await readCalendarEvents()), beforeReload.events, 'the same IndexedDB state is visible after reload');
+          await nav('Kalender'); assert.match(await evaluate("document.querySelector('#selected-events').innerText"), /Iganädalane kohtumine/);
+          await nav('Seaded');
+          assert.equal(await evaluate("document.querySelector('#household-name').value"), 'Uus kodu');
+          assert.deepEqual(await legacyBytes(), seededKeys, 'READY never mirrors into a shared legacy key');
+          assert.equal(await stateOf(), null, 'no re-adopt and no divergence notice after a normal READY session');
+        });
+        await t.test('C6 cutover: the committed message is broadcast only after the transaction completes, and another READY tab re-reads without a reload', async () => {
+          await resetProfile({ legacy: seededKeys });
+          await nav('Kalender');
+          const tab = await attach();
+          try {
+            await tab.run('window.__bcLog.length=0;window.__rwStarted=0;window.__rwDone=0');
+            await tab.run(`(()=>{const original=IDBDatabase.prototype.transaction;IDBDatabase.prototype.transaction=function(...args){
+              const tx=original.apply(this,args);
+              if(args[1]==='readwrite'&&Array.isArray(args[0])&&args[0].includes('calendarEvents')){
+                const meta=tx.objectStore('meta'),end=performance.now()+400;
+                const tick=()=>{if(performance.now()<end) meta.get('keepalive').onsuccess=tick;};tick();
+              }
+              return tx;};})()`);
+            await addEventInTab(tab, 'Teisest aknast');
+            await waitFor("document.querySelector('#selected-events').innerText.includes('Teisest aknast')");
+            assert.equal(await stateOf(), null, 'a normal committed change is a domain re-read, never a reload banner');
+            const log = await tab.run('window.__bcLog');
+            const committed = log.filter(entry => entry.message.type === 'committed');
+            assert.deepEqual(committed.map(entry => entry.message), [{ type: 'committed', domain: 'calendar' }]);
+            assert.equal(committed[0].rwActive, 0, 'no readwrite transaction is still active when the commit is announced');
+            assert.ok(committed[0].rwStarted >= 1 && committed[0].rwDone === committed[0].rwStarted, 'the write transaction had already started and completed when the commit was announced');
+          } finally { await tab.close(); }
+        });
+        await t.test('C6 cutover: a failed READY mutation is never announced as committed', async () => {
+          await nav('Kalender'); await evaluate('window.__bcLog.length=0');
+          await click('Lisa sündmus'); await input('#event-title', 'Ei jõua kohale');
+          await failWrites('calendar');
+          try { await click('Salvesta sündmus'); await waitFor("document.body.innerText.includes('Salvestamine ebaõnnestus')"); }
+          finally { await restoreWrites(); }
+          assert.deepEqual(await evaluate("window.__bcLog.filter(e=>e.message.type==='committed')"), []);
+          await click('Tühista');
+        });
+        await t.test('C6 cutover: without BroadcastChannel, focus and visibilitychange re-read the READY domain, with no polling', async () => {
+          await resetProfile({ legacy: seededKeys, flags: ['c6NoBroadcast'] });
+          await nav('Kalender');
+          assert.equal(await evaluate('window.BroadcastChannel === undefined'), true);
+          const tab = await attach();
+          try {
+            await addEventInTab(tab, 'Ilma kanalita');
+            await pause(700);
+            assert.doesNotMatch(await evaluate("document.querySelector('#selected-events').innerText"), /Ilma kanalita/, 'no polling: nothing changes without a signal');
+            await evaluate("window.dispatchEvent(new Event('focus'))");
+            await waitFor("document.querySelector('#selected-events').innerText.includes('Ilma kanalita')");
+            await addEventInTab(tab, 'Nähtavus');
+            await evaluate("Object.defineProperty(document,'visibilityState',{get:()=>'visible',configurable:true});document.dispatchEvent(new Event('visibilitychange'))");
+            await waitFor("document.querySelector('#selected-events').innerText.includes('Nähtavus')");
+            assert.equal(await stateOf(), null);
+          } finally { await tab.close(); await evaluate("sessionStorage.removeItem('c6NoBroadcast')"); }
+        });
+        await t.test('C6 cutover: a real versionchange shows the reload banner and disables every shared-domain write control', async () => {
+          await resetProfile({ legacy: seededKeys });
+          await nav('Kalender'); await click('Lisa sündmus'); await input('#event-title', 'Jääb vormi');
+          const result = await evaluate(`new Promise((resolve,reject)=>{const r=indexedDB.open('majandus_local_v1',2);let blocked=false;
+            r.onblocked=()=>{blocked=true;};r.onupgradeneeded=()=>{};r.onsuccess=()=>{r.result.close();resolve({blocked});};r.onerror=()=>reject(r.error);})`);
+          assert.equal(result.blocked, false, 'the mounted connection closes on versionchange, so the upgrade is not blocked');
+          await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");
+          assert.match(await body(), /Majandus uuenes teises aknas\. Laadi leht uuesti\./);
+          assert.equal(await evaluate("document.querySelector('.mm-save-event').disabled"), true, 'the open event form cannot save');
+          assert.equal(await evaluate("document.querySelector('#event-title').value"), 'Jääb vormi');
+          await click('Tühista');
+          await nav('Kalender'); assert.equal(await evaluate('document.querySelector(\'[aria-label="Lisa sündmus"]\').disabled'), true);
+          await nav('Seaded');
+          assert.equal(await evaluate("[...document.querySelectorAll('.mm-household-form button')].every(b=>b.disabled)"), true);
+          assert.equal(await evaluate("[...document.querySelectorAll('#prugivedu button')].filter(b=>['Lisa käsitsi graafik','Impordi kalendrisse','Värskenda graafikut','Leia prügipäevad'].includes(b.textContent.trim())).every(b=>b.disabled)"), true);
+          assert.equal(await evaluate("[...document.querySelectorAll('.mm-place-card .mm-settings-save')].every(b=>b.disabled)"), true);
+        });
+        await t.test('C6 cutover: IndexedDB-only loss shows the dated STORAGE_LOST screen and confirmation restores the switch-time snapshot', async () => {
+          const switchedAt = JSON.parse(await evaluate(`localStorage.getItem('${HINT_KEY}')`)).switchedAt;
+          await evaluate("new Promise(resolve=>{const r=indexedDB.deleteDatabase('majandus_local_v1');r.onsuccess=()=>resolve(true);r.onerror=()=>resolve(false);})");
+          await send('Page.reload'); await ready();
+          assert.equal(await stateOf(), 'STORAGE_LOST');
+          assert.ok((await body()).includes(`Kohalik andmebaas puudub. Taasta andmed seisuga ${switchedAt} varukoopiast?`), 'the dated recovery copy names the switch time');
+          assert.equal(await noSharedControls(), true, 'nothing shared is mounted, and no automatic confirmation happens');
+          await click('Taasta andmed'); await waitFor("!document.querySelector('[data-storage-state]')");
+          assert.deepEqual(await readHouseholdProfile(), seeded.householdValue, 'data equals the frozen switch-time snapshot');
+          assert.deepEqual(await legacyBytes(), seededKeys);
+        });
+        await t.test('C6 cutover: a failed hint write at boot shows AUTHORITY_HINT_PENDING with nothing shared mounted, and retry recovers', async () => {
+          await resetProfile({ legacy: seededKeys, flags: ['c6HintFail'] });
+          await waitFor("!!document.querySelector('[data-storage-state=AUTHORITY_HINT_PENDING]')");
+          assert.match(await body(), /Seadme salvestusruum ei võtnud muudatust vastu\. Proovi uuesti\./);
+          await nav('Kalender'); assert.equal(await noSharedControls(), true);
+          assert.deepEqual(await legacyBytes(), seededKeys, 'never a LEGACY fallback and never a legacy write');
+          assert.equal((await evaluate("__idb.get('meta','storageAuthorityV1')")).status, 'active', 'IndexedDB stays authoritative');
+          await evaluate("sessionStorage.removeItem('c6HintFail')");
+          await click('Proovi uuesti'); await waitFor("!document.querySelector('[data-storage-state]')");
+          assert.equal(await evaluate(`!!localStorage.getItem('${HINT_KEY}')`), true);
+          await nav('Kalender'); assert.equal(await evaluate('document.querySelector(\'[aria-label="Lisa sündmus"]\').disabled'), false);
+        });
+        await t.test('C6 cutover: AUTHORITY_HINT_PENDING retries automatically on focus', async () => {
+          await resetProfile({ legacy: seededKeys, flags: ['c6HintFail'] });
+          await waitFor("!!document.querySelector('[data-storage-state=AUTHORITY_HINT_PENDING]')");
+          await evaluate("window.dispatchEvent(new Event('focus'))");
+          await pause(300);
+          assert.equal(await stateOf(), 'AUTHORITY_HINT_PENDING', 'a focus retry that still fails stays on the pending screen');
+          await evaluate("sessionStorage.removeItem('c6HintFail')");
+          await evaluate("window.dispatchEvent(new Event('focus'))");
+          await waitFor("!document.querySelector('[data-storage-state]')");
+          assert.equal(await evaluate(`!!localStorage.getItem('${HINT_KEY}')`), true);
+        });
+        await t.test('C6 cutover: a blocked open shows BLOCKED with Buss usable, never LEGACY, and retries automatically on focus', async () => {
+          await resetProfile({ legacy: seededKeys, flags: ['c6Blocked'] });
+          await waitFor("!!document.querySelector('[data-storage-state=BLOCKED]')");
+          assert.match(await body(), /Sulge Majanduse teised aknad ja proovi uuesti./);
+          assert.equal(await evaluate("!!document.querySelector('[data-storage-state=BLOCKED] button')"), true, 'a retry button is offered');
+          await nav('Kalender'); assert.equal(await noSharedControls(), true, 'no shared domain is mounted, and never LEGACY');
+          await nav('Buss'); await waitFor("!!document.querySelector('#buss-destination')");
+          assert.deepEqual(await legacyBytes(), seededKeys);
+          await evaluate("sessionStorage.removeItem('c6Blocked')");
+          await evaluate("window.dispatchEvent(new Event('focus'))");
+          await waitFor("!document.querySelector('[data-storage-state]')");
+          await nav('Kalender'); assert.equal(await evaluate('document.querySelector(\'[aria-label="Lisa sündmus"]\').disabled'), false);
+        });
+        await t.test('C6 cutover: a malformed authority record shows STORAGE_UNAVAILABLE, never LEGACY, and offers no repair', async () => {
+          await resetProfile({ legacy: seededKeys });
+          const authority = await evaluate("__idb.get('meta','storageAuthorityV1')");
+          await evaluate(`__idb.put('meta',${JSON.stringify({ ...authority, extra: true })})`);
+          await send('Page.reload'); await ready();
+          assert.equal(await stateOf(), 'STORAGE_UNAVAILABLE');
+          await nav('Kalender'); assert.equal(await noSharedControls(), true);
+          assert.equal(await evaluate("!!document.querySelector('[data-storage-state] button')"), false, 'authority-malformed offers no retry or repair action');
+          assert.deepEqual(await legacyBytes(), seededKeys);
+          await evaluate(`__idb.put('meta',${JSON.stringify(authority)})`);
+          await send('Page.reload'); await ready();
+          assert.equal(await stateOf(), null);
+        });
+        await t.test('C6 cutover: post-switch legacy divergence shows the non-blocking notice, stays usable and writes nothing', async () => {
+          await resetProfile({ legacy: seededKeys });
+          const before = { calendar: await snapshotCalendarRecords(), household: await householdRaw(), places: await placesRaw() };
+          const edited = JSON.stringify({ version: 1, events: [] });
+          await evaluate(`localStorage.setItem('majamajandus_household_events_v1',${JSON.stringify(edited)})`);
+          await evaluate("window.dispatchEvent(new StorageEvent('storage',{key:'majamajandus_household_events_v1'}))");
+          await waitFor("!!document.querySelector('[data-storage-state=LEGACY_DIVERGED]')");
+          assert.match(await body(), /Vana kohalik salvestus on muutunud/);
+          assert.equal(await evaluate("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')"), false, 'divergence is not a reload');
+          await nav('Kalender');
+          assert.equal(await evaluate('document.querySelector(\'[aria-label="Lisa sündmus"]\').disabled'), false, 'READY stays writable');
+          assert.match(await evaluate("document.querySelector('#selected-events').innerText"), /Iganädalane kohtumine/, 'the IndexedDB data is still shown, never the diverged legacy bytes');
+          assert.deepEqual({ calendar: await snapshotCalendarRecords(), household: await householdRaw(), places: await placesRaw() }, before, 'no IndexedDB record changed');
+          assert.equal(await evaluate("localStorage.getItem('majamajandus_household_events_v1')"), edited, 'the diverged legacy bytes are neither adopted nor rewritten');
+        });
+        await t.test('C6 cutover: an authority-changed broadcast keeps a READY tab whose authority is unchanged, and requires a reload once it changed', async () => {
+          await resetProfile({ legacy: seededKeys });
+          await evaluate("new BroadcastChannel('majandus:replica').postMessage({type:'authority-changed'})");
+          await pause(400);
+          assert.equal(await stateOf(), null, 'an unchanged authority does not require a reload');
+          const authority = await evaluate("__idb.get('meta','storageAuthorityV1')");
+          await evaluate(`__idb.put('meta',${JSON.stringify({ ...authority, switchId: 'another-switch' })})`);
+          await evaluate("new BroadcastChannel('majandus:replica').postMessage({type:'authority-changed'})");
+          await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");
+          await nav('Kalender'); assert.equal(await evaluate('document.querySelector(\'[aria-label="Lisa sündmus"]\').disabled'), true);
+        });
+        await t.test('C6 cutover: one invalid domain is non-writable while the other domains stay usable, with no repair', async () => {
+          await resetProfile({ legacy: seededKeys });
+          const places = await evaluate("__idb.getAll('sharedPlaces')");
+          const invalid = { ...places[0], payload: { ...places[0].payload, lat: '59.3' } };
+          await evaluate(`__idb.put('sharedPlaces',${JSON.stringify(invalid)})`);
+          const before = await placesRaw();
+          await send('Page.reload'); await ready();
+          await nav('Seaded');
+          await evaluate("[...document.querySelectorAll('summary')].find(s=>s.textContent==='Salvestatud kohad').click()");
+          assert.match(await body(), /Salvestatud kohti ei saanud lugeda/);
+          assert.equal(await evaluate("[...document.querySelectorAll('.mm-place-card .mm-settings-save')].every(b=>b.disabled)"), true);
+          assert.equal(await evaluate("document.querySelector('.mm-household-form button').disabled"), false, 'household stays writable');
+          await nav('Kalender'); assert.equal(await evaluate('document.querySelector(\'[aria-label="Lisa sündmus"]\').disabled'), false, 'calendar stays writable');
+          assert.equal(await placesRaw(), before, 'the invalid domain is never repaired');
+          assert.equal(await stateOf(), null, 'overall state stays READY');
+        });
+      }
+
+      if (mode === 'LEGACY') {
+        for (const variant of ['valid', 'malformed', 'unreadable']) {
+          await t.test(`C6 cutover: a LEGACY tab refuses a shared save when the hint is ${variant}, writes nothing and requires a reload`, async () => {
+            await resetProfile({ legacy: { sade_saved_places: 'not json' } });
+            await nav('Kalender'); await click('Lisa sündmus'); await input('#event-title', 'Ei tohi salvestuda');
+            const before = await calendarRaw();
+            if (variant === 'valid') await evaluate(`localStorage.setItem('${HINT_KEY}',JSON.stringify({version:1,switchId:'other',legacyDigestAtSwitch:'${'a'.repeat(64)}',switchedAt:'${STAMP}'}))`);
+            if (variant === 'malformed') await evaluate(`localStorage.setItem('${HINT_KEY}','garbage')`);
+            if (variant === 'unreadable') await evaluate("sessionStorage.setItem('c6HintUnreadable','1')");
+            await click('Salvesta sündmus');
+            await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");
+            assert.equal(await calendarRaw(), before, 'the shared legacy key is not written');
+            assert.match(await body(), /Majandus uuenes teises aknas\. Laadi leht uuesti\./);
+            assert.equal(await evaluate("document.querySelector('.mm-save-event').disabled"), true);
+            await evaluate("sessionStorage.removeItem('c6HintUnreadable')");
+            await click('Tühista');
+          });
+        }
+        await t.test('C6 cutover: an authority-changed broadcast requires a reload in a LEGACY tab', async () => {
+          await resetProfile({ legacy: legacyModeSeed });
+          assert.equal(await stateOf(), null);
+          await evaluate("new BroadcastChannel('majandus:replica').postMessage({type:'authority-changed'})");
+          await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");
+          await nav('Kalender'); assert.equal(await evaluate('document.querySelector(\'[aria-label="Lisa sündmus"]\').disabled'), true);
+        });
+        await t.test('C6 cutover: LEGACY shows the accepted legacy profile unchanged and never switches authority', async () => {
+          await resetProfile({ legacy: legacyModeSeed });
+          assert.equal(await stateOf(), null);
+          assert.equal(await evaluate("__idb.get('meta','storageAuthorityV1')"), undefined, 'LEGACY never switches authority in this session');
+          assert.equal(await evaluate(`localStorage.getItem('${HINT_KEY}')`), null);
+          await nav('Kalender');
+          assert.match(await body(), /Iganädalane kohtumine/, 'LEGACY shows the accepted legacy calendar unchanged');
+        });
+      }
+
+      await t.test('C6 cutover: failed household and saved-place saves show the error, claim no success and keep draft and previous state', async () => {
+        await resetProfile({ legacy: mode === 'READY' ? seededKeys : legacyModeSeed });
+        await nav('Seaded');
+        await evaluate("document.querySelector('#household-profile').open=true");
+        await input('#household-name', 'Ei salvestu');
+        const householdBefore = await householdRaw();
+        await failWrites('household');
+        try {
+          await click('Salvesta majapidamine');
+          await waitFor("!!document.querySelector('.mm-household-form [role=alert]')");
+          assert.match(await evaluate("document.querySelector('.mm-household-form').innerText"), /Salvestamine ebaõnnestus/);
+          assert.doesNotMatch(await body(), /Majapidamine salvestatud/);
+          assert.equal(await evaluate("document.querySelector('#household-name').value"), 'Ei salvestu', 'the draft stays');
+        } finally { await restoreWrites(); }
+        assert.equal(await householdRaw(), householdBefore, 'the previous persisted household is untouched');
+
+        await evaluate("[...document.querySelectorAll('summary')].find(s=>s.textContent==='Salvestatud kohad').click()");
+        await input('.mm-place-name', 'Muudetud koht');
+        const placesBefore = await placesRaw();
+        await failWrites('places');
+        try {
+          await evaluate("document.querySelector('.mm-place-card .mm-settings-save').click()");
+          await waitFor("!!document.querySelector('.mm-place-card [role=alert]')");
+          assert.match(await evaluate("document.querySelector('.mm-place-card').innerText"), /Salvestamine ebaõnnestus/);
+          assert.doesNotMatch(await evaluate("document.querySelector('.mm-place-card').innerText"), /✓ Salvestatud/, 'no success before the commit');
+          assert.equal(await evaluate("document.querySelector('.mm-place-name').value"), 'Muudetud koht', 'the edited value stays');
+        } finally { await restoreWrites(); }
+        assert.equal(await placesRaw(), placesBefore, 'the previous persisted places are untouched');
+        await evaluate("document.querySelector('.mm-place-card .mm-settings-save').click()");
+        await waitFor("document.querySelector('.mm-place-card').innerText.includes('✓ Salvestatud')");
+        assert.equal((await readSavedPlaces())[0].name, 'Muudetud koht', 'a successful save persists in the active runtime');
       });
     }
     if (process.env.MJM_SCREENSHOTS) {
@@ -588,6 +1105,43 @@ test('Majamajandus shell in Chromium', { timeout: 120000 }, async t => {
     assert.ok(profile.includes('majamajandus-shell-'));
     rmSync(profile, {recursive:true,force:true,maxRetries:20,retryDelay:100});
   }
+});
+
+test('StorageStatus renders the accepted copy and actions for every storage state', { timeout: 60000 }, async () => {
+  const bundle = await build({ absWorkingDir: root, bundle: true, write: false, format: 'cjs', platform: 'node', jsx: 'automatic',
+    stdin: { resolveDir: root, loader: 'jsx', contents: `
+      import {renderToStaticMarkup} from 'react-dom/server';
+      import {StorageStatus, StorageNotice} from './src/components/StorageStatus.jsx';
+      export const status=(state,result)=>renderToStaticMarkup(<StorageStatus state={state} result={result} actions={{retry(){},confirmStorageLost(){},confirmRevertStorageLost(){},reload(){}}} />);
+      export const notice=(state,result)=>renderToStaticMarkup(<StorageNotice state={state} result={result} actions={{reload(){}}} />);
+    ` } });
+  const loaded = { exports: {} };
+  new Function('module', 'exports', 'require', bundle.outputFiles[0].text)(loaded, loaded.exports, createRequire(import.meta.url));
+  const { status, notice } = loaded.exports;
+  const text = html => html.replace(/<[^>]+>/g, '|').replace(/\|+/g, '|');
+  const buttons = html => [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map(match => match[1]);
+  const cases = [
+    ['AUTHORITY_HINT_PENDING', {}, 'Seadme salvestusruum ei võtnud muudatust vastu. Proovi uuesti.', ['Proovi uuesti']],
+    ['BLOCKED', {}, 'Sulge Majanduse teised aknad ja proovi uuesti.', ['Proovi uuesti']],
+    ['STORAGE_LOST', { variant: 'dated', switchedAt: '2026-09-16T10:00:00.000Z' }, 'Kohalik andmebaas puudub. Taasta andmed seisuga 2026-09-16T10:00:00.000Z varukoopiast?', ['Taasta andmed']],
+    ['STORAGE_LOST', { variant: 'undated' }, 'Taasta andmed seadme varukoopiast?', ['Taasta andmed']],
+    ['RELOAD_REQUIRED', {}, 'Majandus uuenes teises aknas. Laadi leht uuesti.', ['Laadi uuesti']],
+    ['REVERT_STORAGE_LOST', { variant: 'dated', switchedAt: '2026-09-16T10:00:00.000Z' }, 'Kohalik andmebaas puudub. Kas kasutada vana salvestust seisuga 2026-09-16T10:00:00.000Z? Hilisemad muudatused võivad puududa.', ['Kasuta vana salvestust']],
+    ['REVERT_STORAGE_LOST', { variant: 'undated' }, 'Kohalik andmebaas puudub. Kas kasutada seadme vana salvestust? Hilisemad muudatused võivad puududa.', ['Kasuta vana salvestust']],
+    ['REVERT_FAILED', { reason: 'revert-backups-lost' }, 'Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti.', ['Proovi uuesti']],
+    ['STORAGE_UNAVAILABLE', { reason: 'open-or-read-failed' }, null, ['Proovi uuesti']],
+    ['STORAGE_UNAVAILABLE', { reason: 'authority-malformed' }, null, []],
+  ];
+  for (const [state, result, copy, actions] of cases) {
+    const html = status(state, result);
+    if (copy) assert.ok(text(html).includes(copy), `${state} ${result.variant ?? result.reason ?? ''}: exact copy`);
+    assert.deepEqual(buttons(html), actions, `${state} ${result.variant ?? result.reason ?? ''}: exactly these actions`);
+  }
+  for (const state of ['BOOTING', 'REVERTING']) assert.ok(!buttons(status(state, {})).length && text(status(state, {})).includes('Laen andmeid'), `${state} is a minimal splash`);
+  assert.equal(notice('READY', {}), '', 'no notice in the normal READY state');
+  assert.ok(text(notice('READY', { divergence: 'LEGACY_DIVERGED' })).includes('Vana kohalik salvestus on muutunud'), 'LEGACY_DIVERGED is a non-blocking notice');
+  assert.deepEqual(buttons(notice('READY', { divergence: 'LEGACY_DIVERGED' })), [], 'the divergence notice offers no repair, merge or reset action');
+  assert.ok(text(notice('RELOAD_REQUIRED', {})).includes('Majandus uuenes teises aknas. Laadi leht uuesti.'));
 });
 
 test('PWA and HTML identity use Majamajandus without downloaded fonts', () => {

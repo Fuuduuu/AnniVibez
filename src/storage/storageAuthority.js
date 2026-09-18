@@ -1159,6 +1159,9 @@ export function createStorageAuthorityController({
     replica,
     getState: () => state,
     getResult: () => lastResult,
+    // C6: the exact identity C4 itself mounted READY against. A fresh minimal object, never the internal
+    // authority record; null in every non-READY state (mountedAuthority is also reset on each BOOTING).
+    getReadyAuthorityIdentity: () => (state === 'READY' && mountedAuthority ? { switchId: mountedAuthority.switchId } : null),
     subscribe: listener => {
       listeners = [...listeners, listener];
       return () => { listeners = listeners.filter(entry => entry !== listener); };

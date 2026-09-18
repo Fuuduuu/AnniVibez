@@ -1,26 +1,21 @@
-import { useEffect, useState } from 'react';
-import { createEventRepository, EVENT_STORAGE_KEY } from './eventRepository';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
-export function useHouseholdEvents() {
-  const [repository] = useState(() => {
-    let storage;
-    try { storage=window.localStorage; } catch { storage=null; }
-    return createEventRepository(storage);
-  });
-  const [snapshot,setSnapshot] = useState(() => repository.load());
-  useEffect(() => {
-    const reload = event => {
-      if(event.key === EVENT_STORAGE_KEY || event.key === null) setSnapshot(repository.load());
-    };
-    window.addEventListener('storage',reload);
-    return () => window.removeEventListener('storage',reload);
-  }, [repository]);
-  const mutate = (method,...args) => {
-    const next=repository[method](...args);
-    setSnapshot(next);
-    return next;
-  };
-  return {...snapshot,create:input=>mutate('create',input),
-    importWaste:(...args)=>mutate('importWaste',...args),
-    update:(...args)=>mutate('update',...args),remove:(...args)=>mutate('remove',...args)};
+const SAVE_FAILED = 'Salvestamine ebaõnnestus. Kontrolli seadme salvestusruumi ja proovi uuesti.';
+const NO_EVENTS = [];
+
+// Dual-mode adapter over the runtime session's calendar store: LEGACY runs the accepted
+// createEventRepository over localStorage, READY the accepted C5 IndexedDB calendar repository.
+// Domain semantics live in those repositories; every mutator returns a promise that rejects on failure.
+export function useHouseholdEvents(session) {
+  const store = session.stores.calendar;
+  const view = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const mutate = useCallback((method, args) => store.mutate(repository => repository[method](...args), SAVE_FAILED), [store]);
+  const create = useCallback(input => mutate('create', [input]), [mutate]);
+  const importWaste = useCallback((...args) => mutate('importWaste', args), [mutate]);
+  const update = useCallback((...args) => mutate('update', args), [mutate]);
+  const remove = useCallback((...args) => mutate('remove', args), [mutate]);
+  return useMemo(() => ({
+    ...view.data, events: view.data?.events ?? NO_EVENTS, loading: view.loading, writable: view.writable, error: view.error,
+    create, importWaste, update, remove,
+  }), [view, create, importWaste, update, remove]);
 }

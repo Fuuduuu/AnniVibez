@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export async function runReminderChecks({t,nav,click,input,evaluate,waitFor,body,send}) {
+export async function runReminderChecks({t,nav,click,input,evaluate,waitFor,body,send,readCalendarEvents}) {
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   const screenshot=async name=>{
     if(!process.env.MJM_SCREENSHOTS) return;
@@ -24,7 +24,7 @@ export async function runReminderChecks({t,nav,click,input,evaluate,waitFor,body
     assert.equal(await evaluate("document.querySelector('#event-reminder').value"),'3');
     await input('#event-title','Ilma meeldetuletuseta');await input('#event-date','2026-09-15');await select('event-reminder','0');
     await click('Salvesta sündmus');await waitFor("!document.querySelector('dialog[open]')");
-    assert.equal(await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events[0].reminder.daysBefore"),0);
+    assert.equal((await readCalendarEvents())[0].reminder.daysBefore,0);
     assert.equal(await evaluate("document.querySelector('[data-reminder-state=due]')"),null);
   });
   await t.test('MJM04 due Home/detail status reflects real waste and future reminders stay future',async()=>{
@@ -62,7 +62,7 @@ export async function runReminderChecks({t,nav,click,input,evaluate,waitFor,body
     await nav('Kalender');await evaluate("[...document.querySelectorAll('[data-occurrence]')].find(b=>b.textContent.includes('Bio homme')).click()");
     await click('Muuda');await input('#event-title','Bio muudetud');await click('Salvesta sündmus');await waitFor("!document.querySelector('dialog[open]')");
     assert.equal(await evaluate("localStorage.getItem('majamajandus_reminder_delivery_v1')"),'{broken');
-    assert.equal(await evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1')).events.length"),3);
+    assert.equal((await readCalendarEvents()).length,3);
     await evaluate("localStorage.removeItem('majamajandus_reminder_delivery_v1')");
   });
   await t.test('MJM04 revoked permission does not reserve or rewrite delivery history',async()=>{

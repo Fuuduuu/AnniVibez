@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send}) {
+export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,readCalendarEvents,calendarRaw,corruptCalendar,repairCalendar,failWrites,restoreWrites}) {
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   const select = async (id,value) => {
     await evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
     await waitFor(`document.getElementById(${JSON.stringify(id)}).value === ${JSON.stringify(value)}`);
   };
-  const storage = () => evaluate("JSON.parse(localStorage.getItem('majamajandus_household_events_v1'))");
+  // The shared calendar of the ACTIVE runtime (LEGACY localStorage or READY IndexedDB), never a frozen legacy copy.
+  const storage = async () => ({events:await readCalendarEvents()});
   const openEvent = async title => {
     await evaluate(`[...document.querySelectorAll('[data-occurrence]')].find(b=>b.textContent.includes(${JSON.stringify(title)})).click()`);
     await waitFor("!!document.querySelector('dialog[open]')");
@@ -87,23 +88,26 @@ export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body
   });
   await t.test('MJM02 failed save retains the form, Escape cancels, malformed storage is not overwritten',async()=>{
     await nav('Kodu');await click('Lisa sündmus');await input('#event-title','Ei salvestatud');
-    await evaluate(`window.originalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){
-      if(key==='majamajandus_household_events_v1') throw new Error('quota');
-      return window.originalSetItem.call(this,key,value);
-    }`);
-    await click('Salvesta sündmus');assert.match(await body(),/Salvestamine ebaõnnestus/);
-    assert.equal(await evaluate("document.querySelector('#event-title').value"),'Ei salvestatud');
-    assert.equal((await storage()).events.length,0);
-    await evaluate('Storage.prototype.setItem=window.originalSetItem');
+    const persisted=await calendarRaw();
+    await failWrites('calendar');
+    try {
+      await click('Salvesta sündmus');await waitFor("document.body.innerText.includes('Salvestamine ebaõnnestus')");
+      assert.match(await body(),/Kontrolli seadme salvestusruumi/);
+      assert.equal(await evaluate("!!document.querySelector('dialog[open]')"),true,'the dialog stays open after a failed save');
+      assert.equal(await evaluate("document.querySelector('#event-title').value"),'Ei salvestatud');
+      assert.equal(await calendarRaw(),persisted,'the previous persisted calendar is untouched');
+      assert.equal((await storage()).events.length,0);
+    } finally { await restoreWrites(); }
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
     await waitFor("!document.querySelector('dialog[open]')");
-    await evaluate("localStorage.setItem('majamajandus_household_events_v1','{broken')");
+    await corruptCalendar();
+    const corrupt=await calendarRaw();
     await send('Page.reload');await waitFor("!!document.querySelector('nav')");
     assert.match(await body(),/Kalendri andmeid ei saanud lugeda/);await nav('Kalender');
     assert.equal(await evaluate("document.querySelector('[aria-label=\"Lisa sündmus\"]').disabled"),true);
-    assert.equal(await evaluate("localStorage.getItem('majamajandus_household_events_v1')"),'{broken');
-    await evaluate("localStorage.removeItem('majamajandus_household_events_v1')");
+    assert.equal(await calendarRaw(),corrupt,'an unreadable calendar is never overwritten');
+    await repairCalendar();
     await send('Page.reload');await waitFor("!!document.querySelector('nav')");
   });
 }
