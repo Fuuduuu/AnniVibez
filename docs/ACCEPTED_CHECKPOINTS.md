@@ -389,6 +389,21 @@
 - C5 source scope: CLOSED
 - next project gate: `RUNTIME_CUTOVER_C6_SCOPE_OPEN` (docs-only C6 scope-open pass); C6 implementation LOCKED until that pass; C7-C8 LOCKED
 
+### RUNTIME_CUTOVER_C6_SCOPE_OPEN
+- status: OPEN (docs-only scope open; implementation in a separate pass; NOT implemented, NOT checkpointed)
+- baseline: `f919c7f6bef6fbfed15e20609c8cd2e12cdbb878` (`docs: checkpoint runtime cutover c5`)
+- plan: `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (Sections 1a, 1b, 2, 3, 4, 5 items 4a-6, 6; Section 7 row C6; Section 8 C6; Section 9 C6 desktop smoke; Section 10 STOP conditions); C1-C5 prerequisites satisfied
+- purpose: wire the accepted C1-C5 storage foundation into the actual application runtime (`LEGACY` -> existing localStorage repositories; `READY` -> C5 IndexedDB repositories; no other authority model)
+- production scope (12 files): `src/main.jsx`, `src/App.jsx`, `src/calendar/useHouseholdEvents.js`, `src/waste/useHousehold.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js` (remove the duplicate places writer), `src/components/SeadedTab.jsx` (remove the places fallback), `src/components/EventDialog.jsx`, `src/components/HouseholdSettings.jsx`, `src/components/WasteSettings.jsx` (await async mutators), new `src/components/StorageStatus.jsx`, `src/design/shell.css`
+- test scope (5 files): `scripts/shell/app-shell.test.mjs`, `scripts/calendar/browser-cases.mjs`, `scripts/waste/browser-cases.mjs`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`; the Task 6 dormant import guard becomes the C6 importer-allowlist guard; reminder, native-notification and saved-places suites are run-only
+- locked architecture: boot order create controller -> wire runtime signals -> boot -> resolve state -> only then mount shared-domain hooks; only `src/main.jsx`, `src/App.jsx`, `useHouseholdEvents.js`, `useHousehold.js` and `useSavedPlaces.js` may import `src/storage/**` (`useSettings.js` removes its places writer, no component imports storage); browser globals only at the runtime wiring boundary (`src/main.jsx`), never in `src/storage/**`; state decisions stay in C4 (`controller.handleRuntimeSignal`), C6 only forwards `storage`/`focus`/`visibilitychange`/`authority-changed` signals; `BroadcastChannel('majandus:replica')` `committed` posted only after the mutation promise completes, with `focus`/`visibilitychange` re-read fallback and no polling; centralized `StorageStatus.jsx` with the exact accepted state copy; async mutators awaited and write failures surfaced with the accepted save-error copy; `LEGACY_DIVERGED` non-blocking with no repair/merge/re-adopt/reset; `DOMAIN_INVALID` per domain only
+- clarification recorded (no plan change): plan Section 9 item 5 is read with Section 4 — an ordinary committed update refreshes the other `READY` tab by domain re-read; the reload banner is the required behavior for authority/connection changes
+- schema: unchanged (no `DB_VERSION` bump, store, index, record cleanup or legacy deletion); no backend, authentication, sync, outbox UI, dependency change, preview deploy or Android/PWA validation (C7)
+- full locked contract, automated acceptance and desktop human smoke in `docs/ACTIVE_SCOPE_LOCK.md` (Runtime cutover C6 section)
+- runtime behavior change: YES, effective only after an accepted C6 implementation; until then the accepted production/runtime baseline is unchanged
+- C6 checkpoint requires: implementation, automated GREEN, independent source review PASS / ACCEPT, desktop Chrome human smoke PASS (`PENDING` until the human confirms), then a docs-only checkpoint
+- C7-C8: LOCKED
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
