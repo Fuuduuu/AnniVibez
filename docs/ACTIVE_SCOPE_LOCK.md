@@ -11,9 +11,10 @@ Read and follow in this order:
 ## Accepted baseline
 
 - product: `Majandus`
-- accepted runtime: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
+- accepted product runtime baseline: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
 - canonical production: `https://annivibe.pages.dev`
-- human production/phone validation: PASS
+- observed canonical production: C6-containing accidental Git auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` from `549203d3a0eced020fc954cab62721ee85a06936`; this is not a C8 accepted deployment
+- prior production/phone validation: PASS; it is not acceptance evidence for the accidental C6-containing production runtime
 
 ## Current phase
 
@@ -31,7 +32,7 @@ Read and follow in this order:
 
 **RUNTIME_CUTOVER_C3**: ACCEPTED / CHECKPOINTED (final implementation `5612953e7c9e07eef411cecc3c6bb5dd5685930d`; independent review initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C3 source scope: CLOSED.
 
-**RUNTIME_CUTOVER_C6**: ACCEPTED / CHECKPOINTED at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; runtime behavior change YES; C6 source scope CLOSED. **RUNTIME_CUTOVER_C7**: SCOPE OPEN for the preview/Android-PWA human gate only; no repository source or deployment-configuration change. C8 remains LOCKED. Canonical production remains unchanged.
+**RUNTIME_CUTOVER_C6**: ACCEPTED / CHECKPOINTED at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; runtime behavior change YES; C6 source scope CLOSED. Cloudflare automatically deployed C6-containing `main` commits to canonical production before C7/C8 governance; current production is the frozen accidental C6-containing deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` from `549203d3a0eced020fc954cab62721ee85a06936`, not a C8 acceptance. **RUNTIME_CUTOVER_C7**: SCOPE OPEN for the preview/Android-PWA human gate only; no repository source or deployment-configuration change. C8 remains LOCKED.
 
 The accepted plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
 - the neutral saved-place module prerequisite (A);
@@ -192,7 +193,7 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 **Repository scope:** NO SOURCE CHANGES. Do not modify `src/**`, `scripts/**`, `public/**`, `functions/**`, package files, Vite configuration, a workflow, `wrangler.toml`, deployment configuration or generated `dist/`. A discovered source defect is a STOP requiring a separately governed source amendment.
 
-**External deployment boundary:** no deployment occurs in this scope-open pass. Later C7 execution may use only existing external Cloudflare Pages infrastructure to build the allowed commits and deploy distinct uncommitted artifacts. If the existing Pages project cannot provide the gate without repository configuration, STOP. Never touch canonical production.
+**External deployment boundary:** no deployment occurs in this scope-open pass. Later C7 execution may use only existing external Cloudflare Pages infrastructure to build the allowed commits and deploy distinct uncommitted artifacts. If the existing Pages project cannot provide the gate without repository configuration, STOP. Never intentionally deploy to canonical production. The observed canonical production is the frozen C6-containing accidental auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` from `549203d3a0eced020fc954cab62721ee85a06936`; no pre-C6 rollback is safe because clients may already have switched authority to IndexedDB.
 
 **Fixed-origin hard lock:** before the first deployment, record exactly one C7 preview/branch-alias origin. It is immutable for the entire gate; legacy seed, forward, revert and re-forward deployments must all use it. A new generated deployment URL or origin change is a FAIL/restart from Step 1.
 
@@ -209,7 +210,7 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 | C3 (ACCEPTED / CHECKPOINTED) | new `src/storage/runtimeRecords.js`, new `src/storage/runtimeWrites.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C4 (ACCEPTED / CHECKPOINTED) | `src/storage/storageAuthority.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C5 (ACCEPTED / CHECKPOINTED) | `src/storage/replicaRepositories.js`, `src/storage/localReplica.js` (additive `listCalendarEvents()` only), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
-| C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED) | final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; automated GREEN, final independent source review PASS / ACCEPT and desktop Chrome human smoke PASS; runtime behavior change YES; no production deploy |
+| C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED) | final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; automated GREEN, final independent source review PASS / ACCEPT and desktop Chrome human smoke PASS; runtime behavior change YES; no intentional production deployment accepted. Observed production is instead the frozen accidental C6-containing Git auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` |
 | C7 (SCOPE OPEN) | existing external Pages preview/branch-alias deployment and Android/installed-PWA human gate, including rollback/re-forward drill; no repository source/config changes |
 | C8 | production deploy gate |
 
@@ -236,4 +237,4 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 ## Decision gate
 
-CURRENT GATE: `RUNTIME_CUTOVER_C7` — C7 preview/Android-PWA human gate is OPEN. Select and record one fixed existing Cloudflare Pages preview origin before Step 1; deploy only to that preview origin during C7. C7 has no repository source or deployment-config authorization. C8 remains LOCKED. C6 is ACCEPTED / CHECKPOINTED; canonical production remains unchanged.
+CURRENT GATE: `RUNTIME_CUTOVER_C7` — C7 preview/Android-PWA human gate is OPEN. Step 1 is not complete: select and record one fixed existing Cloudflare Pages preview origin before any C7 deployment; deploy only to that preview origin during C7. C7 has no repository source or deployment-config authorization. Cloudflare Pages now reports `production_branch: main`, `production_deployments_enabled: false`, preview setting `all`, and Git integration `github`; a `main` push MUST NOT auto-deploy production. Any unexpected production deployment before C8 is a STOP. Current production remains frozen at accidental C6-containing deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5`; C8 remains LOCKED.

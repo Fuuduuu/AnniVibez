@@ -5,9 +5,10 @@ Status: compact operational snapshot for future Majandus passes.
 ## Product and production
 
 - visible product: `Majandus`
-- current accepted runtime: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
+- accepted product runtime baseline: `062cdcbe6488282854cbb7d8fcf2309c50360dec` (`feat: improve calendar usability`)
 - canonical production: `https://annivibe.pages.dev`
-- production and human phone validation: PASS
+- observed canonical production: accidental C6-containing Git auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` from `549203d3a0eced020fc954cab62721ee85a06936`; this is not a C8 accepted deployment
+- prior production and human phone validation: PASS; it is not acceptance evidence for the observed accidental production runtime
 
 ## Accepted product state
 
@@ -32,7 +33,7 @@ Status: compact operational snapshot for future Majandus passes.
 
 ## Next action
 
-- Begin `RUNTIME_CUTOVER_C7` by selecting and recording one fixed existing Cloudflare Pages preview/branch-alias origin, then execute Step 1 only on that origin. C6 is ACCEPTED / CHECKPOINTED and its source scope CLOSED. C7 preview/Android-PWA human gate is OPEN with NO repository source, test, package, configuration or deployment-config changes; C8 remains LOCKED. Canonical production remains unchanged.
+- Resume `RUNTIME_CUTOVER_C7` Step 1 by selecting and recording one fixed existing Cloudflare Pages preview/branch-alias origin, then execute Step 1 only on that origin. C6 is ACCEPTED / CHECKPOINTED and its source scope CLOSED. C7 preview/Android-PWA human gate is OPEN with NO repository source, test, package, configuration or deployment-config changes; no C7 preview deployment or fixed origin exists yet. Cloudflare Pages containment is verified (`production_branch: main`, automatic production deployments `false`, preview setting `all`, Git integration `github`): a `main` push MUST NOT auto-deploy production, and any unexpected production deployment before C8 is a STOP. Current production is frozen at accidental C6-containing deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5`; C8 remains LOCKED.
 - Common Backend Architecture v1 is accepted; Cloudflare Pages Functions + D1 is selected for the v1 backend; the Phase A implementation plan is accepted.
 - Task 1's native IndexedDB schema/primitives are accepted at `f2fe59c7b1704c5a1feb2266123606acaa4a1342` with real Chromium tests `5/5 PASS`, build PASS and no runtime cutover.
 - Task 2's local-replica contracts and exported record validators are accepted at `5d7546fbf96fff77b738b48ca0b1e5f5936cfc48` with Chromium storage tests `6/6 PASS`, build PASS and no runtime cutover.
@@ -41,4 +42,4 @@ Status: compact operational snapshot for future Majandus passes.
 - Task 5's integration breadth is accepted at `fa7f7b79dbdbac300ca1e7e2069091bbc9c474cf` with storage tests `49/49 PASS`, IndexedDB tests `16/16 PASS`, build PASS, diff check PASS and no production file changes; migration remains dormant and no live runtime migration has occurred.
 - Task 6's dormant guard and fail-fast regression is accepted at `abdd002240e78ed093facdb3ef463d4ba6ede418`: source guard PASS, bundle guard PASS, fail-fast sweep PASS and runtime diff NONE.
 - Phase A implementation is complete and the Phase A final human review is ACCEPTED (range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`; review package at checkpoint `4cb17e283abffb98df54c23837ffeaf253b402ac`).
-- The runtime cutover plan in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` remains HUMAN ACCEPTED. C1-C6 are ACCEPTED / CHECKPOINTED as recorded there; C6 activates the runtime authority cutover with guarded `LEGACY` and C4-proven `READY`, and its source scope is CLOSED. `RUNTIME_CUTOVER_C7` is now OPEN only for external fixed-preview deployment and the real Android/PWA human gate: no repository source/config change, no canonical-production deployment, and C8 remains LOCKED. Production deployment, backend, authentication, sync and outbox work remain separate gates.
+- The runtime cutover plan in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` remains HUMAN ACCEPTED. C1-C6 are ACCEPTED / CHECKPOINTED as recorded there; C6 activates the runtime authority cutover with guarded `LEGACY` and C4-proven `READY`, and its source scope is CLOSED. `RUNTIME_CUTOVER_C7` is OPEN only for external fixed-preview deployment and the real Android/PWA human gate: no repository source/config change and no intentional canonical-production deployment. The C6-containing canonical runtime was observed from a prior Git auto-deployment, is frozen in place, and must not be rolled back to pre-C6 because clients may have switched authority to IndexedDB. C8 remains LOCKED; production deployment, backend, authentication, sync and outbox work remain separate gates.
