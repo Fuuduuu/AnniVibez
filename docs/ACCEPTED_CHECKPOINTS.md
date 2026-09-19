@@ -470,8 +470,20 @@
 - rollback: NOT PERFORMED. A pre-C6 rollback is unsafe because clients may already have switched their local authority from legacy localStorage to IndexedDB, which a pre-C6 application cannot safely understand. The accepted rollback remains the governed revert build, not a pre-C6 production rollback.
 - containment: the human disabled Pages automatic production-branch deployments. Independent read-only project inspection reports `production_branch: main`, `production_deployments_enabled: false`, preview deployment setting `all`, and Git integration `github`; no production deployment occurred during containment verification.
 - policy: a `main` push MUST NOT auto-deploy production. C7 deploys only to its later fixed preview branch alias; C8 is the only intentional production-deployment gate. Any unexpected production deployment before C8 is a STOP.
-- C7: scope remains OPEN and may resume after this checkpoint. Step 1 remains incomplete: no C7 preview deployment, fixed preview origin, branch or origin is recorded. C8: LOCKED.
+- C7: scope remains OPEN and is superseded below by the Step 1 human checkpoint. C8: LOCKED.
 - build provenance remains: legacy seed `6123c12567efea7040d5a5995dd8ba5f738c73a1`; forward `9dac8c021be1b99bf7ec1227615cb6f3bd874674`; revert is the same forward checkpoint with `VITE_STORAGE_AUTHORITY_MODE=revert`; re-forward is the same forward checkpoint in normal mode. Docs commits are not build provenance.
+
+### RUNTIME_CUTOVER_C7_HUMAN_STEP1_CHECKPOINT
+- status: CHECKPOINTED. Docs-only governance amendment; no source, test, package, configuration, workflow, deployment-configuration or runtime-artifact change. C7 overall is not accepted.
+- UI capability amendment: both legacy `6123c12567efea7040d5a5995dd8ba5f738c73a1` and C6 forward `9dac8c021be1b99bf7ec1227615cb6f3bd874674` expose saved-place `update`, `add` and `remove` runtime APIs, but `SeadedTab` exposes only editing/saving of its three visible rows. There is no user-visible saved-place add or remove control. This is a human-gate specification mismatch, not an application regression. Step 1 now requires: “Save meaningful values into all three user-visible saved-place rows and record their visible top-to-bottom order before cutover.” Step 3 now requires every user-visible shared-domain mutation: Calendar create/edit/delete; Household edit/save plus persistence; Saved places edit/save of the three rows plus order preservation, persistence and multi-context refresh; and actual exposed Waste operations. Automated coverage remains authoritative for non-exposed add/remove.
+- fixed C7 preview: branch `c7-storage-cutover`; origin `https://c7-storage-cutover.annivibe.pages.dev`; incomplete first preview deployment `3fdf1f45-9c64-4d70-b5d9-05a0fb9225b2`; accepted recovery deployment `342c1212-7023-48e5-a195-be0f3896748c`, environment `preview`, legacy provenance `6123c12567efea7040d5a5995dd8ba5f738c73a1`. Recovery proof: `sw.js`, `workbox-66610c77.js` and `registerSW.js -> /sw.js`; stable `dist` snapshot; local/remote SHA-256 equality; valid remote service-worker JavaScript MIME and syntax. No production change.
+- C7 HUMAN STEP 1: PASS. Installed PWA/fixed-origin operation PASS; one-off event PASS; recurring event PASS; household profile PASS; three visible saved places PASS; saved-place add/remove `NOT USER-EXPOSED`; reminder setup PASS; browser notification permission PASS; default reminder `1 päev enne`; `WASTE_IMPORT: NOT AVAILABLE`; manual waste schedule PASS; unexpected error/state NONE reported.
+- `PLACE_ORDER_BEFORE` (Step 2 continuity oracle):
+  1. Kodu — Õie 58
+  2. Vanaema — Kaevu 10
+  3. Trenn — Pikk 23
+- After forward cutover this order must remain exact unless the human deliberately changes the data before Step 2; then STOP and establish a new explicit baseline before deployment.
+- C7 state: Step 1 deployment prep PASS; Human Step 1 PASS; Step 2 PENDING; Steps 3-7 PENDING. C8: LOCKED. Next safe action: C7 Step 2A — pre-cutover legacy-data existence and baseline verification before any forward deployment.
 
 ### 1. Initial governance baseline
 **Staatus:** accepted

@@ -187,7 +187,7 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 - C6 implementation source and test scope is closed.
 - C7 scope is now independently opened below; C8 is still locked.
 
-## Runtime cutover C7 (SCOPE OPEN; preview/Android-PWA human gate)
+## Runtime cutover C7 (Step 1 CHECKPOINTED; Steps 2-7 PENDING)
 
 **Purpose:** validate the accepted C6 runtime cutover against one real fixed Cloudflare Pages preview/branch-alias origin with a real installed Android PWA. This includes legacy-to-forward continuity, CRUD/persistence, PWA/tab freshness, live-update behavior, quota and storage-loss drills, deliberate `LEGACY_DIVERGED`, rollback and re-forward convergence.
 
@@ -199,7 +199,20 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 **Build matrix:** legacy seed `6123c12567efea7040d5a5995dd8ba5f738c73a1` normal mode; forward `9dac8c021be1b99bf7ec1227615cb6f3bd874674` with `VITE_STORAGE_AUTHORITY_MODE` unset/`forward`; revert from that checkpoint with `VITE_STORAGE_AUTHORITY_MODE=revert`; re-forward from that checkpoint normal mode. Build outputs must remain uncommitted and distinct.
 
-**Human gate:** OPEN / PENDING. Only a human can mark it PASS. Execute the plan’s C7 Android/PWA gate and every C7 stop condition. Attempt real waste import when available, otherwise record `NOT AVAILABLE`; never fabricate a PASS. C8 remains LOCKED.
+**Fixed preview / Human Step 1 checkpoint:** branch `c7-storage-cutover`; fixed origin `https://c7-storage-cutover.annivibe.pages.dev`; accepted recovery preview deployment `342c1212-7023-48e5-a195-be0f3896748c` (`preview`, legacy provenance `6123c12567efea7040d5a5995dd8ba5f738c73a1`). The earlier incomplete deployment was `3fdf1f45-9c64-4d70-b5d9-05a0fb9225b2`. Recovery evidence: `sw.js`, `workbox-66610c77.js` and `registerSW.js -> /sw.js` present; stable `dist` snapshot; local/remote SHA-256 equality; remote service-worker JavaScript MIME and syntax valid. No production change.
+
+**UI capability amendment:** `SeadedTab` exposes editing/saving of the three visible saved-place rows only; it has no user-visible add or remove control. Step 1 therefore requires: “Save meaningful values into all three user-visible saved-place rows and record their visible top-to-bottom order before cutover.” It does not require add/remove. Step 3 requires every user-visible shared-domain mutation: Calendar create/edit/delete; Household edit/save with persistence; Saved places edit/save of the three rows with order preservation, persistence and multi-context refresh; Waste actual exposed operations. Automated repository/runtime coverage remains authoritative for non-exposed saved-place add/remove.
+
+**Human Step 1 evidence:** PASS. Installed PWA/fixed origin and PWA operation PASS; one-off and recurring events PASS; household profile PASS; three visible saved places PASS; saved-place add/remove `NOT USER-EXPOSED`; reminder setup and browser-notification permission PASS with default reminder `1 päev enne`; `WASTE_IMPORT: NOT AVAILABLE`; manual waste schedule PASS; unexpected error/state NONE reported.
+
+**PLACE_ORDER_BEFORE (Step 2 continuity oracle):**
+1. Kodu — Õie 58
+2. Vanaema — Kaevu 10
+3. Trenn — Pikk 23
+
+This exact order must remain after forward cutover unless the human deliberately changes it before Step 2, in which case STOP and establish a new explicit baseline before deployment.
+
+**C7 state:** Step 1 deployment prep PASS; Human Step 1 PASS; Step 2 PENDING; Steps 3-7 PENDING. The next safe action is C7 Step 2A — pre-cutover legacy-data existence and baseline verification before any forward deployment. C8 remains LOCKED.
 
 ## Runtime cutover phases (C1-C6 CHECKPOINTED; C7 SCOPE OPEN; C8 LOCKED)
 
@@ -211,7 +224,7 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 | C4 (ACCEPTED / CHECKPOINTED) | `src/storage/storageAuthority.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C5 (ACCEPTED / CHECKPOINTED) | `src/storage/replicaRepositories.js`, `src/storage/localReplica.js` (additive `listCalendarEvents()` only), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED) | final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; automated GREEN, final independent source review PASS / ACCEPT and desktop Chrome human smoke PASS; runtime behavior change YES; no intentional production deployment accepted. Observed production is instead the frozen accidental C6-containing Git auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` |
-| C7 (SCOPE OPEN) | existing external Pages preview/branch-alias deployment and Android/installed-PWA human gate, including rollback/re-forward drill; no repository source/config changes |
+| C7 (Step 1 CHECKPOINTED; Steps 2-7 PENDING) | existing external Pages preview/branch-alias deployment and Android/installed-PWA human gate, including rollback/re-forward drill; no repository source/config changes |
 | C8 | production deploy gate |
 
 ## Forbidden at this gate
