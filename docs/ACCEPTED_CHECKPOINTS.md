@@ -499,7 +499,7 @@
 - human final smoke: **PASS**. The installed PWA opened on the forward preview; seeded legacy data and the locked saved-place continuity remained; close/reopen persistence PASS; unexpected visible storage/error state NONE.
 - preserved Step 1 evidence: `PLACE_ORDER_BEFORE` remains 1. Kodu — Õie 58; 2. Vanaema — Kaevu 10; 3. Trenn — Pikk 23. `WASTE_IMPORT: NOT AVAILABLE`; manual waste schedule PASS; saved-place add/remove `NOT USER-EXPOSED`.
 - manual forensic/destructive drills: **WAIVED BY HUMAN FOR FINAL ACCEPTANCE GATE; NOT EXECUTED.** They are not represented as passing evidence.
-- production: canonical deployment remains `0cca08f2-3a87-4176-99e2-7bc107bf8ce5`; production touched by C7: NO.
+- production at the C7 checkpoint: canonical deployment remained `0cca08f2-3a87-4176-99e2-7bc107bf8ce5`; production touched by C7: NO.
 
 ### RUNTIME_CUTOVER_C8_SCOPE_OPEN
 - status: **SCOPE OPEN**. This is a docs-only controlled-production-deployment scope; C8 production deployment is NOT YET RUN and C8 production acceptance is PENDING.
@@ -507,6 +507,17 @@
 - C8 decision: do not relabel accidental canonical production `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` as accepted. The later C8 deploy pass must make one explicit, manual, evidence-backed production deployment from exact forward provenance `9dac8c021be1b99bf7ec1227615cb6f3bd874674`, with `VITE_STORAGE_AUTHORITY_MODE` absent and forward/default mode.
 - safety: never deploy pre-C6 `6123c12567efea7040d5a5995dd8ba5f738c73a1` to production. Existing clients may already have IndexedDB authority. Keep `production_branch: main` and `production_deployments_enabled: false`; C8 must not re-enable automatic production deploys.
 - later C8 deploy preconditions: independently re-verify Git, C7 checkpoint and canonical production; build detached `9dac8c…` with the mode absent; rerun the C8 production-critical automated gate and build; prove stable `index.html`, manifest, registration, `sw.js` and generated Workbox artifacts; then verify intentional canonical deployment, production assets and a short production smoke. Any unexpected storage/data/runtime state is a STOP.
+
+### RUNTIME_CUTOVER_C8_FINAL_ACCEPT
+- status: **ACCEPTED / CHECKPOINTED**. `MAJANDUS RUNTIME CUTOVER = COMPLETE`. C8 source, test, package, configuration, workflow and deployment-configuration changes: NONE.
+- intentional governed production boundary: canonical deployment moved from accidental C6-containing `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` to `0c4e39e4-63b8-4e9a-8ac4-7a667bda6b80`, environment `production`, branch `main`, origin `https://annivibe.pages.dev`, trigger manual Wrangler controlled deployment, result `deploy/success`.
+- runtime: exact forward/default provenance `9dac8c021be1b99bf7ec1227615cb6f3bd874674`; `VITE_STORAGE_AUTHORITY_MODE` absent.
+- C8 production-critical validation: storage `83/83` PASS; IndexedDB `88/88` PASS; saved places `6/6` PASS; app shell LEGACY `32/32` PASS; app shell READY `48/48` PASS; build PASS; `git diff --check` PASS. The broader C7 validation remains recorded at `RUNTIME_CUTOVER_C7_FINAL_ACCEPT`.
+- PWA/remote proof: `sw.js` PASS; `workbox-66610c77.js` PASS; stable artifact snapshot `3/3` identical; artifact count `11`; remote production byte/hash proof `11/11` PASS; `/sw.js` JavaScript-compatible MIME; remote syntax PASS.
+- production smoke: Majandus shell, Kodu, Kalender and Seaded PASS; unexpected visible storage/error state NONE.
+- deployment policy preserved: `production_branch: main`; `production_deployments_enabled: false`. Future production releases remain deliberate/manual unless a separately accepted deployment-policy scope changes the policy.
+- historical truth: the earlier accidental C6 production timeline remains incident evidence; it was not relabeled as C8 acceptance and was not rolled back to pre-C6. C7 forensic/destructive drills remain **WAIVED BY HUMAN FOR FINAL ACCEPTANCE GATE; NOT EXECUTED**.
+- remaining separate work: backend/D1, authentication, sync, outbox UI, legacy cleanup/deletion and automatic-production-deployment policy.
 
 ### 1. Initial governance baseline
 **Staatus:** accepted
