@@ -434,6 +434,21 @@
 - runtime behavior change: YES once C6 is implemented and accepted (unchanged); currently NONE
 - C7-C8: LOCKED
 
+### RUNTIME_CUTOVER_C6
+- status: ACCEPTED / CHECKPOINTED; C6 source scope CLOSED
+- implementation history: scope open `07a74aafc174aea3aab43aa99d60e8721f396553` → reminder test-scope amendment `8e15c47e3d29b3cbcde88c7d42e55ceba720715c` → authority-identity amendment `6123c12567efea7040d5a5995dd8ba5f738c73a1` → initial implementation `6a5739fb4c7809d9e50ce4d6e6bdf6d866474360` → final corrective implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`
+- final implementation: `7146d0ac85c28da0cb8846b944099bf1307b9ece` (`fix: harden runtime cutover coordination`); implementation range `6a5739fb4c7809d9e50ce4d6e6bdf6d866474360..7146d0ac85c28da0cb8846b944099bf1307b9ece`
+- initial independent source review: AMEND — signal/committed/focus refresh ordering race; stale visible saved-place inputs after remote refresh; pending EventDialog cancellation; generic `STORAGE_UNAVAILABLE` copy overclaim
+- final independent C6 source review: PASS / ACCEPT; reviewed final commit `7146d0ac85c28da0cb8846b944099bf1307b9ece`; remaining C6 source blocker: NONE FOUND. The reviewer verified live Git, diff scope, final source and test definitions; supplied ThinkPad command counts were implementation execution evidence and were not independently rerun by that reviewer.
+- accepted runtime: `LEGACY` uses the guarded accepted localStorage repositories; `READY` uses C5 IndexedDB repositories bound only to the exact C4-mounted `switchId` from `getReadyAuthorityIdentity()`, never a C6-side meta/hint/newId rediscovery. The page-lifetime signal pipeline orders storage, foreground, authority-change and committed-domain handling so an A-mounted tab never adopts a B snapshot before C4 can require reload.
+- accepted runtime behavior: shared hooks mount only after C4 authority resolution; normal READY committed mutations refresh only their domain in another tab without `RELOAD_REQUIRED`; authority/connection change produces `RELOAD_REQUIRED` and disables shared writes; no forward legacy mirror/write after switch; `DOMAIN_INVALID` stays per-domain; async UI reports success only after persistence and blocks pending dialog cancellation.
+- automated evidence: authority accessor Chromium `2/2` plus Node API coverage; storage Node `83/83`; IndexedDB Chromium `88/88`; saved places `6/6`; calendar core `19/19`; calendar UI LEGACY/READY `31/31`, `31/31`; app shell LEGACY/READY `32/32`, `48/48`; reminders core `28/28`; reminder UI LEGACY/READY `32/32`, `32/32`; native notifications LEGACY/READY `26/26`, `26/26`; waste core `23/23`; waste UI LEGACY/READY `33/33`, `33/33`; visual polish `72/72`; build PASS; `git diff --check` PASS. A previously observed one-off LEGACY native-notification failure did not recur in final validation; it is recorded only as intermittent, not as a proven pre-existing defect.
+- TDD record: initial C6 implementation used partial TDD; corrective A-D used strict RED→GREEN with mutation/falsification evidence.
+- desktop Chrome human smoke: PASS at `http://127.0.0.1:4176/`, switching legacy build `6123c12567efea7040d5a5995dd8ba5f738c73a1` to C6 build `7146d0ac85c28da0cb8846b944099bf1307b9ece`. Existing data after switch, calendar/household/places/waste CRUD, reload persistence, two-tab committed refresh, visible saved-place refresh, reload-banner path, writes disabled under `RELOAD_REQUIRED`, and visual parity all PASS; unexpected storage state NONE; `TransactionInactiveError` NO.
+- waste import human note: waste CRUD PASS; a separate waste-import action was NOT SEPARATELY CONFIRMED in the desktop smoke. This does not weaken automated LEGACY/READY waste coverage.
+- runtime behavior change: YES. C6 implementation is accepted; canonical production `https://annivibe.pages.dev` remains unchanged until separate C7/C8 deployment gates.
+- next gate: `RUNTIME_CUTOVER_C7_SCOPE_OPEN`; C7 preview/implementation and C8 remain LOCKED.
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 

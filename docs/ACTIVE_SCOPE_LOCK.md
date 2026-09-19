@@ -31,7 +31,7 @@ Read and follow in this order:
 
 **RUNTIME_CUTOVER_C3**: ACCEPTED / CHECKPOINTED (final implementation `5612953e7c9e07eef411cecc3c6bb5dd5685930d`; independent review initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C3 source scope: CLOSED.
 
-Current gate: **RUNTIME_CUTOVER_C6** (C6 SOURCE SCOPE: **OPEN**; opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN`; see the Runtime cutover C6 section below). **C5 source scope: CLOSED** (ACCEPTED / CHECKPOINTED). C6 is the actual cutover: runtime behavior change **YES**, but only once C6 is implemented, independently reviewed and accepted; until then the accepted production/runtime baseline is unchanged. C7-C8 remain LOCKED.
+**RUNTIME_CUTOVER_C6**: ACCEPTED / CHECKPOINTED at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; runtime behavior change YES; C6 source scope CLOSED. Current gate: **RUNTIME_CUTOVER_C7_SCOPE_OPEN**. C7 preview/implementation and C8 remain LOCKED pending a separate docs-only scope-open pass. Canonical production remains unchanged until their separate deployment gates.
 
 The accepted plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
 - the neutral saved-place module prerequisite (A);
@@ -104,11 +104,11 @@ Final implementation `f8f5fecab2442db1347ac4741a79dd66650dd68b` (implementation 
 - nothing outside `src/storage/` imports the storage foundation; the application bundle continues to exclude `src/storage/`;
 - direct `replica.transact`/`runTransaction` calls remain allowed only in `src/storage/legacyMigration.js`, `src/storage/localReplica.js`, `src/storage/runtimeWrites.js` and `src/storage/storageAuthority.js`.
 
-## Runtime cutover C6 (SCOPE OPEN; implementation NOT started)
+## Runtime cutover C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED)
 
 Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7f6bef6fbfed15e20609c8cd2e12cdbb878`. Authority: plan Section 1a/1b (authority and hint contracts), Section 2 (switch ordering), Section 3 (startup state machine), Section 4 (multi-tab), Section 5 items 4a-6, Section 6 (fallback/quota/rollback), Section 7 row C6, Section 8 C6, Section 9 (C6 desktop smoke), Section 10 (STOP conditions). This section restates nothing the plan already fixes beyond what is needed to lock the C6 boundary; where they differ the plan wins and the pass STOPs.
 
-**Purpose:** wire the accepted C1-C5 storage foundation into the actual application runtime. `LEGACY` state uses the existing accepted localStorage repositories; `READY` state uses the C5 IndexedDB repositories. No other authority model. **Runtime behavior change: YES** (the first phase where it is), effective only after an accepted C6 implementation.
+**Purpose:** wire the accepted C1-C5 storage foundation into the actual application runtime. `LEGACY` state uses the existing accepted localStorage repositories; `READY` state uses the C5 IndexedDB repositories. No other authority model. **Runtime behavior change: YES.** C6 was accepted and checkpointed at `7146d0ac85c28da0cb8846b944099bf1307b9ece`; this source scope is closed.
 
 **Exact production scope (13 files after `RUNTIME_CUTOVER_C6_AUTHORITY_IDENTITY_SCOPE_AMEND`; no other production file; the 13th, `src/storage/storageAuthority.js`, is limited to one additive read-only accessor, see the amendment below):**
 `src/storage/storageAuthority.js` (ONLY the additive `getReadyAuthorityIdentity()` accessor), `src/main.jsx`, `src/App.jsx`, `src/calendar/useHouseholdEvents.js`, `src/waste/useHousehold.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js` (remove the duplicate places writer), `src/components/SeadedTab.jsx` (remove the places fallback), `src/components/EventDialog.jsx`, `src/components/HouseholdSettings.jsx`, `src/components/WasteSettings.jsx` (await async mutators, surface write failure), NEW `src/components/StorageStatus.jsx`, `src/design/shell.css`.
@@ -179,15 +179,15 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 **STOP conditions (plan Section 10 locked in full), especially for C6:** legacy/`READY` UI or data mismatch; a forward path writing a shared legacy key after the switch; a shared legacy key deletion outside revert compensation; `LEGACY_DIVERGED` in normal smoke; unexpected `DOMAIN_INVALID`, `STORAGE_LOST`, `STORAGE_UNAVAILABLE`, `BLOCKED`, `AUTHORITY_HINT_PENDING` or `REVERT_FAILED`; a quota test losing previous data; `TransactionInactiveError`; `versionchange` allowing another shared-domain write; a human desktop smoke FAIL. Also STOP (and do not widen scope) if C6 needs any production or test file outside the lists above, a schema/version/store change, backend/sync work, or preview/deploy work. No phase advancement after any STOP.
 
-**C6 checkpoint requires:** implementation; automated GREEN; independent source review PASS / ACCEPT; desktop Chrome human smoke PASS; then a docs-only checkpoint. C7-C8 stay LOCKED until then.
+**C6 checkpoint evidence (complete):** implementation at `6a5739fb4c7809d9e50ce4d6e6bdf6d866474360`, final corrective implementation at `7146d0ac85c28da0cb8846b944099bf1307b9ece`, automated GREEN, final independent source review PASS / ACCEPT, and desktop Chrome human smoke PASS. Human waste CRUD passed; a separate waste-import action was not separately confirmed. C7-C8 remain locked pending their own gates.
 
-## Allowed at this gate
+## Closed C6 scope and next gate
 
-- C6 implementation, strictly inside the exact 13 production files and 6 test files listed in the Runtime cutover C6 section
-- docs-only governance for C6 (review-amend records, the C6 checkpoint after review and human smoke)
-- no other source, test, package, config or deployment change
+- C6 implementation source and test scope is closed.
+- This checkpoint does not open C7 implementation, preview deployment, Android/PWA validation or C8 production deployment.
+- Next safe action: a separate docs-only `RUNTIME_CUTOVER_C7_SCOPE_OPEN` pass.
 
-## Runtime cutover phases (C1-C5 CHECKPOINTED; C6 SCOPE OPEN; C7-C8 LOCKED)
+## Runtime cutover phases (C1-C6 CHECKPOINTED; C7-C8 LOCKED)
 
 | Phase | Files (exact list in plan Section 7) |
 |---|---|
@@ -196,14 +196,14 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 | C3 (ACCEPTED / CHECKPOINTED) | new `src/storage/runtimeRecords.js`, new `src/storage/runtimeWrites.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C4 (ACCEPTED / CHECKPOINTED) | `src/storage/storageAuthority.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C5 (ACCEPTED / CHECKPOINTED) | `src/storage/replicaRepositories.js`, `src/storage/localReplica.js` (additive `listCalendarEvents()` only), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
-| C6 (SCOPE OPEN; not yet implemented) | `src/storage/storageAuthority.js` (only the additive `getReadyAuthorityIdentity()` accessor), `src/main.jsx`, `src/App.jsx`, `src/calendar/useHouseholdEvents.js`, `src/waste/useHousehold.js`, `src/hooks/useSavedPlaces.js`, `src/hooks/useSettings.js` (remove places writer), `src/components/SeadedTab.jsx` (remove places fallback), `src/components/EventDialog.jsx`, `src/components/HouseholdSettings.jsx`, `src/components/WasteSettings.jsx`, new `src/components/StorageStatus.jsx`, `src/design/shell.css`, `scripts/shell/app-shell.test.mjs`, `scripts/calendar/browser-cases.mjs`, `scripts/waste/browser-cases.mjs`, `scripts/reminders/browser-cases.mjs` (test-only calendar read helper amendment), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs`; desktop human smoke mandatory |
+| C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED) | final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; automated GREEN, final independent source review PASS / ACCEPT and desktop Chrome human smoke PASS; runtime behavior change YES; no production deploy |
 | C7 | preview deploy and Android/installed-PWA human gate, including the rollback drill |
 | C8 | production deploy gate |
 
 ## Forbidden at this gate
 
-- any `src/**`, `scripts/**`, package or config change outside the exact C6 file lists (C1-C5 source scopes are all CLOSED)
-- opening or implementing C7-C8 (C7-C8 remain LOCKED)
+- any C6 source/test change (C1-C6 source scopes are all CLOSED)
+- opening or implementing C7-C8 in this checkpoint pass (C7-C8 remain LOCKED)
 - any import of `src/storage/` from outside `src/storage/` other than the five C6 allowlisted importers (`src/main.jsx`, `src/App.jsx`, `src/calendar/useHouseholdEvents.js`, `src/waste/useHousehold.js`, `src/hooks/useSavedPlaces.js`); any component importing storage internals; a generic service layer; browser globals inside `src/storage/**`
 - widening C6 silently: any additional production or test file, schema/`DB_VERSION`/store/index change, backend or sync work, or preview/deploy work requires a new docs-only amendment first
 - further visual-polish source work (the interlude is closed; the 44px dialog header cancel target is a backlog note only)
@@ -222,4 +222,4 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 ## Decision gate
 
-NEXT: implement C6 strictly within the exact file lists in the Runtime cutover C6 section, then automated validation, independent source review, desktop Chrome human smoke and a docs-only C6 checkpoint. The runtime cutover plan is ACCEPTED, C1-C5 are CHECKPOINTED and C6 SOURCE SCOPE is OPEN; C7-C8 remain LOCKED.
+CURRENT GATE: `RUNTIME_CUTOVER_C7_SCOPE_OPEN` — a separate docs-only pass is required before any C7 work. C7 preview/implementation and C8 remain LOCKED. C6 is ACCEPTED / CHECKPOINTED; canonical production remains unchanged until separate C7/C8 deployment gates complete.
