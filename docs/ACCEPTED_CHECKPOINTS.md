@@ -491,6 +491,16 @@
 - required automated/deploy gate: exact forward provenance `9dac8c021be1b99bf7ec1227615cb6f3bd874674` with `VITE_STORAGE_AUTHORITY_MODE` absent; complete accepted C6 automated validation; fresh focused source review; build PASS; complete/stable PWA artifact gate; remote/local artifact equality; deployment only to fixed alias `https://c7-storage-cutover.annivibe.pages.dev`; canonical production unchanged.
 - final human Android-PWA smoke remains PENDING: continuity for existing one-off/recurring events, household, locked place order, reminder and manual waste schedule; Calendar create/edit/delete; household and saved-place edit/save; close/reopen persistence; and no unexpected storage/error state. C7 may be marked PASS only after this human smoke and the automated/deploy gate both PASS.
 
+### RUNTIME_CUTOVER_C7_FINAL_ACCEPT
+- status: **ACCEPTED / CHECKPOINTED**. C7 source/config changes: NONE. C8 remains LOCKED pending a separate docs-only production-deploy scope open.
+- automated/deploy gate: PASS. Forward preview deployment `82f17c50-78de-4ef6-ba3a-185c9475f5ad`, branch `c7-storage-cutover`, fixed origin `https://c7-storage-cutover.annivibe.pages.dev`, provenance `9dac8c021be1b99bf7ec1227615cb6f3bd874674`.
+- automation: storage `83/83`, IndexedDB `88/88`, saved places `6/6`, calendar core `19/19`, calendar UI LEGACY/READY `31/31` each, app shell LEGACY/READY `32/32` and `48/48`, reminders core `28/28`, reminder UI LEGACY/READY `32/32` each, native notifications LEGACY/READY `26/26` each, waste core `23/23`, waste UI LEGACY/READY `33/33` each, visual polish LEGACY/READY `37/37` each, build PASS and `git diff --check` PASS.
+- fresh focused source review: PASS; blocking findings: NONE. PWA artifact gate: PASS; remote/local byte proof: PASS.
+- human final smoke: **PASS**. The installed PWA opened on the forward preview; seeded legacy data and the locked saved-place continuity remained; close/reopen persistence PASS; unexpected visible storage/error state NONE.
+- preserved Step 1 evidence: `PLACE_ORDER_BEFORE` remains 1. Kodu — Õie 58; 2. Vanaema — Kaevu 10; 3. Trenn — Pikk 23. `WASTE_IMPORT: NOT AVAILABLE`; manual waste schedule PASS; saved-place add/remove `NOT USER-EXPOSED`.
+- manual forensic/destructive drills: **WAIVED BY HUMAN FOR FINAL ACCEPTANCE GATE; NOT EXECUTED.** They are not represented as passing evidence.
+- production: canonical deployment remains `0cca08f2-3a87-4176-99e2-7bc107bf8ce5`; production touched by C7: NO.
+
 ### 1. Initial governance baseline
 **Staatus:** accepted
 
