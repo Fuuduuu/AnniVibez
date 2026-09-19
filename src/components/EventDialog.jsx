@@ -27,6 +27,15 @@ export function EventDialog({selection,calendar,onClose}) {
     element.showModal();
     return ()=>element.close();
   },[]);
+  useEffect(()=>{
+    if(!pending) return;
+    // Disabling the focused submit button can move focus to body. Catch Escape there too;
+    // a repeated native cancel is not necessarily cancelable.
+    const owner=dialog.current.ownerDocument;
+    const blockEscape=event=>{if(event.key === 'Escape') event.preventDefault();};
+    owner.addEventListener('keydown',blockEscape,true);
+    return ()=>owner.removeEventListener('keydown',blockEscape,true);
+  },[pending]);
   const set=(key,value)=>setForm(prev=>({...prev,[key]:value}));
   function edit(chosenScope) {
     setScope(chosenScope);
@@ -56,8 +65,9 @@ export function EventDialog({selection,calendar,onClose}) {
   }
   const title=mode === 'view' ? 'Sündmus' : mode.startsWith('choose') ? 'Millist osa sarjast?' : mode === 'delete' ? 'Kustuta sündmus' : selection.item ? 'Muuda sündmust' : 'Lisa sündmus';
   const missing=selection.item && !source;
-  return <dialog ref={dialog} className="mm-event-dialog" aria-labelledby="event-dialog-title" onCancel={event=>{event.preventDefault();onClose();}}>
-    <header className="mm-dialog-heading"><h2 id="event-dialog-title">{title}</h2><button type="button" className="mm-button mm-button-secondary" onClick={onClose}>Tühista</button></header>
+  return <dialog ref={dialog} className="mm-event-dialog" aria-labelledby="event-dialog-title"
+    onCancel={event=>{event.preventDefault();if(!pending) onClose();}}>
+    <header className="mm-dialog-heading"><h2 id="event-dialog-title">{title}</h2><button type="button" className="mm-button mm-button-secondary" onClick={onClose} disabled={pending}>Tühista</button></header>
     <div className="mm-dialog-body">
       {(error || missing) && <p role="alert" className="mm-notice mm-calendar-error">{error || 'Sündmus on vahepeal kustutatud. Sulge see vaade.'}</p>}
       {!missing && mode === 'view' && <>
@@ -113,7 +123,7 @@ export function EventDialog({selection,calendar,onClose}) {
         <label className="mm-field" htmlFor="event-notes">Märkmed (valikuline)<textarea id="event-notes" value={form.notes} onChange={e=>set('notes',e.target.value)} maxLength={5000} rows={3} /></label>
         </details>
         <footer className="mm-event-footer">
-          <button className="mm-button mm-button-secondary" type="button" onClick={onClose}>Tühista</button>
+          <button className="mm-button mm-button-secondary" type="button" onClick={onClose} disabled={pending}>Tühista</button>
           <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable || pending}>Salvesta sündmus</button>
         </footer>
       </form>}

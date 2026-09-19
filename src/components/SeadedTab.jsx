@@ -62,6 +62,14 @@ function PlaceRow({ place, idx, onUpdate, onResolve, writable }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
 
+  // Primitive dependencies preserve drafts on unrelated rerenders, but follow remote edits and row shifts.
+  useEffect(() => {
+    setName(place.name);
+    setAddress(place.address || '');
+    setResolveState(place.lat != null && place.lon != null ? 'found' : 'idle');
+    setResolveMsg('');
+  }, [place.name, place.address, place.lat, place.lon]);
+
   async function resolveAddress() {
     setResolving(true);
     setResolveMsg('');
@@ -107,11 +115,13 @@ function PlaceRow({ place, idx, onUpdate, onResolve, writable }) {
     setSaveError('');
     setSaving(true);
     try {
-      await onUpdate(idx, {
+      const persisted = await onUpdate(idx, {
         name: name.trim(),
         address: nextAddress,
         ...(addressChanged ? { lat: null, lon: null } : {}),
       });
+      setName(persisted.places[idx].name);
+      setAddress(persisted.places[idx].address || '');
     } catch (failure) {
       setSaveError(failure.message);
       return;

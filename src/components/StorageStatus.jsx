@@ -6,7 +6,7 @@ export const LEGACY_DIVERGED_COPY = 'Vana kohalik salvestus on muutunud. Kasutus
 
 const HINT_PENDING_COPY = 'Seadme salvestusruum ei võtnud muudatust vastu. Proovi uuesti.';
 const BLOCKED_COPY = 'Sulge Majanduse teised aknad ja proovi uuesti.';
-const UNAVAILABLE_COPY = 'Seadme salvestusruumi ei saanud lugeda. Andmed on alles. Proovi uuesti.';
+const UNAVAILABLE_COPY = 'Seadme salvestusruumi ei saanud lugeda. Proovi uuesti.';
 const MALFORMED_COPY = 'Seadme salvestuse andmeid ei saanud lugeda. Andmeid ei muudeta.';
 const REVERT_FAILED_COPY = 'Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti.';
 

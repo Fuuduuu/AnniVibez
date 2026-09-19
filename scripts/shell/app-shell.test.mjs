@@ -40,7 +40,7 @@ const STAMP = '2026-09-14T06:00:00.000Z';
 for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)`, { timeout: 240000 }, async t => {
   assert.ok(browser, 'Chromium is required; shell checks must not silently skip');
   const shim = `
-    import RealApp, {createStorageRuntime} from './src/App.jsx';
+    import RealApp, {createStorageRuntime as createRealStorageRuntime} from './src/App.jsx';
     ${process.env.WASTE_TESTS === '1' ? `import {createWasteLookup} from './src/waste/providers.js';
     const wasteLookup=createWasteLookup([{id:'fixture',name:'Controlled test source',supports:address=>address.startsWith('Fixture'),lookup:async()=>{
       if(window.wasteFail) throw Error('controlled failure');
@@ -57,7 +57,10 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
         sessionStorage.setItem('notificationCalls',String(Number(sessionStorage.getItem('notificationCalls')||0)+1));
       }})}}
     });` : 'const notificationService=undefined;'}
-    export {createStorageRuntime};
+    export function createStorageRuntime(options) {
+      window.__runtime = createRealStorageRuntime(options);
+      return window.__runtime;
+    }
     export default function App(props) { return <RealApp {...props} wasteLookup={wasteLookup} notificationService={notificationService} />; }
   `;
   // src/main.jsx is the entry point under test; only its './App' import is redirected to add the test fixtures above.
@@ -807,6 +810,112 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       });
 
       if (mode === 'READY') {
+        // Hold completion of a real transaction with queued requests, not a mocked mutation promise.
+        const holdTransaction = (transactionMode, storeName) => evaluate(`(() => {
+          const original = IDBDatabase.prototype.transaction;
+          window.__held = false; window.__releaseTransaction = () => { window.__holding = false; };
+          window.__holding = true;
+          IDBDatabase.prototype.transaction = function(names, mode, ...rest) {
+            const tx = original.call(this, names, mode, ...rest);
+            if (mode === ${JSON.stringify(transactionMode)} && Array.from(tx.objectStoreNames).includes(${JSON.stringify(storeName)})) {
+              IDBDatabase.prototype.transaction = original;
+              window.__held = true;
+              const store = tx.objectStore(${JSON.stringify(storeName)});
+              const pump = () => { if (window.__holding) store.get('__keep_alive__').onsuccess = pump; };
+              pump();
+            }
+            return tx;
+          };
+        })()`);
+        for (const signal of ['broadcast', 'focus']) {
+          await t.test('C6 corrective A: authority recheck precedes ' + signal + ' domain refresh', async () => {
+            await resetProfile({ legacy: seededKeys, flags: signal === 'focus' ? ['c6NoBroadcast'] : [] });
+            await waitFor("window.__runtime.getSnapshot().session?.stores.places.getSnapshot().data?.places.length > 0");
+            const before = await evaluate("window.__runtime.getSnapshot().session.stores.places.getSnapshot().data");
+            await evaluate(`(async () => {
+              const a = await __idb.get('meta','storageAuthorityV1');
+              await __idb.put('meta',{...a,switchId:'switch-B'});
+              const p = (await __idb.getAll('sharedPlaces'))[0];
+              await __idb.put('sharedPlaces',{...p,payload:{...p.payload,name:'AUTHORITY B ONLY'}});
+            })()`);
+            await holdTransaction('readonly', 'meta');
+            try {
+              await evaluate(signal === 'focus' ? "window.dispatchEvent(new Event('focus'))" : "(()=>{const c=new BroadcastChannel('majandus:replica');c.postMessage({type:'authority-changed'});c.postMessage({type:'committed',domain:'places'});c.close();})()");
+              await waitFor('window.__held');
+              await pause(200);
+              assert.deepEqual(await evaluate("window.__runtime.getSnapshot().session.stores.places.getSnapshot().data"), before, 'pending authority check must not adopt B');
+            } finally { await evaluate('window.__releaseTransaction()'); }
+            await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");
+            assert.deepEqual(await evaluate("window.__runtime.getSnapshot().session.stores.places.getSnapshot().data"), before);
+          });
+        }
+        await t.test('C6 corrective B: remote saved-place commit updates mounted Settings inputs', async () => {
+          await resetProfile({ legacy: seededKeys }); await nav('Seaded');
+          await waitFor("!!document.querySelector('.mm-place-name')");
+          await evaluate("[...document.querySelectorAll('summary')].find(e=>e.textContent.includes('Salvestatud kohad')).click()");
+          const tab = await attach();
+          try {
+            await tab.press('Seaded', "document.querySelector('nav')");
+            await tab.until("!!document.querySelector('.mm-place-name')");
+            await tab.run("[...document.querySelectorAll('summary')].find(e=>e.textContent.includes('Salvestatud kohad')).click()");
+            await tab.fill('.mm-place-name', 'Remote home');
+            await tab.fill('.mm-place-card input:not(.mm-place-name)', 'Remote address');
+            await tab.press('Salvesta', "document.querySelector('.mm-place-card')");
+            await tab.until("document.querySelector('.mm-place-card').innerText.includes('Salvestatud')");
+            assert.equal((await readSavedPlaces())[0].name, 'Remote home');
+            await waitFor("document.querySelector('.mm-place-name').value === 'Remote home'");
+            assert.equal(await evaluate("document.querySelector('.mm-place-card input:not(.mm-place-name)').value"), 'Remote address');
+            assert.equal(await stateOf(), null);
+
+            await input('.mm-place-name', '  Remote home  ');
+            // A committed reread with unchanged primitive props must not erase the local draft.
+            await tab.run("window.__runtime.getSnapshot().session.stores.places.mutate(r=>r.update(0,{name:'Remote home'}),'Save failed')");
+            await pause(150);
+            assert.equal(await evaluate("document.querySelector('.mm-place-name').value"), '  Remote home  ');
+            await click('Salvesta', "document.querySelector('.mm-place-card')");
+            await waitFor("document.querySelector('.mm-place-card').innerText.includes('Salvestatud')");
+            assert.equal(await evaluate("document.querySelector('.mm-place-name').value"), (await readSavedPlaces())[0].name, 'local success converges even when canonical props did not change');
+
+            // Removal has no Settings control; use the mounted store's real repository mutation and broadcast.
+            await tab.run("window.__runtime.getSnapshot().session.stores.places.mutate(r=>r.remove(0),'Save failed')");
+            const shifted = await readSavedPlaces();
+            await waitFor(`document.querySelectorAll('.mm-place-name').length === ${shifted.length} && document.querySelector('.mm-place-name').value === ${JSON.stringify(shifted[0].name)}`);
+            assert.deepEqual(await evaluate("[...document.querySelectorAll('.mm-place-card')].map(e=>({name:e.querySelector('.mm-place-name').value,address:e.querySelector('input:not(.mm-place-name)').value}))"), shifted.map(({name,address})=>({name,address})));
+          } finally { await tab.close(); }
+        });
+        for (const cancelPath of ['header', 'footer', 'escape', 'delete']) {
+          await t.test('C6 corrective C: pending transaction blocks ' + cancelPath + ' cancel', async () => {
+            await resetProfile({ legacy: seededKeys }); await nav('Kalender');
+            // Native Escape cancellation requires real user activation when opening the dialog.
+            const point = await evaluate("(()=>{const b=document.querySelector('button[aria-label=\"Lisa sündmus\"]');b.scrollIntoView();const r=b.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
+            await send('Input.dispatchMouseEvent', {type:'mousePressed', ...point, button:'left', clickCount:1});
+            await send('Input.dispatchMouseEvent', {type:'mouseReleased', ...point, button:'left', clickCount:1});
+            await waitFor("!!document.querySelector('#event-title')");
+            await input('#event-title', 'Held event');
+            if (cancelPath === 'delete') {
+              await click('Salvesta sündmus'); await waitFor("!document.querySelector('dialog[open]')");
+              await evaluate("[...document.querySelectorAll('#selected-events [data-occurrence]')].find(e=>e.innerText.includes('Held event')).click()");
+              await click('Kustuta');
+            }
+            await holdTransaction('readwrite', 'calendarEvents');
+            try {
+              await click(cancelPath === 'delete' ? 'Kinnita kustutamine' : 'Salvesta sündmus');
+              await waitFor('window.__held');
+              assert.equal(await evaluate("document.querySelector('.mm-save-event, .mm-delete-confirm').disabled"), true, 'duplicate mutation disabled');
+              if (cancelPath === 'escape') {
+                await evaluate("window.__escapeEvents=[];document.addEventListener('keydown',e=>setTimeout(()=>__escapeEvents.push({type:e.type,target:e.target.tagName,prevented:e.defaultPrevented}),0));document.querySelector('dialog').addEventListener('cancel',e=>setTimeout(()=>__escapeEvents.push({type:e.type,cancelable:e.cancelable,prevented:e.defaultPrevented}),0))");
+                for (let press = 0; press < 2; press++) {
+                  await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+                  await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
+                }
+              } else await evaluate(`document.querySelector('.mm-event-dialog ${cancelPath === 'footer' ? 'footer' : 'header'} button').click()`);
+              await pause(80);
+              assert.equal(await evaluate("!!document.querySelector('dialog[open]')"), true, 'pending dialog stays open: ' + JSON.stringify(await evaluate('window.__escapeEvents')));
+            } finally { await evaluate('window.__releaseTransaction()'); }
+            await waitFor("!document.querySelector('dialog[open]')");
+            assert.equal((await readCalendarEvents()).some(e=>e.title==='Held event'), cancelPath !== 'delete');
+          });
+        }
         await t.test('C6 cutover: a real seeded legacy profile switches, mounts READY and shows semantically identical data', async () => {
           await resetProfile({ legacy: seededKeys });
           const authority = await evaluate("__idb.get('meta','storageAuthorityV1')");
@@ -877,7 +986,10 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
           try { await click('Salvesta sündmus'); await waitFor("document.body.innerText.includes('Salvestamine ebaõnnestus')"); }
           finally { await restoreWrites(); }
           assert.deepEqual(await evaluate("window.__bcLog.filter(e=>e.message.type==='committed')"), []);
+          assert.equal(await evaluate("!!document.querySelector('dialog[open]')"), true, 'failed mutation keeps dialog open');
+          assert.equal(await evaluate("[...document.querySelectorAll('.mm-event-dialog header button,.mm-event-dialog footer button')].every(b=>!b.disabled)"), true, 'failure enables cancel and save again');
           await click('Tühista');
+          await waitFor("!document.querySelector('dialog[open]')");
         });
         await t.test('C6 cutover: without BroadcastChannel, focus and visibilitychange re-read the READY domain, with no polling', async () => {
           await resetProfile({ legacy: seededKeys, flags: ['c6NoBroadcast'] });
@@ -1129,8 +1241,8 @@ test('StorageStatus renders the accepted copy and actions for every storage stat
     ['REVERT_STORAGE_LOST', { variant: 'dated', switchedAt: '2026-09-16T10:00:00.000Z' }, 'Kohalik andmebaas puudub. Kas kasutada vana salvestust seisuga 2026-09-16T10:00:00.000Z? Hilisemad muudatused võivad puududa.', ['Kasuta vana salvestust']],
     ['REVERT_STORAGE_LOST', { variant: 'undated' }, 'Kohalik andmebaas puudub. Kas kasutada seadme vana salvestust? Hilisemad muudatused võivad puududa.', ['Kasuta vana salvestust']],
     ['REVERT_FAILED', { reason: 'revert-backups-lost' }, 'Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti.', ['Proovi uuesti']],
-    ['STORAGE_UNAVAILABLE', { reason: 'open-or-read-failed' }, null, ['Proovi uuesti']],
-    ['STORAGE_UNAVAILABLE', { reason: 'authority-malformed' }, null, []],
+    ['STORAGE_UNAVAILABLE', { reason: 'open-or-read-failed' }, 'Seadme salvestusruumi ei saanud lugeda. Proovi uuesti.', ['Proovi uuesti']],
+    ['STORAGE_UNAVAILABLE', { reason: 'authority-malformed' }, 'Seadme salvestuse andmeid ei saanud lugeda. Andmeid ei muudeta.', []],
   ];
   for (const [state, result, copy, actions] of cases) {
     const html = status(state, result);

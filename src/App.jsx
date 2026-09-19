@@ -107,7 +107,13 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
   let started = false;
   let bootPromise = null;
 
-  const forward = signal => controller.handleRuntimeSignal(signal);
+  let signalTail = Promise.resolve();
+  function enqueue(task) {
+    const next = signalTail.then(task, task);
+    signalTail = next.catch(() => {});
+    return next;
+  }
+  const forward = signal => enqueue(() => controller.handleRuntimeSignal(signal));
   const retry = () => {
     if (controller.getState() === 'BOOTING') return bootPromise;
     bootPromise = controller.retry();
@@ -204,27 +210,29 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
     publish(state, result);
   }
 
-  const refreshWhere = predicate => registrations.forEach(entry => { if (predicate(entry)) entry.refresh(); });
+  const refreshWhere = predicate => Promise.all([...registrations].filter(predicate).map(entry => entry.refresh()));
 
   // storage events go to C4 unfiltered (it decides which keys matter); a mounted LEGACY tab also re-reads
   // the domain whose legacy key changed. A READY tab never reloads a domain from a legacy key.
-  const onStorage = event => {
-    forward({ type: 'storage', key: event.key });
-    if (controller.getState() === 'LEGACY') refreshWhere(entry => event.key === null || entry.legacyKeys.includes(event.key));
-  };
-  const foreground = type => {
-    forward({ type });
-    if (AUTO_RETRY_STATES.includes(controller.getState())) retry();
+  const onStorage = event => enqueue(async () => {
+    await controller.handleRuntimeSignal({ type: 'storage', key: event.key });
+    if (controller.getState() === 'LEGACY') await refreshWhere(entry => event.key === null || entry.legacyKeys.includes(event.key));
+  });
+  const foreground = type => enqueue(async () => {
+    await controller.handleRuntimeSignal({ type });
+    if (AUTO_RETRY_STATES.includes(controller.getState())) await retry();
     // Without BroadcastChannel a foreground signal is the only cross-tab freshness path: re-read, never poll.
-    if (!channel && controller.getState() === 'READY') refreshWhere(() => true);
-  };
+    if (!channel && controller.getState() === 'READY') await refreshWhere(() => true);
+  });
   const onFocus = () => foreground('focus');
   const onVisibility = () => { if (documentTarget.visibilityState === 'visible') foreground('visibility'); };
   const onMessage = event => {
     const message = event?.data;
     if (message?.type === 'authority-changed') forward({ type: 'authority-changed' });
-    else if (message?.type === 'committed' && DOMAINS.includes(message.domain) && controller.getState() === 'READY') {
-      refreshWhere(entry => entry.domain === message.domain);
+    else if (message?.type === 'committed' && DOMAINS.includes(message.domain)) {
+      enqueue(async () => {
+        if (controller.getState() === 'READY') await refreshWhere(entry => entry.domain === message.domain);
+      });
     }
   };
 
