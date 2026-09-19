@@ -43,7 +43,7 @@ https://annivibe.pages.dev
   - Amendment 3 applied: no automatic re-adopt after the switch (divergence keeps IndexedDB authoritative, `LEGACY_DIVERGED` plus STOP), durable IndexedDB revert-attempt record for export gating and resume, corrected calendar order note.
   - Amendment 4 applied: confirm-only `REVERT_STORAGE_LOST` for the revert build with authority absent and a non-null hint; collision-safe revert `attemptId` that never overwrites an existing backup key.
   - Post-amendment falsification review PASS; final fresh independent review PASS.
-  - Implementation phases: C1-C5 CHECKPOINTED; C6-C8 LOCKED.
+  - Implementation phases: C1-C6 CHECKPOINTED; C7 SCOPE OPEN; C8 LOCKED.
 - `VISUAL_POLISH_V1 = ACCEPTED / CHECKPOINTED` at implementation `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee` (review PASS; behavior and storage/runtime changes NONE).
 - `VISUAL_POLISH_V2 = ACCEPTED / CHECKPOINTED` at implementation `67f8ad55345e3a9c41b23e233167a394123e88a5` (independent review PASS; behavior drift NONE FOUND; storage/runtime changes NONE). Visual-polish interlude CLOSED.
 - `RUNTIME_CUTOVER_C1 = ACCEPTED / CHECKPOINTED` at final implementation `704cc7a815d1df1efdbfba979814aceb94886c09` (review: initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C1 source scope: CLOSED.
@@ -58,9 +58,9 @@ https://annivibe.pages.dev
   - Final corrective implementation `f8f5fecab2442db1347ac4741a79dd66650dd68b` resolved all five findings; the further independent source review returned **PASS / ACCEPT**, remaining C5 source blocker: NONE FOUND. C5 source scope: CLOSED. Full accepted contract in `docs/ACCEPTED_CHECKPOINTS.md` (`RUNTIME_CUTOVER_C5`) and `docs/ACTIVE_SCOPE_LOCK.md`.
 - `RUNTIME_CUTOVER_C6 = ACCEPTED / CHECKPOINTED` at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece` (`fix: harden runtime cutover coordination`), following scope open `07a74aafc174aea3aab43aa99d60e8721f396553`, reminder test-scope amendment `8e15c47e3d29b3cbcde88c7d42e55ceba720715c`, authority-identity amendment `6123c12567efea7040d5a5995dd8ba5f738c73a1`, and initial implementation `6a5739fb4c7809d9e50ce4d6e6bdf6d866474360`. Initial review AMENDed four findings; final independent source review PASS / ACCEPT, remaining blocker NONE FOUND. Automated final evidence and human-smoke record are in `docs/ACCEPTED_CHECKPOINTS.md` (`RUNTIME_CUTOVER_C6`). C6 source scope: CLOSED; runtime behavior change: YES.
 - Desktop Chrome human smoke: PASS on `http://127.0.0.1:4176/` from legacy `6123c12567efea7040d5a5995dd8ba5f738c73a1` to C6 `7146d0ac85c28da0cb8846b944099bf1307b9ece`; human-confirmed data continuity, shared-domain CRUD, reload persistence, two-tab domain refresh, reload-banner disabled writes and visual parity. Waste CRUD PASS; waste import action not separately confirmed. No unexpected storage state or `TransactionInactiveError` observed.
-- Current gate: `RUNTIME_CUTOVER_C7_SCOPE_OPEN`. C7 preview/implementation and C8 remain LOCKED pending a separate docs-only C7 scope-open pass.
+- `RUNTIME_CUTOVER_C7 = SCOPE OPEN` at baseline `9dac8c021be1b99bf7ec1227615cb6f3bd874674` (`docs: checkpoint runtime cutover c6`). C7 is external fixed-preview deployment plus a real Android installed-PWA human gate only: no repository source, test, package, configuration, workflow or deployment-config changes. Before Step 1, select and record one immutable existing Cloudflare Pages preview/branch-alias origin; use it for legacy seed, forward, revert and re-forward. C7 human gate: OPEN / PENDING; only the human may mark PASS. C8: LOCKED.
 
-The C6 implementation is accepted, but canonical production remains `https://annivibe.pages.dev` on the previously accepted deployed runtime until separate C7/C8 deployment gates complete. D1/backend, authentication, sync and outbox UI remain locked.
+The C6 implementation is accepted, but canonical production remains `https://annivibe.pages.dev` on the previously accepted deployed runtime. C7 must not touch it; C8 is the separate production-deployment gate. D1/backend, authentication, sync and outbox UI remain locked.
 
 ## Required reads by task
 

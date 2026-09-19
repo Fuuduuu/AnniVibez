@@ -19,7 +19,7 @@ Read and follow in this order:
 
 **PHASE_A_INDEXEDDB_FOUNDATION**: ACCEPTED (`PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`; range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
 
-**RUNTIME_CUTOVER_PLAN**: HUMAN ACCEPTED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (accepted plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). Four independent fresh reviews returned AMEND and amendments 1 (A-D), 2 (A-C), 3 (A-C) and 4 (A-B) were applied (plan Section 12); the final fresh independent review is PASS. Implementation phases C1-C8 remain LOCKED.
+**RUNTIME_CUTOVER_PLAN**: HUMAN ACCEPTED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (accepted plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). Four independent fresh reviews returned AMEND and amendments 1 (A-D), 2 (A-C), 3 (A-C) and 4 (A-B) were applied (plan Section 12); the final fresh independent review is PASS. C1-C6 are CHECKPOINTED, C7 is SCOPE OPEN and C8 remains LOCKED.
 
 **VISUAL_POLISH_V1**: ACCEPTED / CHECKPOINTED (implementation `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee`; review PASS; behavior and storage/runtime changes NONE).
 
@@ -31,7 +31,7 @@ Read and follow in this order:
 
 **RUNTIME_CUTOVER_C3**: ACCEPTED / CHECKPOINTED (final implementation `5612953e7c9e07eef411cecc3c6bb5dd5685930d`; independent review initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C3 source scope: CLOSED.
 
-**RUNTIME_CUTOVER_C6**: ACCEPTED / CHECKPOINTED at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; runtime behavior change YES; C6 source scope CLOSED. Current gate: **RUNTIME_CUTOVER_C7_SCOPE_OPEN**. C7 preview/implementation and C8 remain LOCKED pending a separate docs-only scope-open pass. Canonical production remains unchanged until their separate deployment gates.
+**RUNTIME_CUTOVER_C6**: ACCEPTED / CHECKPOINTED at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; runtime behavior change YES; C6 source scope CLOSED. **RUNTIME_CUTOVER_C7**: SCOPE OPEN for the preview/Android-PWA human gate only; no repository source or deployment-configuration change. C8 remains LOCKED. Canonical production remains unchanged.
 
 The accepted plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
 - the neutral saved-place module prerequisite (A);
@@ -179,15 +179,28 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 **STOP conditions (plan Section 10 locked in full), especially for C6:** legacy/`READY` UI or data mismatch; a forward path writing a shared legacy key after the switch; a shared legacy key deletion outside revert compensation; `LEGACY_DIVERGED` in normal smoke; unexpected `DOMAIN_INVALID`, `STORAGE_LOST`, `STORAGE_UNAVAILABLE`, `BLOCKED`, `AUTHORITY_HINT_PENDING` or `REVERT_FAILED`; a quota test losing previous data; `TransactionInactiveError`; `versionchange` allowing another shared-domain write; a human desktop smoke FAIL. Also STOP (and do not widen scope) if C6 needs any production or test file outside the lists above, a schema/version/store change, backend/sync work, or preview/deploy work. No phase advancement after any STOP.
 
-**C6 checkpoint evidence (complete):** implementation at `6a5739fb4c7809d9e50ce4d6e6bdf6d866474360`, final corrective implementation at `7146d0ac85c28da0cb8846b944099bf1307b9ece`, automated GREEN, final independent source review PASS / ACCEPT, and desktop Chrome human smoke PASS. Human waste CRUD passed; a separate waste-import action was not separately confirmed. C7-C8 remain locked pending their own gates.
+**C6 checkpoint evidence (complete):** implementation at `6a5739fb4c7809d9e50ce4d6e6bdf6d866474360`, final corrective implementation at `7146d0ac85c28da0cb8846b944099bf1307b9ece`, automated GREEN, final independent source review PASS / ACCEPT, and desktop Chrome human smoke PASS. Human waste CRUD passed; a separate waste-import action was not separately confirmed. C6 source scope remains closed.
 
-## Closed C6 scope and next gate
+## Closed C6 scope
 
 - C6 implementation source and test scope is closed.
-- This checkpoint does not open C7 implementation, preview deployment, Android/PWA validation or C8 production deployment.
-- Next safe action: a separate docs-only `RUNTIME_CUTOVER_C7_SCOPE_OPEN` pass.
+- C7 scope is now independently opened below; C8 is still locked.
 
-## Runtime cutover phases (C1-C6 CHECKPOINTED; C7-C8 LOCKED)
+## Runtime cutover C7 (SCOPE OPEN; preview/Android-PWA human gate)
+
+**Purpose:** validate the accepted C6 runtime cutover against one real fixed Cloudflare Pages preview/branch-alias origin with a real installed Android PWA. This includes legacy-to-forward continuity, CRUD/persistence, PWA/tab freshness, live-update behavior, quota and storage-loss drills, deliberate `LEGACY_DIVERGED`, rollback and re-forward convergence.
+
+**Repository scope:** NO SOURCE CHANGES. Do not modify `src/**`, `scripts/**`, `public/**`, `functions/**`, package files, Vite configuration, a workflow, `wrangler.toml`, deployment configuration or generated `dist/`. A discovered source defect is a STOP requiring a separately governed source amendment.
+
+**External deployment boundary:** no deployment occurs in this scope-open pass. Later C7 execution may use only existing external Cloudflare Pages infrastructure to build the allowed commits and deploy distinct uncommitted artifacts. If the existing Pages project cannot provide the gate without repository configuration, STOP. Never touch canonical production.
+
+**Fixed-origin hard lock:** before the first deployment, record exactly one C7 preview/branch-alias origin. It is immutable for the entire gate; legacy seed, forward, revert and re-forward deployments must all use it. A new generated deployment URL or origin change is a FAIL/restart from Step 1.
+
+**Build matrix:** legacy seed `6123c12567efea7040d5a5995dd8ba5f738c73a1` normal mode; forward `9dac8c021be1b99bf7ec1227615cb6f3bd874674` with `VITE_STORAGE_AUTHORITY_MODE` unset/`forward`; revert from that checkpoint with `VITE_STORAGE_AUTHORITY_MODE=revert`; re-forward from that checkpoint normal mode. Build outputs must remain uncommitted and distinct.
+
+**Human gate:** OPEN / PENDING. Only a human can mark it PASS. Execute the plan’s C7 Android/PWA gate and every C7 stop condition. Attempt real waste import when available, otherwise record `NOT AVAILABLE`; never fabricate a PASS. C8 remains LOCKED.
+
+## Runtime cutover phases (C1-C6 CHECKPOINTED; C7 SCOPE OPEN; C8 LOCKED)
 
 | Phase | Files (exact list in plan Section 7) |
 |---|---|
@@ -197,20 +210,21 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 | C4 (ACCEPTED / CHECKPOINTED) | `src/storage/storageAuthority.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C5 (ACCEPTED / CHECKPOINTED) | `src/storage/replicaRepositories.js`, `src/storage/localReplica.js` (additive `listCalendarEvents()` only), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED) | final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; automated GREEN, final independent source review PASS / ACCEPT and desktop Chrome human smoke PASS; runtime behavior change YES; no production deploy |
-| C7 | preview deploy and Android/installed-PWA human gate, including the rollback drill |
+| C7 (SCOPE OPEN) | existing external Pages preview/branch-alias deployment and Android/installed-PWA human gate, including rollback/re-forward drill; no repository source/config changes |
 | C8 | production deploy gate |
 
 ## Forbidden at this gate
 
-- any C6 source/test change (C1-C6 source scopes are all CLOSED)
-- opening or implementing C7-C8 in this checkpoint pass (C7-C8 remain LOCKED)
+- any C1-C6 source/test change (C1-C6 source scopes are all CLOSED)
+- any C7 repository source, test, package, configuration, workflow, deployment-config or generated-artifact change
+- any C8 production deployment or C8 scope opening (C8 remains LOCKED)
 - any import of `src/storage/` from outside `src/storage/` other than the five C6 allowlisted importers (`src/main.jsx`, `src/App.jsx`, `src/calendar/useHouseholdEvents.js`, `src/waste/useHousehold.js`, `src/hooks/useSavedPlaces.js`); any component importing storage internals; a generic service layer; browser globals inside `src/storage/**`
 - widening C6 silently: any additional production or test file, schema/`DB_VERSION`/store/index change, backend or sync work, or preview/deploy work requires a new docs-only amendment first
 - further visual-polish source work (the interlude is closed; the 44px dialog header cancel target is a backlog note only)
 - startup migration or user data migration outside the accepted C4 controller path; legacy cleanup or deletion
 - writes to legacy keys by any forward cutover path (only the revert export defined in the plan may write them)
 - D1/backend, Cloudflare bindings, network calls, authentication, sync, outbox mutations or outbox UI
-- dependency updates (including remediation of the pre-existing `npm audit` report) or deployment
+- dependency updates (including remediation of the pre-existing `npm audit` report), repository deployment configuration or production deployment
 - deploying a pre-cutover build to an origin where any device may have switched
 - modifying accepted calendar, household, waste, saved-place, bus or reminder behavior; unrelated redesign, broad refactor or Trends work
 
@@ -222,4 +236,4 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 ## Decision gate
 
-CURRENT GATE: `RUNTIME_CUTOVER_C7_SCOPE_OPEN` — a separate docs-only pass is required before any C7 work. C7 preview/implementation and C8 remain LOCKED. C6 is ACCEPTED / CHECKPOINTED; canonical production remains unchanged until separate C7/C8 deployment gates complete.
+CURRENT GATE: `RUNTIME_CUTOVER_C7` — C7 preview/Android-PWA human gate is OPEN. Select and record one fixed existing Cloudflare Pages preview origin before Step 1; deploy only to that preview origin during C7. C7 has no repository source or deployment-config authorization. C8 remains LOCKED. C6 is ACCEPTED / CHECKPOINTED; canonical production remains unchanged.
