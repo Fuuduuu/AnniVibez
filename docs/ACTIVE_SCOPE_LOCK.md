@@ -187,17 +187,17 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 - C6 implementation source and test scope is closed.
 - C7 scope is now independently opened below; C8 is still locked.
 
-## Runtime cutover C7 (Step 1 CHECKPOINTED; Steps 2-7 PENDING)
+## Runtime cutover C7 (final preview gate; Android smoke PENDING)
 
-**Purpose:** validate the accepted C6 runtime cutover against one real fixed Cloudflare Pages preview/branch-alias origin with a real installed Android PWA. This includes legacy-to-forward continuity, CRUD/persistence, PWA/tab freshness, live-update behavior, quota and storage-loss drills, deliberate `LEGACY_DIVERGED`, rollback and re-forward convergence.
+**Purpose:** validate the accepted C6 runtime cutover against one fixed Cloudflare Pages preview/branch-alias origin and the existing installed Android PWA. The final model is: exact forward provenance, complete accepted C6 automation, fresh focused source review, stable PWA artifact proof, same-alias forward deployment, and one final human continuity/CRUD/persistence smoke.
 
 **Repository scope:** NO SOURCE CHANGES. Do not modify `src/**`, `scripts/**`, `public/**`, `functions/**`, package files, Vite configuration, a workflow, `wrangler.toml`, deployment configuration or generated `dist/`. A discovered source defect is a STOP requiring a separately governed source amendment.
 
 **External deployment boundary:** no deployment occurs in this scope-open pass. Later C7 execution may use only existing external Cloudflare Pages infrastructure to build the allowed commits and deploy distinct uncommitted artifacts. If the existing Pages project cannot provide the gate without repository configuration, STOP. Never intentionally deploy to canonical production. The observed canonical production is the frozen C6-containing accidental auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` from `549203d3a0eced020fc954cab62721ee85a06936`; no pre-C6 rollback is safe because clients may already have switched authority to IndexedDB.
 
-**Fixed-origin hard lock:** before the first deployment, record exactly one C7 preview/branch-alias origin. It is immutable for the entire gate; legacy seed, forward, revert and re-forward deployments must all use it. A new generated deployment URL or origin change is a FAIL/restart from Step 1.
+**Fixed-origin hard lock:** `https://c7-storage-cutover.annivibe.pages.dev` is immutable for the legacy seed and final forward deployment. A generated unique deployment URL or origin change is a FAIL/restart from Step 1.
 
-**Build matrix:** legacy seed `6123c12567efea7040d5a5995dd8ba5f738c73a1` normal mode; forward `9dac8c021be1b99bf7ec1227615cb6f3bd874674` with `VITE_STORAGE_AUTHORITY_MODE` unset/`forward`; revert from that checkpoint with `VITE_STORAGE_AUTHORITY_MODE=revert`; re-forward from that checkpoint normal mode. Build outputs must remain uncommitted and distinct.
+**Build matrix:** accepted legacy seed `6123c12567efea7040d5a5995dd8ba5f738c73a1` remains on the fixed alias; final forward is exactly `9dac8c021be1b99bf7ec1227615cb6f3bd874674` with `VITE_STORAGE_AUTHORITY_MODE` unset/absent. Build outputs remain uncommitted and distinct. Revert/re-forward artifacts are not built in this final gate.
 
 **Fixed preview / Human Step 1 checkpoint:** branch `c7-storage-cutover`; fixed origin `https://c7-storage-cutover.annivibe.pages.dev`; accepted recovery preview deployment `342c1212-7023-48e5-a195-be0f3896748c` (`preview`, legacy provenance `6123c12567efea7040d5a5995dd8ba5f738c73a1`). The earlier incomplete deployment was `3fdf1f45-9c64-4d70-b5d9-05a0fb9225b2`. Recovery evidence: `sw.js`, `workbox-66610c77.js` and `registerSW.js -> /sw.js` present; stable `dist` snapshot; local/remote SHA-256 equality; remote service-worker JavaScript MIME and syntax valid. No production change.
 
@@ -212,7 +212,9 @@ Opened by the docs-only pass `RUNTIME_CUTOVER_C6_SCOPE_OPEN` at baseline `f919c7
 
 This exact order must remain after forward cutover unless the human deliberately changes it before Step 2, in which case STOP and establish a new explicit baseline before deployment.
 
-**C7 state:** Step 1 deployment prep PASS; Human Step 1 PASS; Step 2 PENDING; Steps 3-7 PENDING. The next safe action is C7 Step 2A — pre-cutover legacy-data existence and baseline verification before any forward deployment. C8 remains LOCKED.
+**Manual C7 forensic/destructive drills:** WAIVED BY HUMAN FOR FINAL ACCEPTANCE GATE. This waives raw localStorage SHA snapshots, mandatory remote DevTools storage inspection, quota simulation, manual IndexedDB deletion, manual shared-legacy-key deletion, deliberate `LEGACY_DIVERGED`, and destructive rollback/re-forward phone drills. They are not recorded as executed; accepted automated/runtime coverage remains required.
+
+**C7 state:** Step 1 deployment prep PASS; Human Step 1 PASS; final automated/deploy gate PENDING; final Android smoke PENDING. C7 overall is not accepted until that smoke PASS is recorded. C8 remains LOCKED.
 
 ## Runtime cutover phases (C1-C6 CHECKPOINTED; C7 SCOPE OPEN; C8 LOCKED)
 
@@ -224,7 +226,7 @@ This exact order must remain after forward cutover unless the human deliberately
 | C4 (ACCEPTED / CHECKPOINTED) | `src/storage/storageAuthority.js`, `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C5 (ACCEPTED / CHECKPOINTED) | `src/storage/replicaRepositories.js`, `src/storage/localReplica.js` (additive `listCalendarEvents()` only), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED) | final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; automated GREEN, final independent source review PASS / ACCEPT and desktop Chrome human smoke PASS; runtime behavior change YES; no intentional production deployment accepted. Observed production is instead the frozen accidental C6-containing Git auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` |
-| C7 (Step 1 CHECKPOINTED; Steps 2-7 PENDING) | existing external Pages preview/branch-alias deployment and Android/installed-PWA human gate, including rollback/re-forward drill; no repository source/config changes |
+| C7 (final preview gate; Android smoke PENDING) | exact forward validation and same-alias preview deployment followed by final Android continuity/CRUD/persistence smoke; no repository source/config changes |
 | C8 | production deploy gate |
 
 ## Forbidden at this gate
