@@ -20,7 +20,7 @@ Read and follow in this order:
 
 **PHASE_A_INDEXEDDB_FOUNDATION**: ACCEPTED (`PHASE_A_FINAL_HUMAN_REVIEW = ACCEPTED`; range `4e9a65af179c45ce95395aae21d577fe90ed13b2..abdd002240e78ed093facdb3ef463d4ba6ede418`).
 
-**RUNTIME_CUTOVER_PLAN**: HUMAN ACCEPTED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (accepted plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). Four independent fresh reviews returned AMEND and amendments 1 (A-D), 2 (A-C), 3 (A-C) and 4 (A-B) were applied (plan Section 12); the final fresh independent review is PASS. C1-C7 are CHECKPOINTED; C8 remains LOCKED.
+**RUNTIME_CUTOVER_PLAN**: HUMAN ACCEPTED in `docs/superpowers/plans/2026-09-16-majandus-runtime-cutover.md` (accepted plan checkpoint `8077c0e2626f1be1ef149a5690f43aa1e46cb248`). Four independent fresh reviews returned AMEND and amendments 1 (A-D), 2 (A-C), 3 (A-C) and 4 (A-B) were applied (plan Section 12); the final fresh independent review is PASS. C1-C7 are CHECKPOINTED; C8 is SCOPE OPEN for its docs-defined controlled production-deployment pass only.
 
 **VISUAL_POLISH_V1**: ACCEPTED / CHECKPOINTED (implementation `f367f2c06f3a4d5e96abb8ca7f4f8d96028491ee`; review PASS; behavior and storage/runtime changes NONE).
 
@@ -32,7 +32,7 @@ Read and follow in this order:
 
 **RUNTIME_CUTOVER_C3**: ACCEPTED / CHECKPOINTED (final implementation `5612953e7c9e07eef411cecc3c6bb5dd5685930d`; independent review initial AMEND, final PASS / ACCEPT; runtime behavior change NONE; storage foundation DORMANT). C3 source scope: CLOSED.
 
-**RUNTIME_CUTOVER_C6**: ACCEPTED / CHECKPOINTED at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; runtime behavior change YES; C6 source scope CLOSED. Cloudflare automatically deployed C6-containing `main` commits to canonical production before C7/C8 governance; current production is the frozen accidental C6-containing deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` from `549203d3a0eced020fc954cab62721ee85a06936`, not a C8 acceptance. **RUNTIME_CUTOVER_C7**: ACCEPTED / CHECKPOINTED at final preview deployment `82f17c50-78de-4ef6-ba3a-185c9475f5ad`; C7 source/config changes NONE. C8 remains LOCKED pending a separate docs-only production-deploy scope open.
+**RUNTIME_CUTOVER_C6**: ACCEPTED / CHECKPOINTED at final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; runtime behavior change YES; C6 source scope CLOSED. Cloudflare automatically deployed C6-containing `main` commits to canonical production before C7/C8 governance; current production is the frozen accidental C6-containing deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` from `549203d3a0eced020fc954cab62721ee85a06936`, not a C8 acceptance. **RUNTIME_CUTOVER_C7**: ACCEPTED / CHECKPOINTED at final preview deployment `82f17c50-78de-4ef6-ba3a-185c9475f5ad`; C7 source/config changes NONE. **RUNTIME_CUTOVER_C8**: SCOPE OPEN for one later deliberate controlled production deployment; deployment NOT YET RUN and acceptance PENDING.
 
 The accepted plan is authoritative for cutover design. It resolves the six acceptance items: authority-switch ordering, the Android/installed-PWA human gate, blocked open/`versionchange`/multi-tab/schema upgrades, the `close()` open race, the transaction-body async invariant and the runtime payload-validation boundary. It also defines:
 - the neutral saved-place module prerequisite (A);
@@ -214,9 +214,9 @@ This exact order must remain after forward cutover unless the human deliberately
 
 **Manual C7 forensic/destructive drills:** WAIVED BY HUMAN FOR FINAL ACCEPTANCE GATE. This waives raw localStorage SHA snapshots, mandatory remote DevTools storage inspection, quota simulation, manual IndexedDB deletion, manual shared-legacy-key deletion, deliberate `LEGACY_DIVERGED`, and destructive rollback/re-forward phone drills. They are not recorded as executed; accepted automated/runtime coverage remains required.
 
-**C7 final evidence:** automated/deploy gate PASS at forward deployment `82f17c50-78de-4ef6-ba3a-185c9475f5ad` (branch `c7-storage-cutover`, fixed origin `https://c7-storage-cutover.annivibe.pages.dev`, provenance `9dac8c021be1b99bf7ec1227615cb6f3bd874674`); the complete accepted C6 matrix, build and `git diff --check` passed; fresh focused source review PASS with no blocking finding; stable PWA artifact and remote/local byte proof PASS. Final installed-Android-PWA smoke PASS: forward preview opened, seeded data and the locked place order remained, close/reopen persistence PASS, and unexpected visible storage/error state NONE. C7 is ACCEPTED / CHECKPOINTED. C8 remains LOCKED pending a separate docs-only production-deploy scope open.
+**C7 final evidence:** automated/deploy gate PASS at forward deployment `82f17c50-78de-4ef6-ba3a-185c9475f5ad` (branch `c7-storage-cutover`, fixed origin `https://c7-storage-cutover.annivibe.pages.dev`, provenance `9dac8c021be1b99bf7ec1227615cb6f3bd874674`); the complete accepted C6 matrix, build and `git diff --check` passed; fresh focused source review PASS with no blocking finding; stable PWA artifact and remote/local byte proof PASS. Final installed-Android-PWA smoke PASS: forward preview opened, seeded data and the locked place order remained, close/reopen persistence PASS, and unexpected visible storage/error state NONE. C7 is ACCEPTED / CHECKPOINTED. At that C7 checkpoint, C8 was LOCKED pending its later separate docs-only production-deploy scope open.
 
-## Runtime cutover phases (C1-C7 CHECKPOINTED; C8 LOCKED)
+## Runtime cutover phases (C1-C7 CHECKPOINTED; C8 SCOPE OPEN)
 
 | Phase | Files (exact list in plan Section 7) |
 |---|---|
@@ -227,13 +227,13 @@ This exact order must remain after forward cutover unless the human deliberately
 | C5 (ACCEPTED / CHECKPOINTED) | `src/storage/replicaRepositories.js`, `src/storage/localReplica.js` (additive `listCalendarEvents()` only), `scripts/storage/storage.test.mjs`, `scripts/storage/indexeddb-browser.test.mjs` |
 | C6 (ACCEPTED / CHECKPOINTED; source scope CLOSED) | final implementation `7146d0ac85c28da0cb8846b944099bf1307b9ece`; automated GREEN, final independent source review PASS / ACCEPT and desktop Chrome human smoke PASS; runtime behavior change YES; no intentional production deployment accepted. Observed production is instead the frozen accidental C6-containing Git auto-deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5` |
 | C7 (ACCEPTED / CHECKPOINTED) | exact forward validation, same-alias preview deployment `82f17c50-78de-4ef6-ba3a-185c9475f5ad`, and final Android continuity/CRUD/persistence smoke PASS; no repository source/config changes |
-| C8 (LOCKED) | separate production deploy gate; requires its own docs-only scope open |
+| C8 (SCOPE OPEN) | one later explicit controlled production deployment from exact C7-tested forward provenance; deployment NOT YET RUN |
 
 ## Forbidden at this gate
 
 - any C1-C6 source/test change (C1-C6 source scopes are all CLOSED)
 - any C7 repository source, test, package, configuration, workflow, deployment-config or generated-artifact change
-- any C8 production deployment or C8 scope opening (C8 remains LOCKED)
+- any C8 production deployment in this docs-only scope-open pass; the later separately governed C8 deploy pass must satisfy every C8 precondition before touching production
 - any import of `src/storage/` from outside `src/storage/` other than the five C6 allowlisted importers (`src/main.jsx`, `src/App.jsx`, `src/calendar/useHouseholdEvents.js`, `src/waste/useHousehold.js`, `src/hooks/useSavedPlaces.js`); any component importing storage internals; a generic service layer; browser globals inside `src/storage/**`
 - widening C6 silently: any additional production or test file, schema/`DB_VERSION`/store/index change, backend or sync work, or preview/deploy work requires a new docs-only amendment first
 - further visual-polish source work (the interlude is closed; the 44px dialog header cancel target is a backlog note only)
@@ -252,4 +252,4 @@ This exact order must remain after forward cutover unless the human deliberately
 
 ## Decision gate
 
-CURRENT GATE: no C7 work remains. `RUNTIME_CUTOVER_C7 = ACCEPTED / CHECKPOINTED`; its forward preview was `82f17c50-78de-4ef6-ba3a-185c9475f5ad` on the fixed `c7-storage-cutover` alias and production was not touched. C8 is LOCKED and may open only through a separate docs-only production-deploy scope. Cloudflare Pages reports `production_branch: main`, `production_deployments_enabled: false`, preview setting `all`, and Git integration `github`; a `main` push MUST NOT auto-deploy production. Any unexpected production deployment before an accepted C8 deployment scope is a STOP. Current production remains frozen at accidental C6-containing deployment `0cca08f2-3a87-4176-99e2-7bc107bf8ce5`.
+CURRENT GATE: `RUNTIME_CUTOVER_C8 = SCOPE OPEN`; C8 production deployment is NOT YET RUN and acceptance is PENDING. It must not relabel accidental canonical production `0cca08f2-3a87-4176-99e2-7bc107bf8ce5`. The later C8 deployment pass may perform one explicit manual controlled production deployment only from exact C7-tested forward provenance `9dac8c021be1b99bf7ec1227615cb6f3bd874674` with `VITE_STORAGE_AUTHORITY_MODE` absent/forward-default, after fresh Git/C7/Cloudflare verification, C8 production-critical automation, build and stable PWA artifact proof. Pre-C6 `6123c12567efea7040d5a5995dd8ba5f738c73a1` is never a safe production rollback. Cloudflare Pages must retain `production_branch: main` and `production_deployments_enabled: false`; C8 does not re-enable automatic deploys. After an intentional deployment, verify canonical production assets and a short smoke; unexpected `STORAGE_LOST`, `LEGACY_DIVERGED`, `STORAGE_UNAVAILABLE`, `DOMAIN_INVALID`, `BLOCKED`, `AUTHORITY_HINT_PENDING`, `REVERT_FAILED` or `TransactionInactiveError` is a STOP.
