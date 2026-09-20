@@ -23,6 +23,52 @@ Spec: docs/COMMON_BACKEND_ARCHITECTURE_V1.md
 - Error body is { error: { code, message } }, JSON plus Cache-Control: no-store; never expose SQL, stack, hash, or secret state.
 - Begin and end each implementation task with clean status and empty staging. Every staging command must name paths.
 
+## Accepted architecture-review amendments
+
+These binding clarifications apply to Tasks 2-10 and override a narrower conflicting task description. They do not change the accepted Phase 1 schema or authorize runtime implementation, Cloudflare resources, remote operations, or deployment.
+
+### Task 2: HTTP validation and server IDs
+
+`newId(prefix)` remains generation-only. Its only allowed prefixes are `hld`, `usr`, and `ses`; it emits the corresponding prefixed `crypto.randomUUID()` identifier. Every other prefix value, including an unknown string, the empty string, `undefined`, `null`, and a non-string, MUST throw `RangeError`. There is no coercion, fallback prefix, fallback ID, or external ID validator. The human-readable error message is not contractual. Unsupported-prefix use is a server/programmer error, preventing accidental generation in an unapproved namespace rather than validating an externally supplied identifier.
+
+`readJsonObject(request, options)` requires a JSON media type: `application/json`, optionally with `charset=utf-8`. Media-type and charset matching are case-insensitive. It rejects a missing Content-Type, another media type, and an unsupported charset with the existing safe `{ ok: false, code: "INVALID_REQUEST" }` result; no new public error code is introduced. It validates transport/input shape only, never authenticates a user or makes a client-supplied household, user, session, or role authoritative. Validation success is not authorization success.
+
+The body cap is 8192 encoded bytes, not JavaScript character count. Content-Length may reject a clearly oversized request early, but is never the sole check. The reader accumulates at most 8192 bytes and rejects as soon as byte 8193 would be consumed, cancelling or releasing the reader as appropriate; it must not read the complete oversized body merely to measure it. Empty, malformed, and oversized bodies never silently become `{}`.
+
+Every JSON response from `json(...)` and `apiError(...)` has `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`. Caller-supplied additional headers may be added, but cannot override or remove either invariant. `apiError(...)` still permits protocol headers such as `Allow` and later `WWW-Authenticate`.
+
+### Task 3: token and hash contracts
+
+`hashSecret(kind, secret)` supports only `device-session` and `household-recovery`; every other kind throws `RangeError` without coercion. It hashes the secret exactly as supplied: no trim, case conversion, Unicode normalization, or repair. The domain-separated input remains `majandus:v1:<kind>:<secret>`. Token generation remains Workers Web Crypto with 32 random bytes, unpadded base64url, `m1s_` for device sessions, and `m1r_` for recovery. This plan does not claim that a complete authentication request is constant-time.
+
+### Tasks 4-6: repository, session, and creation boundaries
+
+General SQL helpers such as `prepare` and `runBatch` may exist internally, but are not the public repository contract consumed by endpoints. Endpoints and services consume narrow operations only: active-session lookup by token hash, one atomic household-creation batch, and safe session metadata lookup/projection scoped from trusted session context. No endpoint may construct arbitrary SQL. The atomic household-creation batch is owned once by the repository/service boundary; individual inserts are not independently committed public operations. Preserve the ability to make a future domain mutation, its change_log entry, and applied_mutations record one atomic operation.
+
+For Tasks 4-9, an active foundation session is present, has `device_sessions.revoked_at IS NULL`, and belongs to a user with `users.revoked_at IS NULL`. Foundation sessions are revoke-controlled, not expiry-controlled; this is acceptable only for local/synthetic foundation testing and does not approve indefinite production user sessions. `last_seen_at` is not authoritative device activity unless a later scope updates it. Before real user data, a separate accepted lifecycle/recovery scope must define server-enforced maximum lifetime or equivalent renewal, device revocation, lost-device recovery, and renewal/re-authentication behavior. Do not retrofit `expires_at` into Phase 1.
+
+Credential failures—missing, malformed, unknown, revoked-session, revoked-user, and any future expired credential—share the safe `401 UNAUTHORIZED` response with `WWW-Authenticate: Bearer` and no cause disclosure. Infrastructure failures, including unavailable D1, a thrown D1 query, or an unexpected internal failure, are safe generic server failures and MUST NOT become 401.
+
+The Phase 6 creation operation remains atomic but intentionally non-idempotent. Distinguish definitely rolled back, definitely committed with response delivered, and client-unknown result after a lost response/connection. Clients MUST NOT automatically retry an unknown-result create; household name/address is not a duplicate key; bootstrap creation does not use applied_mutations; and token/recovery plaintext must never enter applied_mutations.result_json. Tasks 6-9 are therefore controlled foundation testing only. Real-user onboarding remains blocked pending a separately accepted continuation/idempotency/recovery design.
+
+### Tasks 7-8: Pages routing and session projection
+
+Create-household routing must prove actual Pages behavior: `onRequestPost` handles POST and generic `onRequest` handles every method without a more-specific handler as safe 405 with `Allow: POST`. HEAD and OPTIONS are 405; no permissive CORS is added. Tests use a local Pages-router/integration path rather than calling `onRequestPost` with a fake GET.
+
+Session routing follows the same pattern: `onRequestGet` handles GET and generic `onRequest` returns safe 405 with `Allow: GET` for every other method, including HEAD and OPTIONS. Its local tests prove actual Pages routing.
+
+The session endpoint remains a minimal trusted projection containing at least `session.id`, `account.userId`, `account.role`, and `household.id`; accepted display metadata may remain only where its existing consumer contract requires it. It never exposes a bearer token, token hash, recovery code/hash, internal OWNER marker, SQL, stack trace, or a household selected by query/body. Any lookup is scoped solely from authenticated trusted context.
+
+Task 7 may implement unauthenticated create-household locally, but that does not authorize public user onboarding. Before real-user creation is reachable, a separate publication/abuse-control decision is required; controlled technical deployment may use operator/environment restriction. Do not add a rate-limiting dependency to this foundation.
+
+### Tasks 9-10: deployment and readiness gates
+
+Tasks 2-9 retain the prohibition on remote D1 creation, Pages binding changes, remote migrations, deployment, Cloudflare credentials in the repository, GitHub deployment workflows, automatic Wrangler deploy commands, and Cloudflare configuration that silently enables external execution. Phase 9 remains integrated security regression, not the first security test: Tasks 2-8 retain focused negative/security tests, while Task 9 combines schema, HTTP boundary, crypto, repository scope, trusted authentication, atomicity, route behavior, secret non-leakage, and protected-runtime isolation.
+
+Task 10 remains the external-execution stage, with three distinct gates. **10A — explicit remote-resource authorization** requires specific human approval for the Cloudflare account/project/environment, D1 creation, DB binding, and remote migration; it is not general deploy-everything authorization. **10B — controlled technical deployment** permits only isolated synthetic/non-user-data verification and must verify preview/production separation, DB binding target, real route-method behavior, response headers, no credential logging, and no client-runtime coupling; it is not user-ready. **10C — real-user-data gate** remains closed until separately accepted scopes provide lost-device/session revocation, recovery flow, safe client auth-token storage, bootstrap unknown-result/retry handling, recovery/rollback addressing restored credentials, and abuse/publication control. Tasks 1-10 can establish a technically deployable backend foundation without automatically making it ready for real user data.
+
+The later live/readiness gate must treat D1 restoration/time-travel as an authentication-security event. Before reopening user traffic, verify whether restored state resurrected revoked device sessions, rotated/revoked recovery hashes, later one-time tokens, or sync cursor/history assumptions. This is operational recovery/readiness work, not Phase 2-9 code.
+
 ## Review Focus
 
 1. Task 6 proves a failed D1 batch leaves no household, owner, session, or recovery row.
@@ -199,7 +245,7 @@ Expected: FAIL with missing exports.
 
 - [ ] **Step 3: Implement minimal helpers**
 
-Check declared and encoded body size. Parsing returns only { ok: true, value } or { ok: false, code: "INVALID_REQUEST" }; raw parser details never escape. newId emits prefixed crypto.randomUUID identifiers only for hld, usr, ses.
+Check declared and encoded body size. Parsing returns only { ok: true, value } or { ok: false, code: "INVALID_REQUEST" }; raw parser details never escape. newId emits prefixed crypto.randomUUID identifiers only for hld, usr, ses and follows the binding allowed-prefix/RangeError contract above.
 
 - [ ] **Step 4: Verify GREEN**
 
