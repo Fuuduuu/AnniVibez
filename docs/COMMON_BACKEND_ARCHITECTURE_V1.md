@@ -96,8 +96,8 @@ Calendar recurrence, overrides, exclusions and imported-event rules remain appli
 The implementation must create this model only in a later approved implementation pass:
 
 ```text
-households(id, name, address, revision, created_at, updated_at)
-users(id, household_id, name, role, created_at, revoked_at)
+households(id, name, address, owner_member_id, owner_marker, revision, created_at, updated_at)
+users(id, household_id, name, role, created_at, revoked_at, owner_marker)
 device_sessions(id, user_id, token_hash, device_name, created_at, last_seen_at, revoked_at)
 one_time_tokens(id, household_id, subject_user_id, purpose, token_hash,
                 created_by_user_id, created_at, expires_at, consumed_at,
@@ -115,7 +115,13 @@ applied_mutations(mutation_id, household_id, result_json, created_at)
 
 `one_time_tokens.purpose` is exactly one of `INVITE`, `DEVICE_LINK` or `MEMBER_RECOVERY`. `subject_user_id` is null only for `INVITE`; `DEVICE_LINK` and `MEMBER_RECOVERY` must target an existing non-revoked user in the same household. Consumption, revocation and expiry are mutually exclusive terminal states. Token use must atomically verify the correct purpose, active state and expiry before it changes the state.
 
-The model must enforce unique session-token hashes, unique active one-time token consumption, unique `mutation_id` records and household scoping. It must preserve exactly one active OWNER per household: an OWNER cannot be removed, revoked or demoted unless the same transaction first assigns a non-revoked successor OWNER. V1 does not expose ownership transfer as a product flow. `seq` is the monotonically increasing cursor for one household's change stream. Client-generated permanent UUID-style IDs apply to synchronized domain entities created through sync `CREATE`, including calendar events, shared places and waste configuration; array index and temporary server IDs are never sync identity. Household identity is created by `/api/auth/create-household`, then stored locally in `householdProfile.serverHouseholdId`; the local singleton key `household` is not that server household ID.
+The model must enforce unique session-token hashes, unique active one-time token consumption, unique `mutation_id` records and household scoping. It must preserve exactly one active OWNER per persisted household at database level: zero and more-than-one active OWNER states are both forbidden. `seq` is the monotonically increasing cursor for one household's change stream. Client-generated permanent UUID-style IDs apply to synchronized domain entities created through sync `CREATE`, including calendar events, shared places and waste configuration; array index and temporary server IDs are never sync identity. Household identity is created by `/api/auth/create-household`, then stored locally in `householdProfile.serverHouseholdId`; the local singleton key `household` is not that server household ID.
+
+The physical OWNER invariant is mandatory. `households.owner_member_id` is `TEXT NOT NULL`. `households.owner_marker` is `INTEGER NOT NULL DEFAULT 1 CHECK (owner_marker = 1)`. `users.owner_marker` is a generated, stored integer that is `1` exactly when `role = 'OWNER' AND revoked_at IS NULL`, otherwise `0`; `users` has `UNIQUE (household_id, id, owner_marker)`. A deferred composite foreign key `(households.id, households.owner_member_id, households.owner_marker)` references `users(household_id, id, owner_marker)` with `DEFERRABLE INITIALLY DEFERRED`. It guarantees that the owner pointer identifies an active OWNER in the same household at transaction completion. The existing partial unique active-OWNER index remains required: it enforces at most one active OWNER, while the mandatory valid pointer enforces at least one.
+
+The deferred pointer is required because initial creation deliberately forms a cycle: household to its OWNER member, then OWNER member to household. Both rows must be creatable in one atomic D1 batch and valid by transaction completion. A sole active OWNER cannot be revoked, demoted or deleted; the pointer cannot be null, dangling or cross-household; direct SQL must not persist an invalid OWNER state. Ownership transfer remains supported only as one atomic D1 batch: point the household to member B, remove OWNER status from A as appropriate, then promote B to active OWNER. The deferred pointer may be temporarily unresolved inside that batch, but commit must finish with exactly one active OWNER and a matching owner pointer; no invalid intermediate state is externally committed. V1 does not expose an ownership-transfer product flow.
+
+`household_recovery.recovery_hash` is `NOT NULL`, uses the canonical valid hash representation, and is globally `UNIQUE` across households. Two households must never persist the same recovery-secret hash; raw recovery secrets are never stored.
 
 ## 8. Local replica and migration
 

@@ -86,10 +86,10 @@ Error codes are INVALID_REQUEST (400), UNAUTHORIZED (401), METHOD_NOT_ALLOWED (4
 
 ## D1 and token design
 
-The one migration creates, parent before child: households, users, device_sessions, one_time_tokens, household_recovery, calendar_events, waste_config, shared_places, change_log, and applied_mutations.
+The one migration creates households, users, device_sessions, one_time_tokens, household_recovery, calendar_events, waste_config, shared_places, change_log, and applied_mutations. The deferred household-to-OWNER pointer deliberately forms the one household/user cycle; all other parent relationships use their ordinary restrictive ordering.
 
-- households: id, name, address nullable, revision, created_at, updated_at.
-- users: id, household_id, name, role, created_at, revoked_at nullable.
+- households: id, name, address nullable, owner_member_id, constant owner_marker, revision, created_at, updated_at.
+- users: id, household_id, name, role, created_at, revoked_at nullable, generated/stored owner_marker.
 - device_sessions: id, user_id, token_hash, device_name, created_at, last_seen_at, revoked_at nullable.
 - one_time_tokens: id, household_id, subject_user_id nullable, purpose, token_hash, created_by_user_id, created_at, expires_at, consumed_at nullable, consumed_by_user_id nullable, revoked_at nullable.
 - household_recovery: household_id, recovery_hash, created_at, rotated_at nullable.
@@ -99,17 +99,17 @@ The one migration creates, parent before child: households, users, device_sessio
 - change_log: seq, household_id, entity_type, entity_id, revision, operation, changed_fields_json, changed_by, changed_at.
 - applied_mutations: mutation_id, household_id, result_json, created_at.
 
-- IDs are TEXT primary keys. households.revision starts at 1. Domain tables retain all canonical household IDs, payload/normalized fields, revisions, timestamps, and tombstones.
-- users has household_id, name, role CHECK OWNER/MEMBER, created_at, revoked_at. A partial unique index on household_id for active OWNER prevents two active owners. This slice atomically creates one OWNER and exposes no owner mutation/removal, therefore all reachable states have exactly one active OWNER.
+- IDs are TEXT primary keys. households.revision starts at 1. Domain tables retain all canonical household IDs, payload/normalized fields, revisions, timestamps, and tombstones. households also has owner_member_id TEXT NOT NULL and owner_marker INTEGER NOT NULL DEFAULT 1 CHECK (owner_marker = 1).
+- users has household_id, name, role CHECK OWNER/MEMBER, created_at, revoked_at, and a generated/stored owner_marker that is 1 only for a non-revoked OWNER and 0 otherwise. UNIQUE (household_id, id, owner_marker) supplies the parent key for a deferred composite foreign key from (households.id, households.owner_member_id, households.owner_marker) to users(household_id, id, owner_marker). The partial unique active-OWNER index remains: it enforces at most one active OWNER, while the mandatory valid owner pointer enforces at least one. Together they enforce exactly one active OWNER per persisted household. The pointer FK is DEFERRABLE INITIALLY DEFERRED because household creation forms a household-to-OWNER-to-household cycle that must resolve in one D1 batch. Direct SQL cannot leave a sole OWNER revoked, demoted or deleted, or leave the pointer null, dangling or cross-household.
 - device_sessions has unique fixed lowercase-hex token_hash, restrictive user foreign key, device_name, created_at, last_seen_at, revoked_at.
 - one_time_tokens has every canonical column, purpose check INVITE/DEVICE_LINK/MEMBER_RECOVERY, unique token hash, null subject only for INVITE, a check that consumed_at/revoked_at cannot both be non-null, and same-household subject/creator/consumer triggers. Active-token indexes support a future atomic expected-state consumption update requiring correct purpose, no consumed/revoked state, and unexpired expires_at. This slice does not issue or consume a one-time token.
-- household_recovery is one row per household, containing recovery_hash, created_at, rotated_at only.
+- household_recovery is one row per household, containing recovery_hash, created_at, rotated_at only; recovery_hash is globally UNIQUE as well as NOT NULL and canonical lowercase-hex.
 - Calendar/waste/places have household foreign keys; a partial unique index permits one active waste_config per household. change_log has a household_id, seq index; applied_mutations has unique mutation_id. Neither table is written this slice, but both are created now for later sync without redesign.
 - Foreign keys are restrictive. Tests prove orphan insert failure and empty PRAGMA foreign_key_check.
 
 Each secret is crypto.getRandomValues(new Uint8Array(32)): 256 bits. Wire form is m1s_ or m1r_ plus 43-character unpadded base64url. hashSecret(kind, token) returns lowercase-hex SHA-256 of UTF-8 majandus:v1:<kind>:<token>. The domain separator prevents cross-class matches. Deterministic SHA-256 is appropriate for uniformly random 256-bit bearer secrets and indexed lookup, unlike human passwords. No plaintext comparison remains after the hash lookup, so constant-time equality is not applicable.
 
-createHousehold prepares values, then calls DB.batch with household, OWNER user, session, and recovery inserts. D1 documents batch as a transaction that rolls back the entire sequence on a failed statement. Do not use manual BEGIN/COMMIT or an assumed transaction API.
+createHousehold prepares values, then calls DB.batch in this order: household row containing the future OWNER member id, OWNER user row, device-session/token row, and recovery row. The household owner-pointer FK is deferred; all ordinary parent FKs remain restrictive. D1 documents batch as a transaction that rolls back the entire sequence on a failed statement, so the cycle must be resolved by batch completion or no partial household is persisted. Do not use manual BEGIN/COMMIT or an assumed transaction API.
 
 Task 1 local configuration is local test input only: binding DB, database name majandus-backend-test, synthetic UUID 00000000-0000-0000-0000-000000000001. It is not production configuration. Its only state directory is .tmp/majandus-d1-test.
 
@@ -132,7 +132,7 @@ A later explicit operator scope must separately create one D1 resource majandus-
 
 - [ ] **Step 1: Write the failing test**
 
-Assert sqlite_master, PRAGMA table_info, PRAGMA index_list, PRAGMA foreign_key_list, and PRAGMA foreign_key_check prove all tables, columns, indexes, and foreign keys. Attempt orphan session insertion and two active owners.
+Assert sqlite_master, PRAGMA table_info, PRAGMA index_list, PRAGMA foreign_key_list, and PRAGMA foreign_key_check prove all tables, columns, indexes, and foreign keys. The schema contract must cover: valid atomic household plus OWNER creation; ownerless household rejection; second active OWNER rejection; sole-OWNER revocation, demotion, and deletion rejection; cross-household, null, missing, and dangling owner-pointer rejection; successful atomic ownership transfer; adversarial direct SQL resistance; failed deferred-FK batch rollback with no partial household; clean PRAGMA foreign_key_check after valid operations; duplicate recovery-hash rejection across households; and acceptance of different valid recovery hashes.
 
     test("migration applies and enforces owner and FK invariants", async () => {
       const db = await freshMigratedDb();
@@ -149,7 +149,7 @@ Expected: FAIL because migration, configuration, and fixture are absent.
 
 - [ ] **Step 3: Implement minimal complete schema**
 
-Add dev dependencies miniflare 3.20250718.3 and wrangler 4.135.0. Implement one migration with every table/check/index/trigger above; it uses ordinary CREATE statements, because Wrangler records and applies each numbered migration once rather than silently masking a partial schema. freshMigratedDb() constructs a Miniflare instance with a D1 binding named DB, executes the migration SQL with its D1 database, and returns that D1Database to the Node tests. Separately, the migration-contract test runs:
+Add dev dependencies miniflare 3.20250718.3 and wrangler 4.135.0. Implement one migration with every table/check/index/trigger above, including the constant household owner marker, generated user owner marker, composite UNIQUE parent key, deferred composite household-to-OWNER FK, retained partial active-OWNER uniqueness, and global recovery-hash uniqueness. It uses ordinary CREATE statements, because Wrangler records and applies each numbered migration once rather than silently masking a partial schema. freshMigratedDb() constructs a Miniflare instance with a D1 binding named DB, executes the migration SQL with its D1 database, and returns that D1Database to the Node tests. Separately, the migration-contract test runs:
 
     node_modules/.bin/wrangler d1 migrations apply majandus-backend-test --local --config scripts/backend/wrangler.test.jsonc --persist-to .tmp/majandus-d1-test
 
@@ -350,7 +350,7 @@ Expected: only the two named files are committed.
 
 - [ ] **Step 1: Write the failing test**
 
-Use local D1 success and injected fourth-batch failure. Assert one household, exactly one active OWNER, one session, one recovery row, optional address, no plaintext DB secrets, and no partial state on invalid/failing creation.
+Use local D1 success and injected fourth-batch failure. Assert one household, exactly one active OWNER, a matching owner pointer, one session, one recovery row, optional address, no plaintext DB secrets, and no partial state on invalid/failing creation. The successful batch order is household row with future OWNER id, OWNER user, session/token row, recovery row; the owner-pointer FK is deferred and the remaining parent FKs remain restrictive.
 
     test("failed fourth statement leaves no partial household", async () => {
       const before = await creationCounts(db);
@@ -366,7 +366,7 @@ Expected: FAIL because service is absent.
 
 - [ ] **Step 3: Implement one-batch creation**
 
-Generate IDs/secrets once, derive hashes, take one ISO time, set household revision 1, and execute the four inserts. Return public contract only after batch resolves. D1 failure becomes a private service error. Do not write change_log or applied_mutations.
+Generate IDs/secrets once, derive hashes, take one ISO time, set household revision 1, and execute the four inserts in the specified owner-pointer-safe order. Return public contract only after batch resolves. D1 failure becomes a private service error. Do not write change_log or applied_mutations.
 
 - [ ] **Step 4: Verify GREEN**
 
