@@ -43,7 +43,9 @@ Every JSON response from `json(...)` and `apiError(...)` has `Content-Type: appl
 
 ### Tasks 4-6: repository, session, and creation boundaries
 
-General SQL helpers such as `prepare` and `runBatch` may exist internally, but are not the public repository contract consumed by endpoints. Endpoints and services consume narrow operations only: active-session lookup by token hash, one atomic household-creation batch, and safe session metadata lookup/projection scoped from trusted session context. No endpoint may construct arbitrary SQL. The atomic household-creation batch is owned once by the repository/service boundary; individual inserts are not independently committed public operations. Preserve the ability to make a future domain mutation, its change_log entry, and applied_mutations record one atomic operation.
+General SQL helpers such as `prepare` and `runBatch` may exist internally, but are not public repository exports or endpoint contracts. The complete public Phase 4 repository API is `findActiveSessionByHash(db, tokenHash)`, `insertHouseholdCreation(db, record)`, and `findSessionMetadataByTrustedContext(db, trustedContext)`. Endpoints and services consume only those narrow operations; no endpoint may construct arbitrary SQL. The atomic household-creation batch is owned once by the repository/service boundary; individual inserts are not independently committed public operations. Preserve the ability to make a future domain mutation, its change_log entry, and applied_mutations record one atomic operation.
+
+Responsibility remains separated: Phase 3 generates opaque tokens, hashes secrets, and validates hash representation without D1; Phase 4 performs prepared D1 lookups, safe projections, and one batch while consuming only precomputed hashes; Phase 5 parses and validates bearer authorization, hashes a device-session bearer secret with `hashSecret`, invokes the active-session lookup, and distinguishes `401` from infrastructure failure; Phase 6 generates IDs, plaintext tokens, hashes, and timestamps, creates the public result, and orchestrates the one repository batch. Phase 4 must not parse bearer authorization, accept plaintext bearer tokens, call `hashSecret`, normalize secrets, or make authentication decisions.
 
 For Tasks 4-9, an active foundation session is present, has `device_sessions.revoked_at IS NULL`, and belongs to a user with `users.revoked_at IS NULL`. Foundation sessions are revoke-controlled, not expiry-controlled; this is acceptable only for local/synthetic foundation testing and does not approve indefinite production user sessions. `last_seen_at` is not authoritative device activity unless a later scope updates it. Before real user data, a separate accepted lifecycle/recovery scope must define server-enforced maximum lifetime or equivalent renewal, device revocation, lost-device recovery, and renewal/re-authentication behavior. Do not retrofit `expires_at` into Phase 1.
 
@@ -309,12 +311,35 @@ Expected: only the two named files are committed.
 - Create: scripts/backend/db.test.mjs
 
 **Interfaces:**
-- Consumes: D1Database and hashSecret.
-- Produces: prepare(db, sql, values), runBatch(db, statements), findActiveSessionByHash(db, hash), insertHouseholdCreation(db, record), toPublicSessionRow(row).
+- Consumes: D1Database and `isTokenHash(value)` from Task 3 only to validate an internally precomputed canonical token hash.
+- Public exports, exactly: `findActiveSessionByHash(db, tokenHash)`, `insertHouseholdCreation(db, record)`, and `findSessionMetadataByTrustedContext(db, trustedContext)`.
+- Internal only, not exported: `prepare`, `runBatch`, `toPublicSessionRow`, row/projection helpers, and statement builders. Static SQL is permitted; every dynamic value must be bound.
+
+`findActiveSessionByHash(db, tokenHash)` accepts a precomputed canonical 64-character lowercase hexadecimal `device-session` hash. It may use `isTokenHash`; a noncanonical input throws `RangeError` before any D1 query. Its lookup verifies the token hash, an unrevoked device session, an existing unrevoked user, and the user's household relationship. It returns exactly `{ sessionId, userId, householdId, role }` or `null`; it never returns a bearer token, token hash, recovery material, internal OWNER marker, arbitrary row, or SQL/internal columns. D1 failures propagate rather than becoming `null`, `false`, or `UNAUTHORIZED`; Phase 5 maps authentication outcomes.
+
+`findSessionMetadataByTrustedContext(db, trustedContext)` accepts only authentication-generated `{ sessionId, userId, householdId }`; it does not accept a client selector, query/body household, user, or role. Its query verifies the session/user relation, user/household relation, unrevoked session and user, and household existence. It returns `null` when no active trusted context exists, otherwise exactly:
+
+```js
+{
+  session: { id, deviceName, createdAt, lastSeenAt },
+  account: { userId, displayName, role },
+  household: { id, name, address, revision, createdAt, updatedAt },
+}
+```
+
+It exposes no bearer token, hash, recovery material, internal OWNER marker, SQL, or arbitrary internal column. D1 failures propagate. Phase 8 consumes this safe projection and must not obtain arbitrary SQL access.
+
+`insertHouseholdCreation(db, record)` is the sole public creation operation. It prepares and binds the four parent-first writes and executes exactly one batch. The record contains only already-created IDs, hashes, timestamps, and persisted fields; it persists `tokenHash` and `recoveryHash` but never plaintext token or recovery secrets. Phase 6 owns plaintext generation, hashing, timestamps, public response construction, and orchestration. A batch rejection propagates; it is not retried automatically.
 
 - [ ] **Step 1: Write the failing test**
 
-Use recording D1 fake and local D1 fixture. Verify all values bind rather than interpolate, lookup joins active session/user/household only, one batch call, and public projection excludes hash/secrets.
+Use recording D1 fake and local D1 fixture. Verify the module exports only the three public operations, not `prepare`, `runBatch`, `toPublicSessionRow`, a hash wrapper, or an arbitrary executor. Prove every dynamic value binds rather than interpolates.
+
+For active-session lookup, cover a valid hash/context, unknown hash, revoked session, revoked user, relationship mismatch, and safe `null` results; prove no secret/hash reaches the result. A noncanonical hash must throw `RangeError` with no D1 call, and an injected D1 failure must reject.
+
+For trusted metadata, cover a valid projection, session/user/household mismatch, revoked session or user, and safe `null`; prove the exact projection excludes secrets and the OWNER marker. An injected D1 failure must reject.
+
+For creation, prove exactly one `db.batch` call containing four bound statements in parent-first order, hashes persisted but plaintext secrets never bound, and batch rejection propagates. The recording fake must demonstrate bound values rather than SQL interpolation.
 
     test("revoked user cannot resolve session", async () => {
       await seedSession(db, { sessionRevokedAt: null, userRevokedAt: "2026-09-20T00:00:00.000Z" });
@@ -329,13 +354,13 @@ Expected: FAIL with missing repository exports.
 
 - [ ] **Step 3: Implement database boundary**
 
-Keep only prepared statements and D1 batch. Lookup joins device_sessions, users, households and requires both revoked_at values null. It returns null or safe session/user/household metadata. Creation binds four parent-first inserts and calls one batch.
+Keep all SQL helpers private. Implement only the three public operations and prepared statements with bound dynamic values. The active lookup joins `device_sessions`, `users`, and `households`, requires both revoked-at values null, and returns only the exact trusted context. The metadata lookup is scoped exclusively by its trusted context and returns only the exact safe projection. Creation binds four parent-first inserts and calls one batch. Do not add bearer parsing, `hashSecret`, secret normalization, authentication middleware, individual public inserts, or an arbitrary SQL API.
 
 - [ ] **Step 4: Verify GREEN**
 
 Run: node --test scripts/backend/db.test.mjs
 
-Expected: PASS; no secret reaches a public shape.
+Expected: PASS; no secret reaches a public shape, no unapproved repository export exists, and D1 failures remain observable to their owning phase.
 
 - [ ] **Step 5: Exact staging and commit**
 
