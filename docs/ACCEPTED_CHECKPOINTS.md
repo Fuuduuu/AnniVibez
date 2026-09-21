@@ -12,8 +12,17 @@
   - Phase 2: `8a696c240bfbfb93395b85a98b55fbfeb487e328` (`feat: add Majandus backend HTTP primitives`) — strict HTTP helpers, streamed 8192-byte body cap, request validation, and server IDs (`8 passed`, `0 failed`, `0 skipped`).
   - Phase 3: `9a1bb5aea3a15a844a38d8651904740e953e20e7` (`feat: add Majandus token crypto primitives`) — 256-bit opaque device tokens/recovery codes, domain-separated SHA-256, and canonical token-hash validation (crypto `8 passed`; combined Phase 2+3 `16 passed`; `0 failed`, `0 skipped`).
   - Phase 4 contract checkpoint: `915ed9a320e4b5395f6e007d6af2db92c5eeb95d` (`docs: lock Majandus Phase 4 repository boundary`).
-- current authority: `MAJANDUS_BACKEND_AUTH_FOUNDATION_P4_D1_REPOSITORY` is open only for `functions/_lib/db.js` and `scripts/backend/db.test.mjs`, implementing the three repository operations fixed by `docs/superpowers/plans/2026-09-20-majandus-backend-auth-foundation.md`.
-- locked: Phase 5+ and every remote-resource, binding, remote-migration, deployment, client/runtime integration, and real-user-data action.
+- then-current authority: `MAJANDUS_BACKEND_AUTH_FOUNDATION_P4_D1_REPOSITORY` was open only for `functions/_lib/db.js` and `scripts/backend/db.test.mjs`, implementing the three repository operations fixed by `docs/superpowers/plans/2026-09-20-majandus-backend-auth-foundation.md`.
+- then-locked: Phase 5+ and every remote-resource, binding, remote-migration, deployment, client/runtime integration, and real-user-data action.
+
+### MAJANDUS_BACKEND_AUTH_P4_ACCEPT_AND_P5_SCOPE_OPEN
+
+- status: Phase 4 ACCEPTED; `MAJANDUS_BACKEND_AUTH_FOUNDATION_P5_DEVICE_AUTHENTICATION` OPEN FOR IMPLEMENTATION.
+- Phase 4 checkpoint: `50faf24667e560295dab37a26a33272b1ffaee1a` (`feat: add Majandus D1 repository foundation`). Phase 4 final audit: PASS; findings: none. Phase 1–4 regression: `37 passed`, `0 failed`, `0 skipped`.
+- Phase 5 writable scope: `functions/_lib/auth.js` and `scripts/backend/auth.test.mjs` only. It owns bearer parsing and token-syntax handling, `hashSecret("device-session", token)`, `findActiveSessionByHash(...)`, the authentication decision, separate 401 versus infrastructure-failure mapping, and trusted authentication-context construction.
+- Phase 4 remains repository-only: it receives a precomputed token hash and does not parse bearer credentials, hash plaintext bearer tokens, or decide authentication results.
+- locked: Phase 6 household-creation service; Phases 7-10; invite/join, recovery, device linking/revocation, sync, client/runtime integration, account management, legacy cleanup, remote D1, DB binding, remote migration, preview/production deployment, Cloudflare credentials, GitHub deployment workflow, and Wrangler deployment automation.
+- Foundation active-session rule remains: the session exists, `session.revoked_at IS NULL`, and `user.revoked_at IS NULL`; expiry, rotation, refresh tokens, renewal, and production real-user readiness are not opened.
 
 ### Phase A backend foundation authority
 **Staatus:** accepted
