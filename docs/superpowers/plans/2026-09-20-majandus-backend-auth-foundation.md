@@ -376,11 +376,43 @@ Expected: only the two named files are committed.
 
 **Interfaces:**
 - Consumes: Tasks 2-4.
-- Produces: parseBearerToken(request), authenticateDevice(request, db), requireAuthenticated(request, db); success is exactly { sessionId, userId, householdId, role }.
+- Produces exactly two public exports: `authenticateDevice(request, db)` and `requireAuthenticated(request, db)`. Bearer parsing, token validators, regexes/constants, generic authentication helpers, and error classes are module-private and must not be exported.
+
+`authenticateDevice(request, db)` reads only `request.headers`. It does not inspect query parameters, route parameters, request body, client state, or identity-selection headers. It evaluates only the string from `request.headers.get("Authorization")`; application code performs no trim, split-on-comma, URL decoding/re-encoding, Unicode normalization, or token case conversion.
+
+The complete Authorization value must match this grammar and nothing else:
+
+```text
+[Bb][Ee][Aa][Rr][Ee][Rr] m1s_[A-Za-z0-9_-]{43}
+```
+
+The scheme is ASCII-case-insensitive, followed by exactly one U+0020 SPACE. The token stays byte-for-byte case-sensitive and is exactly 47 characters: `m1s_` plus 43 characters from `A-Z`, `a-z`, `0-9`, `_`, and `-`. Do not additionally validate the final Base64URL tail character; do not decode and re-encode Base64URL. Reject missing/empty headers, wrong scheme, bare or missing credentials, extra/multiple whitespace or tabs, embedded credential whitespace, comma-bearing combined/multiple credentials, `m1r_`, wrong lengths/alphabet, padding `=`, and standard-base64 `+` or `/`. A syntax rejection must occur before `hashSecret(...)` and `findActiveSessionByHash(...)`.
+
+The only authentication pipeline is: (1) read Authorization, (2) validate the complete Bearer/header grammar, (3) extract the exact unchanged token, (4) call `hashSecret("device-session", token)`, (5) call `findActiveSessionByHash(db, tokenHash)`, (6) decide authentication, and (7) explicitly construct the trusted context. The repository receives only the precomputed token hash, never the plaintext token, Request, or Authorization header.
+
+Success returns a newly constructed object exactly shaped as:
+
+```js
+{ sessionId, userId, householdId, role }
+```
+
+Each field must be a non-empty string selected explicitly from the repository result; do not spread arbitrary repository data or add properties. A null repository result is a credential failure. A malformed non-null repository result is an internal/invariant failure: it must throw, must not become `null` or 401, and its error text must not contain a credential, hash, Authorization header, or repository field value. Phase 5 does not duplicate OWNER/MEMBER authorization policy.
+
+Missing or malformed Authorization, invalid token syntax, unknown canonical token, revoked session, revoked user, and invalid/missing household relationship intentionally collapse to exactly `null` from `authenticateDevice`. D1/query failure, missing/misconfigured DB binding, `crypto.subtle`/`hashSecret` failure, malformed non-null repository result, and programming/internal invariant failure propagate rather than becoming an authentication failure. Do not add defensive `if (!db) return null` logic or a catch-all conversion to `null`; a try/catch is permitted only when it preserves this observable propagation.
+
+`requireAuthenticated(request, db)` returns exactly `{ ok: true, context }` on success, where `context` is that exact trusted object. For every credential failure it returns exactly `{ ok: false, response }`, where `response` is:
+
+```js
+apiError(401, "UNAUTHORIZED", "Authentication required.", { "WWW-Authenticate": "Bearer" })
+```
+
+It never returns a bare Response or bare context. This canonical response preserves `Content-Type` and `Cache-Control: no-store`; it exposes no credential-failure detail. Infrastructure/internal failures propagate rather than returning a response.
+
+No Phase 5 return value, log entry, error text, or attached object may contain plaintext bearer material, token hashes, or Authorization headers. Token hash exists only as a local handoff from `hashSecret` to `findActiveSessionByHash`. Trusted `sessionId`, `userId`, `householdId`, and `role` come exclusively from successful repository authentication; query, body, route, custom-header, and client-state claims cannot select or override identity.
 
 - [ ] **Step 1: Write the failing test**
 
-Test absent/multiple/malformed header, malformed token, unknown token, revoked session/user, and valid token. Every rejection has equal 401 code/message; syntax invalidity performs no lookup.
+Test exact export surface; valid bearer context; repository-selected identity only; missing/empty/malformed/wrong-scheme/missing-credential/extra-whitespace/comma-combined/wrong-prefix/wrong-length/wrong-alphabet/padded/embedded-whitespace headers; and ASCII Bearer case variants. Syntax rejection must prove no hash where observable and no repository lookup. Prove the exact `device-session` hash domain, unchanged token handoff, repository receipt of only the precomputed hash, unknown/revoked session/revoked user `null` results, injected D1 failure propagation, missing DB loud failure, malformed non-null repository-result throw, and conflicting query/body/custom-header identity resistance. For `requireAuthenticated`, prove exact success/failure envelopes, a uniform 401 `UNAUTHORIZED`/`Authentication required.` response with `WWW-Authenticate: Bearer` and `Cache-Control: no-store`, and D1 failure propagation rather than a response. An independent known-vector/hash calculation is preferred over mirroring implementation logic.
 
     test("valid token yields only trusted context", async () => {
       assert.deepEqual(await authenticateDevice(requestWith(TOKEN), db),
@@ -395,13 +427,13 @@ Expected: FAIL because middleware is absent.
 
 - [ ] **Step 3: Implement middleware**
 
-Accept exactly one Bearer m1s secret, hash it as device-session, use Task 4 lookup, return the four trusted fields. requireAuthenticated maps every credential failure to apiError(401, "UNAUTHORIZED", "Authentication required.").
+Implement only the locked interface, whole-value Bearer grammar, unchanged token/hash handoff, trusted-result validation, exact context construction, uniform credential failure, canonical 401 wrapper, and infrastructure propagation. Add no exported plaintext-token parser, credential logging, client identity selection, session expiry/refresh/rotation/last-seen update, rate limiting, audit trail, recovery, device management, endpoint, remote D1, deployment, or client-runtime behavior.
 
 - [ ] **Step 4: Verify GREEN**
 
 Run: node --test scripts/backend/auth.test.mjs
 
-Expected: PASS; no enumeration and no client scope selection.
+Expected: PASS; exact two-export surface, no enumeration, no credential/hash leakage, no client scope selection, and no infrastructure-to-401 conversion.
 
 - [ ] **Step 5: Exact staging and commit**
 
