@@ -2,6 +2,19 @@
 
 ## Accepted checkpointid
 
+### MAJANDUS_BACKEND_AUTH_FOUNDATION_GOVERNANCE_RECONCILE_P4_SCOPE_OPEN
+- status: OPEN / IMPLEMENTATION NOT STARTED
+- baseline: `915ed9a320e4b5395f6e007d6af2db92c5eeb95d`
+- governance drift: during the pre-Phase-4 authority gate, the backend foundation plan and human-accepted Phase 1-3 checkpoints were found to have advanced while `ACTIVE_SCOPE_LOCK.md` and session-entry governance retained an earlier blanket backend/D1 lock. No Phase 4 implementation occurred after discovery. This reconciliation advances the authority documents; it does not retroactively claim the stale lock authorized the earlier commits.
+- accepted backend history:
+  - Phase 1: `6d3496177a6c8ca1857c4081d900be69a0bbfeeb` (`feat: add Majandus backend D1 auth foundation schema`) — D1 schema, strict exactly-one OWNER invariant, token/recovery hash constraints, and local D1 migration/security tests (`13 passed`, `0 failed`, `0 skipped`).
+  - Foundation contract hardening: `f6fe07bc73a6b65c263ff2420e764b600a3dd843` (`docs: harden Majandus backend foundation contracts`) — Pro-review amendments and the 10A/10B/10C distinction.
+  - Phase 2: `8a696c240bfbfb93395b85a98b55fbfeb487e328` (`feat: add Majandus backend HTTP primitives`) — strict HTTP helpers, streamed 8192-byte body cap, request validation, and server IDs (`8 passed`, `0 failed`, `0 skipped`).
+  - Phase 3: `9a1bb5aea3a15a844a38d8651904740e953e20e7` (`feat: add Majandus token crypto primitives`) — 256-bit opaque device tokens/recovery codes, domain-separated SHA-256, and canonical token-hash validation (crypto `8 passed`; combined Phase 2+3 `16 passed`; `0 failed`, `0 skipped`).
+  - Phase 4 contract checkpoint: `915ed9a320e4b5395f6e007d6af2db92c5eeb95d` (`docs: lock Majandus Phase 4 repository boundary`).
+- current authority: `MAJANDUS_BACKEND_AUTH_FOUNDATION_P4_D1_REPOSITORY` is open only for `functions/_lib/db.js` and `scripts/backend/db.test.mjs`, implementing the three repository operations fixed by `docs/superpowers/plans/2026-09-20-majandus-backend-auth-foundation.md`.
+- locked: Phase 5+ and every remote-resource, binding, remote-migration, deployment, client/runtime integration, and real-user-data action.
+
 ### Phase A backend foundation authority
 **Staatus:** accepted
 
@@ -517,7 +530,7 @@
 - production smoke: Majandus shell, Kodu, Kalender and Seaded PASS; unexpected visible storage/error state NONE.
 - deployment policy preserved: `production_branch: main`; `production_deployments_enabled: false`. Future production releases remain deliberate/manual unless a separately accepted deployment-policy scope changes the policy.
 - historical truth: the earlier accidental C6 production timeline remains incident evidence; it was not relabeled as C8 acceptance and was not rolled back to pre-C6. C7 forensic/destructive drills remain **WAIVED BY HUMAN FOR FINAL ACCEPTANCE GATE; NOT EXECUTED**.
-- remaining separate work: backend/D1, authentication, sync, outbox UI, legacy cleanup/deletion and automatic-production-deployment policy.
+- remaining separate work: except for the explicitly open Phase 4 two-file local repository scope, backend/D1, authentication, sync, outbox UI, legacy cleanup/deletion and automatic-production-deployment policy.
 
 ### 1. Initial governance baseline
 **Staatus:** accepted
