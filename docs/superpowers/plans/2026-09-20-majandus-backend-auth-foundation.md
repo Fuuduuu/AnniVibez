@@ -449,11 +449,25 @@ Expected: only the two named files are committed.
 
 **Interfaces:**
 - Consumes: Task 2 validation/IDs, Task 3 secrets, Task 4 batch insertion.
-- Produces: createHousehold({ db, input, clock }) and publicHouseholdCreation(result).
+- Produces exactly `createHousehold({ db, input, clock })` and `publicHouseholdCreation(result)`; no record-builder, generator, projection helper, constant, or error-class export.
+
+`createHousehold` always validates `input` itself with `validateCreateHouseholdInput(input)`. Validation failure returns exactly `{ ok: false, code: "INVALID_REQUEST" }`; it creates no IDs/secrets, calls no clock/hash/repository operation, and exposes no secret/detail. The validator's normalized value is the sole authority for client-controlled persisted fields, so authority fields including role, revision, IDs and timestamps are rejected before generation.
+
+For a valid attempt the order is fixed: validate; generate `newId("hld")`, `newId("usr")`, `newId("ses")`; generate one device token and recovery code; call the required zero-argument `clock()` once; validate its canonical UTC `YYYY-MM-DDTHH:mm:ss.sssZ` string; hash the unchanged secrets with `hashSecret("device-session", deviceToken)` and `hashSecret("household-recovery", recoveryCode)`; explicitly construct the record; invoke `insertHouseholdCreation(db, record)` once; then construct and return success. No automatic retry, regeneration, or later operation after an earlier failure is permitted.
+
+The one valid clock result supplies every initial service timestamp, including `createdAt`, `updatedAt`, and `lastSeenAt`. Non-string, empty, invalid, or non-canonical clock output throws a fixed input-independent invariant error before repository invocation; a thrown clock error propagates unchanged. No implicit default clock is permitted.
+
+The persisted record is exactly `{ householdId, householdName, householdAddress, ownerUserId, revision, createdAt, updatedAt, userName, role, sessionId, tokenHash, deviceName, lastSeenAt, recoveryHash }`. IDs are generated, `ownerUserId` is the same ID used for the user and household owner pointer, `revision` is `1`, `role` is `OWNER`, and timestamps share the one clock value. Use explicit assignment; never spread input. `insertHouseholdCreation` resolves `undefined`, so no returned row is expected.
+
+Internal successful creation returns exactly `{ household: { id, name, address, revision, createdAt, updatedAt }, account: { userId, displayName, role }, deviceSession: { id, deviceName, createdAt }, secrets: { deviceToken, recoveryCode } }`. `publicHouseholdCreation(result)` is synchronous, pure, non-mutating, explicit projection only, and returns exactly `{ account: { userId, displayName, role }, household: { id, name, address, revision, createdAt, updatedAt }, deviceSession: { id, deviceName, createdAt, token }, recovery: { code } }`. It maps token/code from `result.secrets`, excludes hashes/internal extras, and throws a fixed invariant error for malformed required internal fields.
+
+Plaintext token/code exist only to hash, persist hashes, and build the successful initial result. They never enter the record, repository/db module, logs, errors, global/cache/retry state, change_log, applied_mutations, or a failure result. The exact public credential is the credential whose hash was persisted. Pre-repository failures yield zero repository calls; repository/batch failures propagate their original error unchanged, have at most one repository call, return no result/credentials, and trigger no retry, regeneration, wrapping, or compensating persistence.
+
+Creation is NON-IDEMPOTENT. It has no conflict result, duplicate name/address rule, mutation key, replay buffer, retry loop, or applied-mutations semantics; random ID/hash constraint failures are infrastructure failures. Phase 6 constructs no HTTP response/status. Future HTTP 409 and unknown-result network handling require a later explicit Phase 7 contract.
 
 - [ ] **Step 1: Write the failing test**
 
-Use local D1 success and injected fourth-batch failure. Assert one household, exactly one active OWNER, a matching owner pointer, one session, one recovery row, optional address, no plaintext DB secrets, and no partial state on invalid/failing creation. The successful batch order is household row with future OWNER id, OWNER user, session/token row, recovery row; the owner-pointer FK is deferred and the remaining parent FKs remain restrictive.
+Use local D1 success and injected batch failure. Assert one household, exactly one active OWNER, a matching owner pointer, one session, one recovery row, optional address, no plaintext DB secrets, and no partial state on invalid/failing creation. Cover exact exports; validation before all generation/repository work; one coherent clock; independent token/recovery SHA-256 correspondence; record-only hashes; public projection without extras/hashes; malformed projection throw; and unchanged repository-error propagation with one call/no retry. The successful batch order is household row with future OWNER id, OWNER user, session/token row, recovery row; the owner-pointer FK is deferred and the remaining parent FKs remain restrictive.
 
     test("failed fourth statement leaves no partial household", async () => {
       const before = await creationCounts(db);
@@ -469,7 +483,7 @@ Expected: FAIL because service is absent.
 
 - [ ] **Step 3: Implement one-batch creation**
 
-Generate IDs/secrets once, derive hashes, take one ISO time, set household revision 1, and execute the four inserts in the specified owner-pointer-safe order. Return public contract only after batch resolves. D1 failure becomes a private service error. Do not write change_log or applied_mutations.
+Generate IDs/secrets once, validate input internally, take and validate one ISO time, derive exact hashes, explicitly construct the fixed record, and execute the accepted one repository operation. Return the internal result only after batch resolves; propagate D1/repository errors unchanged. Do not write change_log or applied_mutations, add conflict logic, retries, credential replay state, HTTP mapping, or a Phase 7 endpoint.
 
 - [ ] **Step 4: Verify GREEN**
 
@@ -510,7 +524,7 @@ Expected: FAIL because route is absent.
 
 - [ ] **Step 3: Implement transport adapter**
 
-Require env.DB, validate exact JSON, call Task 6 once, and use no-store JSON. Map input to 400, valid service conflict to 409, missing binding/unexpected D1 to generic 500. Never log request or credentials.
+Require env.DB, validate exact JSON, call Task 6 once, and use no-store JSON. Map invalid input to 400; Phase 6 has no valid service-conflict/409 result. Missing binding or unexpected D1/repository failure remains generic 500. Never log request or credentials.
 
 - [ ] **Step 4: Verify GREEN**
 
