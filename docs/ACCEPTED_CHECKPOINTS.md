@@ -39,6 +39,14 @@
 - Phase 6 must not parse `Authorization`, authenticate bearer tokens, change authentication failure semantics, or implement session expiry, rotation or refresh tokens. Phase 5 architecture is closed and is not reopened.
 - locked: Phases 7-10, including the Phase 7 create-household endpoint, the Phase 8 session endpoint, Phase 9 integration regression and Phase 10 external execution; invite/join, recovery, device linking/revocation, sync, client auth/runtime integration, account management, legacy cleanup, remote D1, DB binding, remote migration, preview/production deployment, Cloudflare credentials, GitHub deployment workflow, and Wrangler deployment automation.
 
+### MAJANDUS_BACKEND_P6_ACCEPT_AND_P7_SCOPE_OPEN
+
+- status: Phase 6 ACCEPTED; `MAJANDUS_BACKEND_AUTH_FOUNDATION_P7_CREATE_HOUSEHOLD_ENDPOINT` OPEN FOR IMPLEMENTATION.
+- Phase 6 checkpoint: `63981e14903cac077471b6e6911664d73cd94448` (`feat: add Majandus household creation foundation`). Independent final audit: PASS; BLOCKING `0`; MATERIAL `0`; Phase 1–6 regression `54 passed`, `0 failed`, `0 skipped`. The non-blocking clock-test MINOR does not prevent acceptance.
+- Accepted Phase 6 contract, now protected: `functions/_lib/households.js` and `scripts/backend/households.test.mjs`; exact `createHousehold({ db, input, clock })` / `publicHouseholdCreation(result)` API; self-validation and `INVALID_REQUEST`; one canonical clock and one-time generation; explicit 14-field hash-only record; plaintext credentials never persisted; returned credentials correspond to persisted hashes; original repository errors propagate; NON-IDEMPOTENT with no conflict or automatic retry.
+- Phase 7 writable scope: `functions/api/auth/create-household.js` and `scripts/backend/create-household-api.test.mjs` only. It is the `/api/auth/create-household` Pages transport adapter: POST `onRequestPost({ request, env })`, generic non-POST 405 with `Allow: POST`, accepted capped JSON transport, `env.DB` plus one Phase 6 service call, public 201/no-store response, safe `INVALID_REQUEST`/400 and generic `INTERNAL_ERROR`/500 mapping. No Phase 7 409/conflict, duplicate-name/address, retry, replay, mutation-key, credential-generation, hashing, SQL, or persistence logic is authorized.
+- locked: Phase 8+ (session endpoint, integration regression, external execution, invite/join, recovery, device linking/revocation, sync, outbox, client/runtime integration, account management, legacy cleanup) and all remote D1/binding/migration/deployment/credential/GitHub-workflow/Wrangler automation. Real-user readiness remains closed.
+
 ### Phase A backend foundation authority
 **Staatus:** accepted
 
