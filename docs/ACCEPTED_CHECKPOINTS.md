@@ -24,6 +24,21 @@
 - locked: Phase 6 household-creation service; Phases 7-10; invite/join, recovery, device linking/revocation, sync, client/runtime integration, account management, legacy cleanup, remote D1, DB binding, remote migration, preview/production deployment, Cloudflare credentials, GitHub deployment workflow, and Wrangler deployment automation.
 - Foundation active-session rule remains: the session exists, `session.revoked_at IS NULL`, and `user.revoked_at IS NULL`; expiry, rotation, refresh tokens, renewal, and production real-user readiness are not opened.
 
+### MAJANDUS_BACKEND_AUTH_P5_ACCEPT_AND_P6_SCOPE_OPEN
+
+- status: Phase 5 ACCEPTED; `MAJANDUS_BACKEND_AUTH_FOUNDATION_P6_HOUSEHOLD_CREATION` OPEN FOR IMPLEMENTATION.
+- Phase 5 checkpoint: `4331e117fa2be759ab0661d3f85d76c8356b58cd` (`feat: add Majandus authentication foundation`), following the Phase 5 contract-hardening checkpoint `82bb0d25c93a3f81d12f6dcf4677a2bac2448511` (`docs: harden Majandus Phase 5 auth contract`).
+- Phase 5 evidence: implementation audit PASS; independent repair re-audit PASS; BLOCKING findings `0`; MATERIAL findings `0`; MINOR findings requiring action `0`; Phase 1–5 regression `47 passed`, `0 failed`, `0 skipped`.
+- Accepted Phase 5 contract, unchanged and now protected: `functions/_lib/auth.js` exports exactly `authenticateDevice(request, db)` and `requireAuthenticated(request, db)`; credential failures collapse uniformly; infrastructure failures propagate and never become `null` or 401; the trusted context is repository-derived; plaintext credentials never cross the repository boundary.
+- Phase 6 writable scope: `functions/_lib/households.js` and `scripts/backend/households.test.mjs` only, exactly as fixed by Task 6 of `docs/superpowers/plans/2026-09-20-majandus-backend-auth-foundation.md`. No Phase 6 file is created by this docs pass.
+- Phase 6 public API: `createHousehold({ db, input, clock })` and `publicHouseholdCreation(result)`. No other public export is authorized.
+- Phase 6 responsibility: ID generation, plaintext device-token and recovery-code generation, hashing, one ISO timestamp, household revision `1`, construction of the persisted creation record, one repository creation operation, and the public household-creation result. It orchestrates accepted Phase 2 validation/IDs, Phase 3 crypto and Phase 4 repository primitives and duplicates none of them.
+- Phase 6 secret boundary: the plaintext device token and recovery code exist only as service-layer values required to produce the initial public creation result. The repository still receives only `tokenHash` and `recoveryHash`. The Phase 4 repository contract is unchanged; plaintext persistence and plaintext replay storage remain forbidden.
+- Phase 6 atomicity: one `DB.batch` in the accepted owner-pointer-safe order — household row carrying the future OWNER member id, OWNER user row, device-session/token row, recovery row — with the deferred owner-pointer foreign key and ordinary restrictive parent foreign keys. No manual BEGIN/COMMIT or assumed transaction API. Do not write `change_log` or `applied_mutations`.
+- Creation remains NON-IDEMPOTENT: an unknown-result create MUST NOT be auto-retried, and household name/address is not a duplicate key. Household-name duplicate detection, address duplicate detection, `applied_mutations` retry semantics, plaintext-token replay storage and automatic retry remain forbidden. Real-user onboarding remains blocked pending a separately accepted continuation/idempotency/recovery design.
+- Phase 6 must not parse `Authorization`, authenticate bearer tokens, change authentication failure semantics, or implement session expiry, rotation or refresh tokens. Phase 5 architecture is closed and is not reopened.
+- locked: Phases 7-10, including the Phase 7 create-household endpoint, the Phase 8 session endpoint, Phase 9 integration regression and Phase 10 external execution; invite/join, recovery, device linking/revocation, sync, client auth/runtime integration, account management, legacy cleanup, remote D1, DB binding, remote migration, preview/production deployment, Cloudflare credentials, GitHub deployment workflow, and Wrangler deployment automation.
+
 ### Phase A backend foundation authority
 **Staatus:** accepted
 
