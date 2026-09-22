@@ -511,6 +511,8 @@ The public handler signature remains exactly `onRequestPost({ request, env })`; 
 
 Task 7 directly verifies the exported handler contract only: `onRequestPost(...)` covers the POST outcomes, and generic `onRequest(...)` covers representative non-POST outcomes with exact `405`, `Allow: POST`, canonical JSON, and `Cache-Control: no-store`. It must not represent direct invocation as actual Cloudflare Pages routing verification, add a Pages emulator dependency, modify package files, or create a router harness outside these two files. Actual Pages file/method dispatch verification is mandatory Phase 9 work.
 
+Every Phase 7 request or validation failure maps exactly to `apiError(400, "INVALID_REQUEST", "Invalid request.")`; no validation reason, field, detail, cause, or validator text is public. Every unexpected, infrastructure, clock, repository, crypto, projection-invariant, or programming failure maps exactly to `apiError(500, "INTERNAL_ERROR", "Internal server error.")`; no error message, stack, cause, SQL/D1 detail, identifier, credential, hash, or internal result is public. The existing canonical `405`/`METHOD_NOT_ALLOWED` message and `Allow: POST` remain unchanged. Phase 7 has only 201, 400, 405, and 500 public status classes: no 401, 403, 404, 409, or 422 path is authorized.
+
 - [ ] **Step 1: Write the failing test**
 
 Cover 201, 405 Allow POST, bad JSON/body, missing/oversized fields, forged identity fields, optional address, missing binding/D1 failure, and response secret redaction.
@@ -528,7 +530,7 @@ Expected: FAIL because route is absent.
 
 - [ ] **Step 3: Implement transport adapter**
 
-Require env.DB, validate exact JSON, call Task 6 once with the locked production clock `() => new Date().toISOString()`, and use no-store JSON. Map invalid input to 400; Phase 6 has no valid service-conflict/409 result. Missing binding or unexpected D1/repository/clock failure remains generic 500. Never log request or credentials.
+Require env.DB, validate exact JSON, call Task 6 once with the locked production clock `() => new Date().toISOString()`, and use no-store JSON. Map invalid input to exactly `apiError(400, "INVALID_REQUEST", "Invalid request.")`; Phase 6 has no valid service-conflict/409 result. Map missing binding or unexpected D1/repository/clock failure to exactly `apiError(500, "INTERNAL_ERROR", "Internal server error.")`. Never log request or credentials.
 
 - [ ] **Step 4: Verify GREEN**
 
