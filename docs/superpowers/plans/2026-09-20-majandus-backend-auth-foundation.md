@@ -507,6 +507,10 @@ Expected: only the two named files are committed.
 - Consumes: Tasks 2 and 6.
 - Produces: onRequestPost({ request, env }) at /api/auth/create-household.
 
+The public handler signature remains exactly `onRequestPost({ request, env })`; no clock parameter, dependency-injection object, test-only clock export, mutable global clock, or environment clock binding is permitted. For each valid production request, Task 7 calls Task 6 exactly once as `createHousehold({ db: env.DB, input, clock: () => new Date().toISOString() })`. This is the production wall-clock authority. Task 6 remains responsible for requiring one zero-argument call and validating the returned canonical `YYYY-MM-DDTHH:mm:ss.sssZ` value; Task 7 must not pass a `Date`, epoch value, client/body/header time, or add a Phase 6 default clock. Tests need not pin an exact wall-clock value, but may verify canonical and internally coherent returned timestamps.
+
+Task 7 directly verifies the exported handler contract only: `onRequestPost(...)` covers the POST outcomes, and generic `onRequest(...)` covers representative non-POST outcomes with exact `405`, `Allow: POST`, canonical JSON, and `Cache-Control: no-store`. It must not represent direct invocation as actual Cloudflare Pages routing verification, add a Pages emulator dependency, modify package files, or create a router harness outside these two files. Actual Pages file/method dispatch verification is mandatory Phase 9 work.
+
 - [ ] **Step 1: Write the failing test**
 
 Cover 201, 405 Allow POST, bad JSON/body, missing/oversized fields, forged identity fields, optional address, missing binding/D1 failure, and response secret redaction.
@@ -524,7 +528,7 @@ Expected: FAIL because route is absent.
 
 - [ ] **Step 3: Implement transport adapter**
 
-Require env.DB, validate exact JSON, call Task 6 once, and use no-store JSON. Map invalid input to 400; Phase 6 has no valid service-conflict/409 result. Missing binding or unexpected D1/repository failure remains generic 500. Never log request or credentials.
+Require env.DB, validate exact JSON, call Task 6 once with the locked production clock `() => new Date().toISOString()`, and use no-store JSON. Map invalid input to 400; Phase 6 has no valid service-conflict/409 result. Missing binding or unexpected D1/repository/clock failure remains generic 500. Never log request or credentials.
 
 - [ ] **Step 4: Verify GREEN**
 
@@ -591,7 +595,7 @@ Expected: only the two named files are committed.
 
 **Interfaces:**
 - Consumes: Tasks 1-8 and local D1 fixture.
-- Produces: one full regression command and protected-runtime source guard.
+- Produces: one full regression command, protected-runtime source guard, and the mandatory actual Pages-compatible routing/runtime verification. That verification must prove file/method dispatch: POST `/api/auth/create-household` reaches `onRequestPost`; GET and representative other methods reach the non-POST path and preserve `405` with `Allow: POST`. Calling exported handlers directly is insufficient. Phase 9 may use only the then-approved integration/runtime mechanism; if no suitable Pages-compatible mechanism exists, it must STOP for an explicit integration-infrastructure decision rather than add a dependency or silently downgrade to direct-handler tests.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -614,7 +618,7 @@ Expected: FAIL until all previous interfaces connect.
 
 - [ ] **Step 3: Add test-only integration wiring**
 
-Use same local fixture, fixed clock, env.DB fake. Add no production behavior. Source guard compares changed paths with Task 1 baseline and rejects every src/storage path or runtime import.
+Use same local fixture, fixed clock, env.DB fake, and the then-approved Pages-compatible routing/runtime mechanism for the required file/method dispatch test. Add no production behavior. Source guard compares changed paths with Task 1 baseline and rejects every src/storage path or runtime import. If the routing/runtime mechanism is unavailable or unapproved, STOP rather than substitute direct-handler invocation.
 
 - [ ] **Step 4: Verify GREEN**
 
