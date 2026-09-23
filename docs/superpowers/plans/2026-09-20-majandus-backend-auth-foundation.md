@@ -55,11 +55,11 @@ The Phase 6 creation operation remains atomic but intentionally non-idempotent. 
 
 ### Tasks 7-8: Pages routing and session projection
 
-Create-household routing must prove actual Pages behavior: `onRequestPost` handles POST and generic `onRequest` handles every method without a more-specific handler as safe 405 with `Allow: POST`. HEAD and OPTIONS are 405; no permissive CORS is added. Tests use a local Pages-router/integration path rather than calling `onRequestPost` with a fake GET.
+Phase 7 and Phase 8 permanent endpoint tests verify exported handlers directly. They do not claim actual Pages file/method dispatch. Phase 7 uses `onRequestPost(...)` for POST and generic `onRequest(...)` for representative non-POST outcomes; Phase 8 uses `onRequestGet(...)` for GET and generic `onRequest(...)` only for non-GET outcomes. Neither phase adds a router harness or dependency. Actual Pages-compatible file/method routing for both endpoints belongs to Phase 9 as specified under Task 9.
 
-Session routing follows the same pattern: `onRequestGet` handles GET and generic `onRequest` returns safe 405 with `Allow: GET` for every other method, including HEAD and OPTIONS. Its local tests prove actual Pages routing.
+The session endpoint is read-only. Its exact handler, authentication, trusted metadata lookup, response, error, and test contracts are fixed in Task 8 below. Its direct-handler tests must not treat generic `onRequest` called with GET as evidence of Pages dispatch. Phase 9 must determine the actual runtime behavior for HEAD rather than assuming direct-handler behavior.
 
-The session endpoint remains a minimal trusted projection containing at least `session.id`, `account.userId`, `account.role`, and `household.id`; accepted display metadata may remain only where its existing consumer contract requires it. It never exposes a bearer token, token hash, recovery code/hash, internal OWNER marker, SQL, stack trace, or a household selected by query/body. Any lookup is scoped solely from authenticated trusted context.
+The session success body is exactly the full safe Phase 4 metadata projection specified under the API contract below. It never exposes a bearer token, token hash, recovery code/hash, internal OWNER marker, SQL, stack trace, raw DB row, separate trusted-context object, or a household selected by query/body. Any lookup is scoped solely from explicitly selected Phase 5 trusted context.
 
 Task 7 may implement unauthenticated create-household locally, but that does not authorize public user onboarding. Before real-user creation is reachable, a separate publication/abuse-control decision is required; controlled technical deployment may use operator/environment restriction. Do not add a rate-limiting dependency to this foundation.
 
@@ -122,7 +122,7 @@ Success is 201 and exactly this shape:
 
 Token and recovery plaintext occur only in that one success response. A later client-auth scope may write the existing IndexedDB auth record { key: "deviceSession", sessionId, serverUserId, serverHouseholdId, role, deviceToken, createdAt }; it must never store recovery code, put auth in outbox, or make runtime depend on backend.
 
-GET /api/auth/session authenticates first and returns only safe metadata:
+GET /api/auth/session returns status 200 and exactly this safe metadata body after successful authentication and metadata lookup:
 
     {
       "session": { "id": "ses_...", "deviceName": "Mari telefon", "createdAt": "...", "lastSeenAt": "..." },
@@ -131,6 +131,8 @@ GET /api/auth/session authenticates first and returns only safe metadata:
     }
 
 Error codes are INVALID_REQUEST (400), UNAUTHORIZED (401), METHOD_NOT_ALLOWED (405), CONFLICT (409), and INTERNAL_ERROR (500). Missing, malformed, unknown, revoked-session, and revoked-user tokens get the same 401 envelope.
+
+For the session endpoint, successful JSON uses `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`. Its canonical 401 is `UNAUTHORIZED` / `Authentication required.` with `WWW-Authenticate: Bearer`; its non-GET 405 is `METHOD_NOT_ALLOWED` / `Method not allowed.` with `Allow: GET`; and its internal 500 is `INTERNAL_ERROR` / `Internal server error.`. All use the existing JSON error envelope and no-store headers.
 
 ## D1 and token design
 
@@ -544,7 +546,7 @@ Run: git add -- functions/api/auth/create-household.js scripts/backend/create-ho
 
 Expected: only the two named files are committed.
 
-### Task 8: Authenticated session Pages Function
+### Task 8: Authenticated session Pages Function — exact locked contract
 
 **Files:**
 - Create: functions/api/auth/session.js
@@ -553,16 +555,40 @@ Expected: only the two named files are committed.
 **Interfaces:**
 - Consumes: Tasks 2, 4, 5.
 - Produces: onRequestGet({ request, env }) at /api/auth/session.
+- The module exports exactly `onRequestGet` and `onRequest`; signatures are `onRequestGet({ request, env })` and `onRequest({ request })`. No default export or exported auth, metadata, projection, test-seam, or constant helper is allowed.
+
+**Authentication and DB order:**
+- Read `env?.DB` first. If `env` or `DB` is missing/falsy, return the canonical 500 before attempting authentication. Do not use a fallback DB.
+- Call exactly `requireAuthenticated(request, db)`. Do not call `authenticateDevice` directly, parse/extract/hash Authorization, call `findActiveSessionByHash`, or reconstruct ordinary credential-failure responses.
+- If the result is `{ ok: false, response }`, return that Phase 5 response unchanged.
+- On `{ ok: true, context }`, construct exactly `{ sessionId: context.sessionId, userId: context.userId, householdId: context.householdId }` and call `findSessionMetadataByTrustedContext(db, trustedContext)` once. Explicit selection is required; do not spread `context`, pass `role`, or use query, body, header, route, or client-state selectors.
+
+**Metadata result and response:**
+- If the metadata repository returns `null` after successful authentication, return the same canonical 401 contract as an ordinary authentication failure. This represents trusted state becoming invalid between the authentication and metadata queries. A thrown repository/D1 error remains an internal failure and must never become 401.
+- On a valid metadata result, return status 200 using the accepted JSON helper and exactly the API-contract body above. Explicitly project fields; do not return a raw DB row, blindly spread the metadata object, add trusted context separately, or add fields.
+- The 200 headers are exactly `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-store`. `lastSeenAt` is returned as metadata only; GET performs no writes.
+
+**Canonical errors and method behavior:**
+- The session endpoint emits only 200, 401, 405, and 500. It has no 400, 409, or other public status path.
+- Ordinary authentication failure returns the Phase 5 response unchanged: `401`, `UNAUTHORIZED`, `Authentication required.`, `WWW-Authenticate: Bearer`, JSON content type, and no-store. The metadata-null path uses the identical status, body, and headers.
+- Generic `onRequest({ request })` calls `requireMethod(request, "GET")`. For non-GET requests it returns `405`, `METHOD_NOT_ALLOWED`, `Method not allowed.`, `Allow: GET`, JSON content type, and no-store. Its direct-handler contract is only the non-GET path; do not call it with GET as proof of Pages dispatch.
+- Missing/falsy DB, thrown auth or Web Crypto infrastructure failure, metadata D1 failure, and programming/projection invariant failure all produce exactly `apiError(500, "INTERNAL_ERROR", "Internal server error.")`. No raw error detail is public. A catch-all may surround GET orchestration; it must not expose or use the caught error in the response.
+- No error or success response may expose Authorization, bearer credentials, token hashes, recovery code/hash, raw DB rows, internal OWNER markers, SQL, stacks, or internal trusted context beyond the exact public fields.
+
+**Permanent direct-handler test contract:**
+- Test exactly the export surface. The test file must state: `Direct handler contract only. Actual Cloudflare Pages file/method dispatch is mandatory Phase 9 work.`
+- Use local D1 and accepted seeding for a valid bearer success. Assert the exact 200 body/headers and absence of secret/internal fields. Representative missing, malformed, and unknown credentials must produce byte-identical canonical 401 responses; Phase 5's full parser matrix is not duplicated.
+- For session revocation, prove a 200 positive control, revoke that session, then prove the same token returns canonical 401. For user revocation, use an active MEMBER identity, prove 200, revoke that MEMBER, then prove the same token returns canonical 401; do not revoke the sole OWNER.
+- Cover metadata-null-after-auth with a wrapper that lets authentication succeed and returns null only for the metadata lookup. Include a positive control and assert the canonical 401 is byte-identical to the ordinary auth-failure response. A thrown metadata query must instead return canonical 500 with no raw error text.
+- Test missing DB with both no bearer and a well-formed bearer; both are canonical 500, never 401. Inject an auth-path D1 failure and verify canonical 500, no raw message, and never 401.
+- Seed two real identities. Authenticate as A while query and custom-header selectors contain B's real session/user/household IDs and role; assert exact A metadata. GET does not need a request-body injection test.
+- Directly invoke generic `onRequest` for POST, HEAD, OPTIONS, PUT, and DELETE; assert the canonical 405 and `Allow: GET`. Use a DB/auth trap where useful. Do not invoke generic `onRequest` with GET.
+- Record `device_sessions.last_seen_at` before successful GET and assert it is unchanged afterward. Assert exact public key sets and absence of credentials, hashes, recovery material, internal errors, and raw DB details from 200/401/405/500 responses.
+- Keep `session.js` on accepted HTTP, Phase 5 auth, and Phase 4 metadata APIs only. It must contain no token hashing, active-session query, direct SQL/D1 statement/batch, identity selection, logging, or write/update behavior.
 
 - [ ] **Step 1: Write the failing test**
 
-Cover valid metadata, bad/unknown/revoked credential, revoked user, wrong method, forged household/role query fields, and scan body for token/hash/recovery/SQL/stack leaks.
-
-    test("query household cannot alter trusted household", async () => {
-      const response = await onRequestGet(contextFor("/api/auth/session?householdId=hld_other", VALID_TOKEN));
-      assert.equal(response.status, 200);
-      assert.equal((await response.json()).household.id, "hld_trusted");
-    });
+Implement the permanent direct-handler matrix above, using real alternate identities for injection and positive controls before revocation/null-state assertions.
 
 - [ ] **Step 2: Verify RED**
 
@@ -572,13 +598,13 @@ Expected: FAIL because route is absent.
 
 - [ ] **Step 3: Implement trusted projection**
 
-Require GET and env.DB; authenticate before response selection; return only contract safe fields. No household selector is accepted and no fallback trusts client data.
+Implement the exact handler, DB-before-auth order, Phase 5 authentication handoff, Phase 4 trusted metadata lookup, response projection, error mapping, and read-only boundary specified above. No client selector may participate in repository lookup.
 
 - [ ] **Step 4: Verify GREEN**
 
 Run: node --test scripts/backend/session-api.test.mjs
 
-Expected: PASS; valid context is trusted and all bad credentials return safe 401.
+Expected: PASS; the permanent direct-handler matrix above is covered, and no test claims to prove actual Pages dispatch.
 
 - [ ] **Step 5: Exact staging and commit**
 
@@ -597,7 +623,12 @@ Expected: only the two named files are committed.
 
 **Interfaces:**
 - Consumes: Tasks 1-8 and local D1 fixture.
-- Produces: one full regression command, protected-runtime source guard, and the mandatory actual Pages-compatible routing/runtime verification. That verification must prove file/method dispatch: POST `/api/auth/create-household` reaches `onRequestPost`; GET and representative other methods reach the non-POST path and preserve `405` with `Allow: POST`. Calling exported handlers directly is insufficient. Phase 9 may use only the then-approved integration/runtime mechanism; if no suitable Pages-compatible mechanism exists, it must STOP for an explicit integration-infrastructure decision rather than add a dependency or silently downgrade to direct-handler tests.
+- Produces: one full regression command, protected-runtime source guard, and the mandatory actual Pages-compatible routing/runtime verification for both endpoints, as detailed below. It must prove file/method dispatch rather than only exported-handler calls. Phase 9 may use only the then-approved integration/runtime mechanism; if no suitable Pages-compatible mechanism exists, it must STOP for an explicit integration-infrastructure decision rather than add a dependency or silently downgrade to direct-handler tests.
+
+The Phase 9 Pages-routing verification covers both endpoints:
+- For `/api/auth/create-household`, prove POST dispatches to `onRequestPost` rather than terminating through generic `onRequest`; exercise GET, HEAD, OPTIONS, PUT, and DELETE through the actual runtime and verify intended non-POST behavior plus `Allow: POST` where the generic 405 applies.
+- For `/api/auth/session`, prove GET dispatches to `onRequestGet` rather than generic `onRequest`; exercise POST, HEAD, OPTIONS, PUT, and DELETE through the actual runtime. Methods handled by generic `onRequest` must preserve `405` and `Allow: GET`. Determine and record actual HEAD behavior; if the runtime maps HEAD to GET, test and document that behavior rather than assuming the direct generic-handler 405.
+- Direct handler invocation is insufficient for this routing requirement. Use only an approved Pages-compatible runtime/router mechanism. If none exists, STOP for an explicit integration-infrastructure decision; do not add a dependency or router harness as a substitute.
 
 - [ ] **Step 1: Write the failing test**
 
