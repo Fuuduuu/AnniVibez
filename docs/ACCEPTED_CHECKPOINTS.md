@@ -47,6 +47,15 @@
 - Phase 7 writable scope: `functions/api/auth/create-household.js` and `scripts/backend/create-household-api.test.mjs` only. It is the `/api/auth/create-household` Pages transport adapter: POST `onRequestPost({ request, env })`, generic non-POST 405 with `Allow: POST`, accepted capped JSON transport, `env.DB` plus one Phase 6 service call, public 201/no-store response, safe `INVALID_REQUEST`/400 and generic `INTERNAL_ERROR`/500 mapping. No Phase 7 409/conflict, duplicate-name/address, retry, replay, mutation-key, credential-generation, hashing, SQL, or persistence logic is authorized.
 - locked: Phase 8+ (session endpoint, integration regression, external execution, invite/join, recovery, device linking/revocation, sync, outbox, client/runtime integration, account management, legacy cleanup) and all remote D1/binding/migration/deployment/credential/GitHub-workflow/Wrangler automation. Real-user readiness remains closed.
 
+### MAJANDUS_BACKEND_P7_ACCEPT_AND_P8_SCOPE_OPEN
+
+- status: Phase 7 ACCEPTED; `MAJANDUS_BACKEND_AUTH_FOUNDATION_P8_SESSION_ENDPOINT` OPEN FOR IMPLEMENTATION.
+- Phase 7 checkpoint: `85d8488ec3752037d702464c833c21038520fa02` (`feat: add Majandus household creation endpoint`). Phase 7 implementation/re-audit: PASS; BLOCKING requiring action `0`; MATERIAL requiring action `0`; non-blocking MINOR notes `2`; Phase 1–7 regression `62 passed`, `0 failed`, `0 skipped`.
+- Accepted Phase 7 evidence is the direct-handler contract only. Actual Cloudflare Pages file/method dispatch is NOT yet accepted and remains mandatory Phase 9 work for both `/api/auth/create-household` and `/api/auth/session`.
+- Accepted and protected Phase 7 files: `functions/api/auth/create-household.js` and `scripts/backend/create-household-api.test.mjs`. Preserve its 201 success, canonical 400/405/500 responses and `Allow: POST`, production clock `() => new Date().toISOString()`, NON-IDEMPOTENT creation, and absence of 409/conflict or retry behavior.
+- Phase 8 contract hardening is recorded at `4db1e00d32422cf07d0f56adbbea0ce1e096e4c2` and reflected in the accepted plan and active lock. Phase 8 is open only for `functions/api/auth/session.js` and `scripts/backend/session-api.test.mjs`; its exact exports, auth/trusted-context flow, response projections, error contracts, read-only boundary, and direct-handler test boundary remain fixed there.
+- Phase 9 implementation/routing verification and Phase 10+ remain LOCKED. Phase 9 must use an approved actual Pages-compatible mechanism to verify both endpoint routes, including actual session-route HEAD behavior; if none is available, STOP for an integration-infrastructure decision. Remote/external actions and client/runtime integration remain LOCKED; real-user readiness is not granted.
+
 ### Phase A backend foundation authority
 **Staatus:** accepted
 
