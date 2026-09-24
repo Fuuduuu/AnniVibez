@@ -2,6 +2,17 @@
 
 ## Accepted checkpointid
 
+### MAJANDUS_BACKEND_P10_REMOTE_MIGRATION_RESULT_GOVERNANCE_SYNC
+- status: Phase 10 remote migration COMPLETE; REMOTE SCHEMA / FOUNDATION VERIFICATION is the next external gate, READ-ONLY and BLOCKED PENDING EXPLICIT HUMAN AUTHORIZATION. Backend Phases 1–9 remain ACCEPTED; no Phase 10 implementation scope opens.
+- Recorded on `2026-09-24` from the completed, separately authorized single Wrangler apply. Cloudflare account `1b233505a2b4e206ee28a99aae152564` and dedicated D1 `majandus-backend-v1` (id `8d7f229b-d821-4ce3-bd63-7efb427269e4`, jurisdiction `eu`) matched before execution.
+- Source `migrations/0001_majandus_backend.sql` matched SHA-256 `22E8A0DC44597BD46EEA02817E7CD8F2E21A8EB266E635A435C537089E4A06C8`; repo-installed Wrangler was `4.135.0`. The earlier preflight initialized Wrangler's `d1_migrations` bookkeeping and listed this as the sole pending migration, but did not apply the foundation migration.
+- Exactly one new `d1 migrations apply` invocation occurred. Its confirmation listed only `0001_majandus_backend.sql`; YES was answered once. Wrangler exited successfully, reported 27 commands executed and returned `0001_majandus_backend.sql` ✅. Do not rerun apply or migrations list.
+- Current dedicated D1 state: CREATED / MIGRATED / SCHEMA NOT YET INDEPENDENTLY VERIFIED / UNBOUND / UNDEPLOYED. The applied result is Wrangler execution evidence, not independent schema or application-data verification. The plan's earlier UNMIGRATED execution snapshot and older checkpoints below remain historical, not current state.
+- The unrelated `tehnika-temp-inventory` (id `c6ea725f-c533-441c-a287-af714af99f43`) remains PROTECTED / OUT OF MAJANDUS SCOPE and was not touched by the migration workflow. No raw SQL or `d1 execute`, Pages inspection, binding change, deployment, or client/runtime change occurred. The temporary workspace was removed and the repository remained clean.
+- Next external action, only after separate explicit human authorization: read-only remote schema/foundation verification of the exact Majandus D1 against the accepted migration and foundation contracts. It may check expected tables, indexes, triggers, constraints, migration bookkeeping, initial application state, and absence of plaintext credentials; none of those checks occurred in this governance pass.
+- REMOTE PAGES TARGET remains UNRESOLVED: historical/candidate `annivibe` returned PROJECT NOT FOUND; observed `majandus` and `kronest-ehitus-site` are not selected. Pages target resolution, pre-bind snapshot, binding-semantics proof, binding, preview/production deployment, client/runtime integration, and real-user data remain LOCKED. Real-user readiness is NOT GRANTED.
+- This docs-only reconciliation makes zero Cloudflare calls and does not authorize any remote action.
+
 ### MAJANDUS_BACKEND_P10_REMOTE_MIGRATION_GATE_OPEN
 - status: corrected Phase 10 plan CHECKPOINTED; next remote mutation identified as REMOTE MIGRATION; migration BLOCKED PENDING EXPLICIT HUMAN AUTHORIZATION.
 - Backend Phases 1–9 remain ACCEPTED; this governance checkpoint opens no Phase 10 implementation scope.
