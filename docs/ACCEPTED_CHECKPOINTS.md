@@ -2,6 +2,17 @@
 
 ## Accepted checkpointid
 
+### MAJANDUS_BACKEND_P10_SEQUENCE_GOVERNANCE_RECONCILIATION
+- status: Phase 10A-3 COMPLETE; remote execution order under plan correction; no remote mutation gate OPEN; next safe action PLAN AMENDMENT ONLY.
+- Recorded on `2026-09-24`. This supersedes the previously stated future-gate ordering only. It preserves the historical fact that the earlier checkpoint recorded 10A-4 binding as next and 10A-5 migration afterward; that order is no longer executable. Earlier checkpoint records below are unchanged.
+- Phase 10A-3 remains COMPLETE. Remote D1 `majandus-backend-v1`, id `8d7f229b-d821-4ce3-bd63-7efb427269e4`, jurisdiction `eu`, is CREATED / UNBOUND / UNMIGRATED in account `1b233505a2b4e206ee28a99aae152564`.
+- A subsequent read-only Pages inventory reported historical/candidate project `annivibe` as PROJECT NOT FOUND; the live inventory included `majandus` and `kronest-ehitus-site`. Neither is designated. REMOTE PAGES TARGET is UNRESOLVED; `majandus` must not be selected by name similarity. Exact live identity and explicit human confirmation are required before binding.
+- The unrelated `tehnika-temp-inventory` (`c6ea725f-c533-441c-a287-af714af99f43`) is PROTECTED / OUT OF MAJANDUS SCOPE. Never target it for Majandus migrations, SQL, bindings, schema verification, deletion, renames, exports/imports, or configuration.
+- Safety finding: binding an unmigrated D1 can make accepted handlers return canonical 500 responses until its schema exists. The corrected plan must therefore order resource creation/confirmation, remote migration, and read-only schema/foundation verification before exact Pages target resolution and human confirmation, pre-bind configuration snapshot, binding-preservation and rollback proof, binding, separate deployment/activation, and the real-user gate.
+- Phase 10A/10B/10C remain distinct: 10A is granular remote resource/schema/binding preparation; 10B is separately authorized controlled technical deployment/activation; 10C is a separate real-user readiness gate and remains NOT GRANTED. No remote mutation, schema inspection, SQL, target inspection, binding, deployment, client/runtime work, or real-user data is authorized by this entry.
+- Current state: remote migration, schema verification, Pages target resolution, binding, deployment, client/runtime, and real-user readiness remain LOCKED/not granted. Target resolution remains locked pending separate read-only authorization if required by governance. No Phase 10 implementation scope is open.
+- Exactly one subsequent architecture/docs pass is authorized: amend only `docs/superpowers/plans/2026-09-20-majandus-backend-auth-foundation.md` to replace the unsafe order. The plan is unchanged in this reconciliation. Any later remote migration requires that corrected plan to be committed plus separate explicit human migration authorization, and must target only the dedicated Majandus D1; ambiguity is a STOP. No remote action is authorized until that plan amendment is accepted and governance is reopened against the corrected sequence.
+
 ### MAJANDUS_BACKEND_P10A3_D1_CREATE_CHECKPOINT
 - status: Phase 10A-3 REMOTE D1 CREATION COMPLETE; Phase 10A-4 PRODUCTION DB BINDING BLOCKED — explicit human authorization required.
 - Recorded on `2026-09-24`. This records the specifically authorized single D1 creation only; it does not authorize binding, schema inspection, SQL, migration, deployment, implementation, or real-user data.
