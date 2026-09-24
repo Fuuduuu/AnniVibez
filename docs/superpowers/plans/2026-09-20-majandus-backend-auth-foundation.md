@@ -67,7 +67,7 @@ Task 7 may implement unauthenticated create-household locally, but that does not
 
 Tasks 2-9 retain the prohibition on remote D1 creation, Pages binding changes, remote migrations, deployment, Cloudflare credentials in the repository, GitHub deployment workflows, automatic Wrangler deploy commands, and Cloudflare configuration that silently enables external execution. Phase 9 remains integrated security regression, not the first security test: Tasks 2-8 retain focused negative/security tests, while Task 9 combines schema, HTTP boundary, crypto, repository scope, trusted authentication, atomicity, route behavior, secret non-leakage, and protected-runtime isolation.
 
-Task 10 remains the external-execution stage, with three distinct gates. **10A — explicit remote-resource authorization** requires specific human approval for the Cloudflare account/project/environment, D1 creation, DB binding, and remote migration; it is not general deploy-everything authorization. **10B — controlled technical deployment** permits only isolated synthetic/non-user-data verification and must verify preview/production separation, DB binding target, real route-method behavior, response headers, no credential logging, and no client-runtime coupling; it is not user-ready. **10C — real-user-data gate** remains closed until separately accepted scopes provide lost-device/session revocation, recovery flow, safe client auth-token storage, bootstrap unknown-result/retry handling, recovery/rollback addressing restored credentials, and abuse/publication control. Tasks 1-10 can establish a technically deployable backend foundation without automatically making it ready for real user data.
+Task 10 records the later external-execution sequence and preserves three distinct gates; it grants no remote permission. **10A — remote resource/schema/target/binding preparation** uses granular explicit human authorization for each remote mutation and any separately gated read-only inspection. It is not blanket authorization. Its required technical order is: resource creation/confirmation → migration → read-only schema/foundation verification → exact Pages target resolution and human confirmation → pre-bind configuration snapshot → binding-preservation/rollback proof → bind. **10B — controlled technical deployment/activation** is separately authorized and limited to isolated synthetic/non-user-data verification; it must establish preview/production separation, binding target, real route-method behavior, response headers, no credential logging, and no client-runtime coupling. It is not user-ready. **10C — real-user-data readiness** is a separate later gate and remains closed until separately accepted scopes provide lost-device/session revocation, recovery flow, safe client auth-token storage, bootstrap unknown-result/retry handling, recovery/rollback addressing restored credentials, abuse/publication control, and all other accepted prerequisites. Tasks 1-10 do not make the foundation automatically ready for real user data.
 
 The later live/readiness gate must treat D1 restoration/time-travel as an authentication-security event. Before reopening user traffic, verify whether restored state resurrected revoked device sessions, rotated/revoked recovery hashes, later one-time tokens, or sync cursor/history assumptions. This is operational recovery/readiness work, not Phase 2-9 code.
 
@@ -163,7 +163,7 @@ createHousehold prepares values, then calls DB.batch in this order: household ro
 
 Task 1 local configuration is local test input only: binding DB, database name majandus-backend-test, synthetic UUID 00000000-0000-0000-0000-000000000001. It is not production configuration. Its only state directory is .tmp/majandus-d1-test.
 
-A later explicit operator scope must separately create one D1 resource majandus-backend-v1, bind it to Pages as DB, record its real ID safely, apply the migration remotely, verify it, and deploy. This plan authorizes none.
+The later Phase 10 execution order is defined under Task 10. It supersedes the former create → bind → migrate → verify → deploy implication: remote migration and read-only foundation verification must precede Pages binding. This plan authorizes no remote creation, migration, inspection, binding, configuration change, or deployment.
 
 ## Tasks
 
@@ -677,14 +677,51 @@ Expected: only the five named test files are committed.
 
 **Interfaces:**
 - Consumes: DB binding, migration path, Task 9 evidence, Pages containment policy.
-- Produces: explicit separation of repo/local D1 from resource, binding, remote migration, deployment, and human smoke.
+- Produces: explicit separation of repo/local D1 from remote resource creation, migration and verification, Pages target/configuration review, binding, controlled deployment/activation, and the human real-user gate.
+
+**Remote execution sequence — exact order; planning only, not authorization:**
+
+1. **REMOTE RESOURCE CREATION / CONFIRMATION.** Create or identify exactly one dedicated Majandus D1; confirm its resource identity before migration. Never substitute an unrelated database. The current recorded execution state is `majandus-backend-v1`, id `8d7f229b-d821-4ce3-bd63-7efb427269e4`, jurisdiction `eu`, CREATED / UNMIGRATED / UNBOUND. This snapshot is execution history, not generic architecture or authorization.
+2. **REMOTE MIGRATION.** Migration precedes Pages binding. It requires separate explicit human authorization after the corrected plan is committed and governance is reopened; target only the confirmed dedicated Majandus D1 using accepted repository migration files (`migrations/0001_majandus_backend.sql`). Do not change Pages configuration, deploy, or modify the client/runtime. On an ambiguous result, stop all mutation activity and use only safe read-only verification; never retry automatically.
+3. **REMOTE SCHEMA / FOUNDATION VERIFICATION.** After migration and before binding, perform read-only verification using only requirements in the accepted migration/foundation authority: expected foundation tables, schema correspondence, inspectable accepted constraints/invariants, intended D1 identity, expected initial state without unexpected application/user data, absence of plaintext device tokens or recovery codes, and evidence that no unrelated database was touched. Establish the last item from the bounded operation/target evidence; do not query an unrelated D1. Do not invent schema requirements.
+4. **PAGES TARGET RESOLUTION + HUMAN CONFIRMATION.** Resolve the exact live Pages target before binding and require explicit human confirmation. Verify the Cloudflare account, exact project, source repository where available, production branch, deployment identity, production hostname(s), current production configuration, and relevant preview configuration. Current read-only evidence says historical/candidate project `annivibe` returned PROJECT NOT FOUND and the inventory included `majandus` and `kronest-ehitus-site`; neither is selected. REMOTE PAGES TARGET remains UNRESOLVED until live identity review and explicit human confirmation. Do not select `majandus` by name similarity. Target inspection itself remains subject to its separate read-only authorization gate.
+5. **PRE-BIND TARGET CONFIGURATION SNAPSHOT.** Before any binding mutation, capture the confirmed target environment's relevant current configuration and enough metadata to prove unrelated state is preserved: D1, KV, R2, Durable Object, and service bindings; environment-variable metadata and secret names/metadata only; compatibility date/flags; build/runtime configuration; and production/preview separation. Do not retrieve secret values unnecessarily.
+6. **BINDING PRESERVATION / ROLLBACK SEMANTICS PROOF.** Before mutation, determine whether the exact API/UI operation merges or replaces nested binding maps, whether omitted configuration can be deleted, which fields must be preserved, and whether a version/ETag/precondition exists. Define read-only post-change verification and exact rollback/removal semantics affecting only the Majandus DB binding. If preservation or rollback semantics are unresolved, STOP. Do not use a blind generic nested PATCH.
+7. **BIND.** Only after Steps 1–6 succeed and separate explicit binding authorization is granted, bind exactly `DB` to the confirmed Majandus D1 in the explicitly confirmed environment. Make no unrelated binding or setting changes. If the result is ambiguous, STOP and inspect configuration read-only; do not automatically retry. Binding authorization does not authorize deployment.
+8. **DEPLOY / ACTIVATE.** Deployment/activation is a separate gate requiring separate authorization. Binding documentation may require redeployment for an effect; do not assume binding immediately activates runtime or that it is inert before deployment. Validate runtime behavior only in a controlled synthetic/non-user-data deployment, preserving preview/production separation and the deployment policy.
+9. **REAL-USER READINESS GATE.** Technical deployment does not grant real-user readiness. Keep 10C closed until separate accepted scopes establish client auth integration, secure token storage, session lifecycle, recovery/revocation, unknown-result create handling, operational secret supply, observability, backup/restore handling, privacy/security readiness, and all other required prerequisites.
+
+**Protected unrelated D1:** `tehnika-temp-inventory`, id `c6ea725f-c533-441c-a287-af714af99f43`, is STRICTLY OUT OF MAJANDUS SCOPE. Never target it for migration, schema inspection, SQL, binding, rename, deletion, export/import, Majandus configuration, or fallback database use. If any operation resolves to this resource, STOP.
+
+The plan amendment itself authorizes NOTHING remote. Under current active governance, remote migration, schema verification, Pages target inspection, binding, deployment, SQL, client/runtime work, and real-user data remain LOCKED; no Phase 10 remote mutation gate is open.
 
 - [ ] **Step 1: Write the failing test**
 
     test("gate requires explicit authorization for external actions", async () => {
       const gate = await readFile("docs/MAJANDUS_BACKEND_AUTH_FOUNDATION_EXECUTION_GATE.md", "utf8");
-      for (const action of ["create D1 database", "bind DB", "apply remote migration", "deploy"]) {
+      for (const action of ["create D1 database", "apply remote migration", "verify remote schema", "resolve Pages target", "snapshot target configuration", "prove binding preservation", "bind DB", "deploy"]) {
         assert.match(gate, new RegExp(action + "[\\s\\S]*explicit authorization", "i"));
+      }
+    });
+
+    test("gate records the safe remote sequence in order", async () => {
+      const gate = await readFile("docs/MAJANDUS_BACKEND_AUTH_FOUNDATION_EXECUTION_GATE.md", "utf8");
+      const steps = [
+        "1. Remote resource creation / confirmation",
+        "2. Remote migration",
+        "3. Remote schema / foundation verification",
+        "4. Pages target resolution + human confirmation",
+        "5. Pre-bind target configuration snapshot",
+        "6. Binding preservation / rollback semantics proof",
+        "7. Bind",
+        "8. Deploy / activate",
+        "9. Real-user readiness gate",
+      ];
+      let previousIndex = -1;
+      for (const step of steps) {
+        const currentIndex = gate.indexOf(step);
+        assert.ok(currentIndex > previousIndex, `missing or out-of-order step: ${step}`);
+        previousIndex = currentIndex;
       }
     });
 
@@ -696,7 +733,7 @@ Expected: FAIL because gate document is absent.
 
 - [ ] **Step 3: Write gate document**
 
-Separate repository/local test evidence from later explicit actions: create majandus-backend-v1, bind DB, add production config only if needed, apply remote migration, deploy, and human/backend smoke. Preserve production_deployments_enabled false; do not add client integration.
+Write the gate document using the nine-step sequence above. Separate repository/local test evidence from each later explicit remote action. Preserve `production_deployments_enabled: false`; do not add client integration or imply authorization for migration, inspection, target resolution, binding, or deployment. Record that `annivibe` is a historical/candidate name whose current live project was not found; leave the exact Pages target unresolved until live identity review and explicit human confirmation. Hard-protect `tehnika-temp-inventory` as specified above.
 
 - [ ] **Step 4: Verify GREEN**
 
