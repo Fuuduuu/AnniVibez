@@ -2,6 +2,19 @@
 
 ## Accepted checkpointid
 
+### MAJANDUS_BACKEND_P10_REMOTE_MIGRATION_GATE_OPEN
+- status: corrected Phase 10 plan CHECKPOINTED; next remote mutation identified as REMOTE MIGRATION; migration BLOCKED PENDING EXPLICIT HUMAN AUTHORIZATION.
+- Backend Phases 1–9 remain ACCEPTED; this governance checkpoint opens no Phase 10 implementation scope.
+- Recorded on `2026-09-24` after plan commit `9927d46c3d66bf8289a9c5d9d35b0629320370ef` (`docs: reorder Majandus Phase 10 remote execution`). This entry reconciles current governance with that committed plan and preserves all earlier checkpoint history below.
+- Phase 10 resource creation is COMPLETE. Cloudflare account `1b233505a2b4e206ee28a99aae152564`; remote D1 `majandus-backend-v1`, id `8d7f229b-d821-4ce3-bd63-7efb427269e4`, jurisdiction `eu`, state CREATED / UNMIGRATED / UNBOUND.
+- Protected unrelated D1: `tehnika-temp-inventory`, id `c6ea725f-c533-441c-a287-af714af99f43`, PROTECTED / OUT OF MAJANDUS SCOPE. Never target or inspect its schema/data, execute SQL against it, bind, rename/delete, use its id, or include it in fallback logic. If an operation resolves to it, STOP.
+- The next remote mutation gate is REMOTE MIGRATION, but this checkpoint does not authorize the operation. A later explicit human authorization may permit only the migration operation required to apply `migrations/0001_majandus_backend.sql` to the exact D1 id above; it does not authorize another D1, arbitrary SQL, Pages configuration, binding, deployment, client/runtime changes, or any other remote mutation.
+- Future migration safeguards: pre-check the account identity; pre-check exact D1 name `majandus-backend-v1` and id `8d7f229b-d821-4ce3-bd63-7efb427269e4`; confirm the protected D1 id differs without accessing that database; target the accepted migration file only; execute once; do not retry automatically; on timeout/error/unknown or otherwise ambiguous result, STOP mutation activity. Resolve ambiguous state only through later, separately authorized read-only schema/migration verification.
+- After successful migration, REMOTE SCHEMA / FOUNDATION VERIFICATION is next, READ-ONLY and separately authorized/opened, and remains LOCKED until then. It must occur before Pages target resolution or binding and use only accepted migration/foundation requirements.
+- REMOTE PAGES TARGET remains UNRESOLVED. Historical/candidate `annivibe` returned PROJECT NOT FOUND; observed live names `majandus` and `kronest-ehitus-site` are not selected; `majandus` is NOT AUTO-SELECTED. Pages target resolution remains LOCKED pending separate read-only authorization and later explicit human confirmation.
+- Binding remains LOCKED until migration, schema verification, exact Pages target confirmation, pre-bind configuration snapshot, and binding-preservation/rollback proof are complete. Deployment/activation is separate and LOCKED. Client/runtime remains LOCKED; real-user readiness is NOT GRANTED. Phase 10A/10B/10C remain distinct.
+- No Cloudflare call, remote migration, schema inspection, SQL, binding, deployment, or client/runtime action occurred in this governance pass. No Phase 10 implementation scope is opened.
+
 ### MAJANDUS_BACKEND_P10_SEQUENCE_GOVERNANCE_RECONCILIATION
 - status: Phase 10A-3 COMPLETE; remote execution order under plan correction; no remote mutation gate OPEN; next safe action PLAN AMENDMENT ONLY.
 - Recorded on `2026-09-24`. This supersedes the previously stated future-gate ordering only. It preserves the historical fact that the earlier checkpoint recorded 10A-4 binding as next and 10A-5 migration afterward; that order is no longer executable. Earlier checkpoint records below are unchanged.
