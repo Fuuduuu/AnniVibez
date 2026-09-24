@@ -2,6 +2,16 @@
 
 ## Accepted checkpointid
 
+### MAJANDUS_BACKEND_P10A3_D1_CREATE_CHECKPOINT
+- status: Phase 10A-3 REMOTE D1 CREATION COMPLETE; Phase 10A-4 PRODUCTION DB BINDING BLOCKED — explicit human authorization required.
+- Recorded on `2026-09-24`. This records the specifically authorized single D1 creation only; it does not authorize binding, schema inspection, SQL, migration, deployment, implementation, or real-user data.
+- Cloudflare account: `1b233505a2b4e206ee28a99aae152564` (`Elarvaltri@gmail.com's Account`). Pre-create inventory confirmed `majandus-backend-v1` was absent; exactly one create request returned success; a post-create D1 inventory confirmed the resource.
+- Created resource: `majandus-backend-v1`, id `8d7f229b-d821-4ce3-bd63-7efb427269e4`, jurisdiction `eu`.
+- The protected out-of-scope database `tehnika-temp-inventory` (`c6ea725f-c533-441c-a287-af714af99f43`) was present in both inventories with the same name and id and was not targeted or modified. Do not bind, migrate, inspect schema/data, rename, delete, export/import, or otherwise use it for Majandus.
+- Schema inspection: NOT PERFORMED. SQL: NOT EXECUTED. Migration: NOT PERFORMED. Binding: NOT CHANGED. Deployment: NOT PERFORMED. No other remote mutation occurred; no credential values were stored.
+- Phase 10A-4 is the next possible gate only: bind `majandus-backend-v1` (`8d7f229b-d821-4ce3-bd63-7efb427269e4`) to Pages project `annivibe`, `production`, binding name `DB`. Current state: BLOCKED — EXPLICIT HUMAN AUTHORIZATION REQUIRED. This checkpoint does not authorize it.
+- Remote schema inspection, SQL, Phase 10A-5 migration, preview/production deployment, client/runtime integration, and real-user readiness remain LOCKED/not granted. Phase 10B and 10C remain separate future gates.
+
 ### MAJANDUS_BACKEND_P10A_REMOTE_INVENTORY_CHECKPOINT
 - status: Phase 10A-1/10A-2 READ-ONLY INVENTORY COMPLETE; Phase 10A-3 CREATE REMOTE D1 ONLY BLOCKED — explicit human mutation authorization required.
 - Recorded on `2026-09-24`. This entry updates the current Phase 10 state after the historical Phase 9 checkpoint below; it does not change or reopen Phase 9.
