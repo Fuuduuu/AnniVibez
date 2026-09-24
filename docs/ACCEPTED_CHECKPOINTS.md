@@ -2,6 +2,18 @@
 
 ## Accepted checkpointid
 
+### MAJANDUS_BACKEND_P10A_REMOTE_INVENTORY_CHECKPOINT
+- status: Phase 10A-1/10A-2 READ-ONLY INVENTORY COMPLETE; Phase 10A-3 CREATE REMOTE D1 ONLY BLOCKED — explicit human mutation authorization required.
+- Recorded on `2026-09-24`. This entry updates the current Phase 10 state after the historical Phase 9 checkpoint below; it does not change or reopen Phase 9.
+- Cloudflare account identity is CONFIRMED for account `1b233505a2b4e206ee28a99aae152564`, display name `Elarvaltri@gmail.com's Account`. The authenticated Cloudflare API connector was used; credential values were not stored.
+- Pages target is CONFIRMED for read-only inventory: project `annivibe`, production environment, production branch `main`. The production configuration returned no `d1_databases` entry. Expected binding `DB` is NOT PRESENT. Do not characterize this alone as a broken deployment.
+- The confirmed account's D1 inventory returned exactly one database: `tehnika-temp-inventory`, id `c6ea725f-c533-441c-a287-af714af99f43`, created `2026-05-05T06:42:33.844Z`, jurisdiction none, version `production`. It is NOT A MAJANDUS TARGET and is PROTECTED / OUT OF SCOPE: do not rename, bind, migrate, query for Majandus purposes, delete, or modify it.
+- Candidate `majandus-backend-v1` is NOT FOUND in the confirmed account inventory; remote id NONE. Schema inspection was NOT PERFORMED because the candidate resource does not exist. No SQL was executed.
+- Phase 10A-1/10A-2 authorized read-only account identity, Pages production configuration, D1 inventory, and Pages/D1 binding inspection are COMPLETE. No remote mutation, binding change, migration, preview/production deployment, or client/runtime work occurred. Real-user readiness is NOT GRANTED.
+- Phase 10A-3 is BLOCKED pending explicit human mutation authorization. If later authorized, its exact target is one newly created D1 database named `majandus-backend-v1` in account `1b233505a2b4e206ee28a99aae152564`; creation only, then STOP and report the name, id, and non-secret metadata. This checkpoint does not authorize creation.
+- Preserve separate future gates: 10A-4 binding authorization, then STOP; 10A-5 remote migration authorization, then validation; 10B controlled deployment; 10C real-user readiness. Do not merge create, bind, migrate, deploy, or real-user readiness into one authorization. This is a narrower sequencing of the accepted Task 10 boundary; the plan is unchanged.
+- Binding, migration, preview/production deployment, remote Wrangler, client/runtime integration, and real-user readiness remain LOCKED. No Phase 10 implementation files are open. Credential values remain NOT STORED, committed, documented, or logged.
+
 ### MAJANDUS_BACKEND_P9_ACCEPT_AND_P10_GATE
 - status: Phase 9 ACCEPTED; Phase 10 BLOCKED — governance/authorization decision required.
 - Phase 9 checkpoint: `5eb18cb4a7a17d6b3f6ef7852cca8788430e5414` (`test: verify Majandus Pages foundation integration`). The accepted/protected Phase 9 file is `scripts/backend/foundation-integration.test.mjs`; Phase 9 repair scope is closed.
