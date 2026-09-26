@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 
 const PIN_KEY     = 'sade_diary_pin';
 const ENTRIES_KEY = 'sade_diary_entries';
@@ -7,16 +7,59 @@ function readEntries() {
   try { return JSON.parse(localStorage.getItem(ENTRIES_KEY) || '[]'); } catch { return []; }
 }
 function writeEntries(entries) {
-  try { localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries)); } catch {}
+  try {
+    localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
 }
 export function readPin() {
   try { const v = localStorage.getItem(PIN_KEY); return v ? atob(v) : null; } catch { return null; }
 }
-function writePin(pin) {
-  try { localStorage.setItem(PIN_KEY, btoa(pin)); } catch {}
+export function writePin(pin) {
+  try {
+    localStorage.setItem(PIN_KEY, btoa(pin));
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
 }
-function clearAll() {
-  try { localStorage.removeItem(PIN_KEY); localStorage.removeItem(ENTRIES_KEY); } catch {}
+export function clearDiaryStorage() {
+  let pinBytes;
+  let entryBytes;
+  try {
+    pinBytes = localStorage.getItem(PIN_KEY);
+    entryBytes = localStorage.getItem(ENTRIES_KEY);
+  } catch (error) {
+    return { ok: false, error, restored: false };
+  }
+
+  let pinMayHaveChanged = false;
+  let entriesMayHaveChanged = false;
+  try {
+    pinMayHaveChanged = true;
+    localStorage.removeItem(PIN_KEY);
+    entriesMayHaveChanged = true;
+    localStorage.removeItem(ENTRIES_KEY);
+    return { ok: true };
+  } catch (error) {
+    let restored = true;
+    for (const [changed, key, bytes] of [
+      [pinMayHaveChanged, PIN_KEY, pinBytes],
+      [entriesMayHaveChanged, ENTRIES_KEY, entryBytes],
+    ]) {
+      if (!changed) continue;
+      try {
+        if (bytes === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, bytes);
+        if (localStorage.getItem(key) !== bytes) restored = false;
+      } catch {
+        restored = false;
+      }
+    }
+    return { ok: false, error, restored };
+  }
 }
 
 export function todayStr() {
@@ -43,19 +86,25 @@ export function useDiary() {
   const [unlocked,  setUnlocked]  = useState(false);
   const [entries,   setEntries]   = useState([]);
   const [pinError,  setPinError]  = useState(false);
+  const committedEntries = useRef([]);
 
   const pinSet = !!readPin();
 
   const setupPin = useCallback((pin) => {
-    writePin(pin);
+    const result = writePin(pin);
+    if (!result.ok) return result;
+    committedEntries.current = [];
     setEntries([]);
     setUnlocked(true);
     setPinError(false);
+    return result;
   }, []);
 
   const tryUnlock = useCallback((pin) => {
     if (pin === readPin()) {
-      setEntries(readEntries());
+      const savedEntries = readEntries();
+      committedEntries.current = savedEntries;
+      setEntries(savedEntries);
       setUnlocked(true);
       setPinError(false);
       return true;
@@ -65,6 +114,7 @@ export function useDiary() {
   }, []);
 
   const lock = useCallback(() => {
+    committedEntries.current = [];
     setUnlocked(false);
     setEntries([]);
     setPinError(false);
@@ -72,15 +122,17 @@ export function useDiary() {
 
   const changePin = useCallback((oldPin, newPin) => {
     if (oldPin !== readPin()) return false;
-    writePin(newPin);
-    return true;
+    return writePin(newPin).ok;
   }, []);
 
   const resetPin = useCallback(() => {
-    clearAll();
+    const result = clearDiaryStorage();
+    if (!result.ok) return result;
+    committedEntries.current = [];
     setUnlocked(false);
     setEntries([]);
     setPinError(false);
+    return result;
   }, []);
 
   const addEntry = useCallback((data) => {
@@ -94,20 +146,21 @@ export function useDiary() {
       hard:  data.hard  || '',
       free:  data.free  || '',
     };
-    setEntries(prev => {
-      const next = [entry, ...prev];
-      writeEntries(next);
-      return next;
-    });
-    return entry;
+    const next = [entry, ...committedEntries.current];
+    const result = writeEntries(next);
+    if (!result.ok) return result;
+    committedEntries.current = next;
+    setEntries(next);
+    return { ok: true, entry };
   }, []);
 
   const deleteEntry = useCallback((id) => {
-    setEntries(prev => {
-      const next = prev.filter(e => e.id !== id);
-      writeEntries(next);
-      return next;
-    });
+    const next = committedEntries.current.filter(e => e.id !== id);
+    const result = writeEntries(next);
+    if (!result.ok) return result;
+    committedEntries.current = next;
+    setEntries(next);
+    return result;
   }, []);
 
   const streak         = useMemo(() => streakInfo(entries), [entries]);

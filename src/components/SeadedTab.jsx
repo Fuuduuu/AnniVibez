@@ -1,16 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSettings } from '../hooks/useSettings';
-import { readPin } from '../hooks/useDiary';
+import { clearDiaryStorage, readPin, writePin } from '../hooks/useDiary';
 import { PageHeader } from './ShellViews';
 import { HouseholdSettings } from './HouseholdSettings';
 import { WasteSettings } from './WasteSettings';
 import { NotificationSettings } from './NotificationSettings';
-
-const PIN_KEY     = 'sade_diary_pin';
-const ENTRIES_KEY = 'sade_diary_entries';
-
-function wPin(p)  { try { localStorage.setItem(PIN_KEY, btoa(p)); } catch {} }
-function clrAll() { try { localStorage.removeItem(PIN_KEY); localStorage.removeItem(ENTRIES_KEY); } catch {} }
 
 function SaveBtn({ saved, onClick, label = 'Salvesta', disabled = false }) {
   return (
@@ -215,22 +209,33 @@ function PinSection() {
       setErr(''); setStep(3);
     } else {
       if (confP !== newP) { setErr('PIN-id ei lähe kokku'); setConfP(''); return; }
-      wPin(newP); reset(); setView('idle');
+      const result = writePin(newP);
+      if (!result.ok) { setErr('PIN-i salvestamine ei õnnestunud. Proovi uuesti.'); return; }
+      reset(); setView('idle');
       setOk('PIN uuendatud ✓'); setTimeout(() => setOk(''), 3000);
     }
   }
 
   function doReset() {
-    clrAll(); setView('idle');
+    const result = clearDiaryStorage();
+    if (!result.ok) {
+      setErr(result.restored === false
+        ? 'Kustutamine ei õnnestunud. Kontrolli päeviku andmeid enne uuesti proovimist.'
+        : 'Kustutamine ei õnnestunud. Proovi uuesti.');
+      return;
+    }
+    setErr(''); setView('idle');
     setOk('PIN ja päevik on kustutatud'); setTimeout(() => setOk(''), 4000);
   }
 
-  if (!hasPinSet) return (
+  if (!hasPinSet && view !== 'reset-confirm') return (
     <>
       <SectionTitle>Päeviku lukk</SectionTitle>
-      <div className="mm-settings-panel mm-settings-empty">
-        PIN pole veel peal. Ava Päevik ja pane PIN seal.
-      </div>
+      {ok && <div className="mm-status mm-status-info mm-pin-ok">{ok}</div>}
+      {err ? <div className="mm-field-error" role="alert">{err}</div> :
+        <div className="mm-settings-panel mm-settings-empty">
+          PIN pole veel peal. Ava Päevik ja pane PIN seal.
+        </div>}
     </>
   );
 
@@ -246,8 +251,8 @@ function PinSection() {
       {view === 'idle' && (
         <div className="mm-settings-panel">
           <p className="mm-settings-intro">Muuda PIN-i ainult siis, kui sul on seda päriselt vaja.</p>
-          <button onClick={() => { setView('change'); reset(); }} className="mm-button mm-button-secondary mm-settings-wide">Muuda PIN-i</button>
-          <button onClick={() => setView('reset-confirm')} className="mm-button mm-button-danger-text mm-settings-wide">Kustuta PIN ja päevik</button>
+          <button onClick={() => { setView('change'); reset(); setOk(''); }} className="mm-button mm-button-secondary mm-settings-wide">Muuda PIN-i</button>
+          <button onClick={() => { setView('reset-confirm'); setErr(''); setOk(''); }} className="mm-button mm-button-danger-text mm-settings-wide">Kustuta PIN ja päevik</button>
         </div>
       )}
 
@@ -281,6 +286,7 @@ function PinSection() {
           <p className="mm-danger-copy">
             See kustutab PIN-i ja <strong>kõik päeviku kirjed</strong> jäädavalt.
           </p>
+          {err && <div className="mm-field-error" role="alert">{err}</div>}
           <div className="mm-settings-actions">
             <button onClick={() => setView('idle')} className="mm-button mm-button-secondary">Tühista</button>
             <button onClick={doReset} className="mm-button mm-button-danger">Kustuta kõik</button>

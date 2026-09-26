@@ -41,7 +41,7 @@ function PinSetup({ onDone }) {
       setErr(''); setStep(2);
     } else {
       if (conf !== pin) { setErr('PIN-id ei lähe kokku'); setConf(''); return; }
-      onDone(pin);
+      if (!onDone(pin).ok) setErr('PIN-i salvestamine ei õnnestunud. Proovi uuesti.');
     }
   }
 
@@ -120,6 +120,7 @@ function PinUnlock({ onUnlock, error, onForgot }) {
 }
 
 function ForgotPin({ onReset, onCancel }) {
+  const [error, setError] = useState('');
   return (
     <div style={{ ...shellNarrow, textAlign:'center' }}>
       <div style={{ fontSize:40, marginBottom:12 }}>⚠️</div>
@@ -127,7 +128,13 @@ function ForgotPin({ onReset, onCancel }) {
       <p style={{ fontSize:14, color:AV.muted, lineHeight:1.6, marginBottom:20 }}>
         PIN-i lähtestamine kustutab kõik päeviku kirjed jäädavalt. Seda sammu ei saa tagasi võtta.
       </p>
-      <button onClick={onReset} style={{
+      {error && <div role="alert" style={{ fontSize:13, color:AV.danger, marginBottom:10 }}>{error}</div>}
+      <button onClick={() => {
+        const result = onReset();
+        if (!result.ok) setError(result.restored === false
+          ? 'Kustutamine ei õnnestunud. Kontrolli päeviku andmeid enne uuesti proovimist.'
+          : 'Kustutamine ei õnnestunud. Proovi uuesti.');
+      }} style={{
         width:'100%', padding:'13px 0', borderRadius:14, border:'none',
         background:AV.danger, color:'#fff', fontSize:15, fontWeight:600, cursor:'pointer', marginBottom:10,
       }}>Kustuta kõik ja alusta uuesti</button>
@@ -159,7 +166,8 @@ function StreakBanner({ streak }) {
 function EntryForm({ onSave, onCancel }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ emoji:'😊', title:'', good:'', hard:'', free:'' });
-  const up = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const [error, setError] = useState('');
+  const up = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(''); };
   const canSave = form.good || form.hard || form.free;
 
   return (
@@ -214,12 +222,15 @@ function EntryForm({ onSave, onCancel }) {
               border:`1px solid ${AV.border}`, background:AV.card,
               fontSize:14, color:AV.muted, cursor:'pointer',
             }}>← Tagasi</button>
-            <button onClick={() => canSave && onSave(form)} disabled={!canSave} style={{
+            <button onClick={() => {
+              if (canSave && !onSave(form).ok) setError('Salvestamine ei õnnestunud. Sinu tekst on alles. Proovi uuesti.');
+            }} disabled={!canSave} style={{
               flex:2, padding:'13px 0', borderRadius:14, border:'none',
               background: canSave ? AV.sage : AV.border,
               color:'#fff', fontSize:14, fontWeight:600, cursor: canSave ? 'pointer' : 'default',
             }}>Salvesta ✓</button>
           </div>
+          {error && <div role="alert" style={{ fontSize:13, color:AV.danger, marginTop:10 }}>{error}</div>}
         </>
       )}
     </div>
@@ -295,6 +306,7 @@ function EntryList({ entries, streak, hasTodayEntry, onNew, onOpen, onLock }) {
 
 function EntryDetail({ entry, onBack, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState('');
   const fields = [
     { key:'good', label:'Mis tegi tuju heaks',  emoji:'🌟', bg:'hsl(55,80%,95%)' },
     { key:'hard', label:'Mis oli keeruline',    emoji:'🌧️', bg:'hsl(220,60%,96%)' },
@@ -323,7 +335,7 @@ function EntryDetail({ entry, onBack, onDelete }) {
       ))}
 
       {!confirmDelete ? (
-        <button onClick={() => setConfirmDelete(true)} style={{
+        <button onClick={() => { setConfirmDelete(true); setError(''); }} style={{
           width:'100%', marginTop:8, padding:'11px 0', borderRadius:12,
           border:`1px solid ${AV.border}`, background:'none',
           fontSize:13, color:AV.muted, cursor:'pointer',
@@ -332,9 +344,12 @@ function EntryDetail({ entry, onBack, onDelete }) {
         <div style={{ ...card, borderColor:'#fca5a5', background:'#fff5f5', marginTop:8 }}>
           <p style={{ fontSize:14, color:AV.danger, margin:'0 0 12px' }}>Kas kustutame selle kirje jäädavalt?</p>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => setConfirmDelete(false)} style={{ flex:1, padding:'10px 0', borderRadius:12, border:`1px solid ${AV.border}`, background:AV.card, fontSize:13, color:AV.muted, cursor:'pointer' }}>Ei veel</button>
-            <button onClick={() => { onDelete(entry.id); onBack(); }} style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:AV.danger, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}>Jah, kustuta</button>
+            <button onClick={() => { setConfirmDelete(false); setError(''); }} style={{ flex:1, padding:'10px 0', borderRadius:12, border:`1px solid ${AV.border}`, background:AV.card, fontSize:13, color:AV.muted, cursor:'pointer' }}>Ei veel</button>
+            <button onClick={() => {
+              if (!onDelete(entry.id).ok) setError('Kustutamine ei õnnestunud. Kirje on alles. Proovi uuesti.');
+            }} style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:AV.danger, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}>Jah, kustuta</button>
           </div>
+          {error && <div role="alert" style={{ fontSize:13, color:AV.danger, marginTop:10 }}>{error}</div>}
         </div>
       )}
     </div>
@@ -354,9 +369,17 @@ export function PaeviikTab() {
 
   return (
     <div style={{ ...shell, fontFamily:FONT.body }}>
-      {screen === 'setup'  && <PinSetup onDone={pin => { diary.setupPin(pin); setView('list'); }} />}
+      {screen === 'setup'  && <PinSetup onDone={pin => {
+        const result = diary.setupPin(pin);
+        if (result.ok) setView('list');
+        return result;
+      }} />}
       {screen === 'lock'   && <PinUnlock onUnlock={pin => { if(diary.tryUnlock(pin)) setView('list'); }} error={diary.pinError} onForgot={() => setView('forgot')} />}
-      {screen === 'forgot' && <ForgotPin onReset={() => { diary.resetPin(); setView('lock'); }} onCancel={() => setView('lock')} />}
+      {screen === 'forgot' && <ForgotPin onReset={() => {
+        const result = diary.resetPin();
+        if (result.ok) setView('lock');
+        return result;
+      }} onCancel={() => setView('lock')} />}
       {screen === 'list'   && (
         <EntryList
           entries={diary.entries} streak={diary.streak} hasTodayEntry={diary.hasTodayEntry}
@@ -367,7 +390,11 @@ export function PaeviikTab() {
       )}
       {screen === 'new' && (
         <EntryForm
-          onSave={form => { diary.addEntry(form); setView('list'); }}
+          onSave={form => {
+            const result = diary.addEntry(form);
+            if (result.ok) setView('list');
+            return result;
+          }}
           onCancel={() => setView('list')}
         />
       )}
@@ -375,7 +402,11 @@ export function PaeviikTab() {
         <EntryDetail
           entry={openEntry}
           onBack={() => { setOpenEntry(null); setView('list'); }}
-          onDelete={id => { diary.deleteEntry(id); setOpenEntry(null); setView('list'); }}
+          onDelete={id => {
+            const result = diary.deleteEntry(id);
+            if (result.ok) { setOpenEntry(null); setView('list'); }
+            return result;
+          }}
         />
       )}
     </div>
