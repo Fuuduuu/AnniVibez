@@ -48,6 +48,8 @@ const TEMP_DIRECTORY_REMOVE_TIMEOUT_MS = 30_000;
 const RETRYABLE_TEMP_REMOVE_CODES = new Set(["EPERM", "EBUSY", "ENOTEMPTY"]);
 // Parent of the Phase 1 schema commit 6d3496177a6c8ca1857c4081d900be69a0bbfeeb: the pre-backend baseline.
 const BACKEND_BASELINE = "18f5c041fb796b3d4476a3959a79b09ce19d28b8";
+// Phase 9 acceptance: the fixed end of the accepted backend-foundation history.
+const PHASE9_CHECKPOINT = "5eb18cb4a7a17d6b3f6ef7852cca8788430e5414";
 
 const CREATE_PATH = "/api/auth/create-household";
 const SESSION_PATH = "/api/auth/session";
@@ -540,22 +542,98 @@ describe("actual Pages routing with an injected fourth-statement batch failure",
   });
 });
 
-test("backend foundation leaves the client runtime dormant: no src/ change and no cross-runtime import", () => {
-  assert.equal(git(["diff", "--name-only", BACKEND_BASELINE, "--", "src"]), "", "tracked src/ must be unchanged since the backend baseline");
-  assert.equal(git(["ls-files", "--others", "--exclude-standard", "--", "src"]), "", "no untracked src/ file may appear");
+test("backend foundation preserves client/backend separation: fixed foundation history, no mixed commit or worktree, no cross-runtime import", () => {
+  // Accepted client-only commits after Phase 9 (R1, R2): later src/ work that must stay allowed.
+  const ACCEPTED_CLIENT_ONLY_COMMITS = [
+    "700f9a6324e257a8666923c8986431123bd2b550",
+    "3132ace353f59847bd2a161cc6167868690636d5",
+  ];
+  const FOUNDATION_RANGE_COMMIT_COUNT = 22;
+  const BACKEND_PREFIXES = ["functions/", "migrations/", "scripts/backend/"];
 
+  const isClientPath = (path) => path.startsWith("src/");
+  const isBackendPath = (path) => BACKEND_PREFIXES.some((prefix) => path.startsWith(prefix));
+  const touchesClient = (paths) => paths.some(isClientPath);
+  const mixesClientAndBackend = (paths) => touchesClient(paths) && paths.some(isBackendPath);
+  const worktreeMixes = ({ staged, unstaged, untracked }) => mixesClientAndBackend([...staged, ...unstaged, ...untracked]);
+  const importsBackend = (specifier) => /(^|\/)functions\//.test(specifier);
+  const importsClient = (specifier) => /(^|\/)src\//.test(specifier);
+  const callsBackendAuthApi = (source) => source.includes("/api/auth/");
+  const nulPaths = (output) => output.split("\0").filter(Boolean);
+  const commits = (range) => git(["rev-list", "--reverse", range]).split("\n").filter(Boolean);
+  // -c reports a merge commit's own changes; plain diff-tree would print nothing for any merge.
+  const commitPaths = (commit) => nulPaths(git(["diff-tree", "-z", "-r", "-c", "--no-commit-id", "--name-only", "--no-renames", commit]));
+  const isAncestor = (ancestor, descendant) => {
+    const result = spawnSync("git", ["-C", root, "merge-base", "--is-ancestor", ancestor, descendant], { encoding: "utf8" });
+    assert.ok(result.status === 0 || result.status === 1, `git merge-base --is-ancestor failed\n${result.stderr}`);
+    return result.status === 0;
+  };
+
+  // Detector self-checks on synthetic inputs only; nothing here writes to or commits in the repository.
+  assert.equal(mixesClientAndBackend(["src/App.jsx", "functions/_lib/db.js"]), true, "self-check: src + functions commit is mixed");
+  assert.equal(mixesClientAndBackend(["src/App.jsx", "migrations/0002.sql"]), true, "self-check: src + migrations commit is mixed");
+  assert.equal(mixesClientAndBackend(["src/App.jsx", "scripts/backend/x.test.mjs"]), true, "self-check: src + scripts/backend commit is mixed");
+  assert.equal(mixesClientAndBackend(["src/App.jsx", "scripts/diary/x.test.mjs", "docs/x.md"]), false, "self-check: client-only commit is allowed");
+  assert.equal(mixesClientAndBackend(["functions/_lib/x.js", "scripts/backend/x.test.mjs"]), false, "self-check: backend-only commit is allowed");
+  assert.equal(mixesClientAndBackend(["srcx/a.js", "functions/a.js"]), false, "self-check: the client prefix matches a whole path segment");
+  assert.equal(mixesClientAndBackend(["src/a.js", "scripts/backend-old/a.js"]), false, "self-check: backend prefixes match whole path segments");
+  assert.equal(worktreeMixes({ staged: ["src/App.jsx"], unstaged: [], untracked: ["functions/new.js"] }), true, "self-check: mixed dirty worktree is rejected");
+  assert.equal(worktreeMixes({ staged: [], unstaged: ["src/App.jsx"], untracked: ["src/new.js"] }), false, "self-check: src-only dirty worktree, including untracked src/, is allowed");
+  assert.equal(worktreeMixes({ staged: ["functions/a.js"], unstaged: [], untracked: ["scripts/backend/new.test.mjs"] }), false, "self-check: backend-only dirty worktree is allowed");
+  assert.equal([["src/a.js"], ["src/a.js"]].some(touchesClient), true, "self-check: a change then revert inside a range is still seen per commit");
+  assert.equal(importSpecifiers('import { hashSecret } from "../../functions/_lib/crypto.js";').some(importsBackend), true, "self-check: src -> functions import is detected");
+  assert.equal(importSpecifiers('const model = await import("../../src/calendar/eventModel.js");').some(importsClient), true, "self-check: functions -> src import is detected");
+  assert.equal(callsBackendAuthApi('fetch("/api/auth/session")'), true, "self-check: a client call to the backend auth API is detected");
+  assert.equal(importSpecifiers('import React from "react"; import { dayNumber } from "./dates.js";').some(importsBackend), false, "self-check: ordinary client imports are allowed");
+  assert.equal(importSpecifiers('import { json } from "./http.js";').some(importsClient), false, "self-check: ordinary backend imports are allowed");
+
+  // G1: the closed Phase 1-9 range, checked commit by commit, never modified src/.
+  assert.equal(isAncestor(BACKEND_BASELINE, PHASE9_CHECKPOINT), true, "BACKEND_BASELINE must be an ancestor of PHASE9_CHECKPOINT");
+  assert.equal(isAncestor(PHASE9_CHECKPOINT, "HEAD"), true, `PHASE9_CHECKPOINT ${PHASE9_CHECKPOINT} must be an ancestor of HEAD`);
+  const foundationCommits = commits(`${BACKEND_BASELINE}..${PHASE9_CHECKPOINT}`);
+  assert.equal(foundationCommits.length, FOUNDATION_RANGE_COMMIT_COUNT, "the closed backend-foundation range must be fully present");
+  const foundationPaths = foundationCommits.map((commit) => ({ commit, paths: commitPaths(commit) }));
+  assert.ok(foundationPaths.some(({ paths }) => paths.some(isBackendPath)), "positive control: the foundation range must show backend paths");
+  for (const { commit, paths } of foundationPaths) {
+    assert.equal(touchesClient(paths), false, `backend-foundation commit ${commit} must not modify src/`);
+  }
+
+  // G2: no later commit mixes client and backend changes; accepted client-only commits stay allowed.
+  const laterCommits = commits(`${PHASE9_CHECKPOINT}..HEAD`);
+  for (const commit of ACCEPTED_CLIENT_ONLY_COMMITS) {
+    assert.equal(foundationCommits.includes(commit), false, `${commit} must lie outside the closed foundation range`);
+    assert.equal(laterCommits.includes(commit), true, `${commit} must be a later ancestor of HEAD`);
+    const paths = commitPaths(commit);
+    assert.equal(touchesClient(paths) && !paths.some(isBackendPath), true, `${commit} must classify as client-only`);
+  }
+  for (const commit of laterCommits) {
+    const paths = commitPaths(commit);
+    assert.equal(mixesClientAndBackend(paths), false, `commit ${commit} mixes src/ with backend paths: ${paths.join(", ")}`);
+  }
+
+  // G3: the current worktree (staged, unstaged and untracked) must not mix client and backend changes.
+  const worktree = {
+    staged: nulPaths(git(["diff", "-z", "--cached", "--name-only", "--no-renames"])),
+    unstaged: nulPaths(git(["diff", "-z", "--name-only", "--no-renames"])),
+    untracked: nulPaths(git(["ls-files", "-z", "--others", "--exclude-standard"])),
+  };
+  const worktreeRelevant = [...worktree.staged, ...worktree.unstaged, ...worktree.untracked]
+    .filter((path) => isClientPath(path) || isBackendPath(path));
+  assert.equal(worktreeMixes(worktree), false, `the worktree mixes src/ with backend paths: ${worktreeRelevant.join(", ")}`);
+
+  // G4: runtime import and endpoint boundaries.
   for (const file of sourceFiles(resolve(root, "src"))) {
     const source = readFileSync(file, "utf8");
     const label = relative(root, file);
     for (const specifier of importSpecifiers(source)) {
-      assert.equal(/(^|\/)functions\//.test(specifier), false, `${label} must not import backend code (${specifier})`);
+      assert.equal(importsBackend(specifier), false, `${label} must not import backend code (${specifier})`);
     }
-    assert.equal(source.includes("/api/auth/"), false, `${label} must not call the backend auth API`);
+    assert.equal(callsBackendAuthApi(source), false, `${label} must not call the backend auth API`);
   }
   for (const file of sourceFiles(functionsDir)) {
     const label = relative(root, file);
     for (const specifier of importSpecifiers(readFileSync(file, "utf8"))) {
-      assert.equal(/(^|\/)src\//.test(specifier), false, `${label} must not import client runtime code (${specifier})`);
+      assert.equal(importsClient(specifier), false, `${label} must not import client runtime code (${specifier})`);
     }
   }
 });
