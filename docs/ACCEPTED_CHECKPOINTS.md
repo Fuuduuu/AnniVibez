@@ -2,6 +2,16 @@
 
 ## Accepted checkpointid
 
+### ANNIVIBE_SYNC_V1A1_CALENDAR_MUTATION_PRIMITIVE
+- status: `SYNC-V1A-1` COMPLETED / CHECKPOINTED / CLOSED at `abec42364dd501fb022928582d347176b49deee4` (`feat: add calendar sync mutation primitive`). The checkpoint is the server-side `calendar_event` mutation primitive only.
+- Exact changed files: `functions/_lib/sync.js`, `functions/_lib/syncRepository.js`, and `scripts/backend/sync-mutations.test.mjs`. Accepted validation: Sync `42/42 PASS`; existing backend `61/61 PASS`; combined backend + Sync `103/103 PASS`; migration `13/13 PASS`; foundation `13/13 PASS`; Phase 1–9 `87/87 PASS`; build PASS. Manual smoke: NOT REQUIRED. These are checkpoint results, not checks rerun by this docs-only closeout.
+- No sync HTTP endpoint, client push/pull loop, bootstrap integration, or UI sync runtime was included; full user-facing sync is not implemented. `SYNC-V1A-2` through `SYNC-V1A-5` remain LOCKED. Päevik and Tegevus remain DEVICE_LOCAL_ONLY. No remote D1, binding, deployment, or real-user authorization is granted. The V1A-1 RED-first opening in the older R2 checkpoint below is historical and superseded.
+
+### ANNIVIBE_FOUNDATION_TEST_MAINTENANCE_CLOSEOUT
+- status: foundation integration guard maintenance COMPLETED / CHECKPOINTED / CLOSED at `4c2df47fb96fa919f493c0a4d0cb990b7960d584` (`test: repair foundation integration history guard`). The temporary exact-file writer gate opened at `43bb9dbb05c09a1740a0d16c2286a68c2e4bb3ba` is closed.
+- The checkpoint changed only `scripts/backend/foundation-integration.test.mjs`; production files changed: NONE. Accepted validation: foundation integration `13/13 PASS`; combined Phase 1–9 `87/87 PASS`; `0 skipped`. These are checkpoint results, not tests rerun by this docs-only closeout.
+- The fixed `BACKEND_BASELINE`, `PHASE9_CHECKPOINT`, and final G1–G4 model are recorded in `docs/ACTIVE_SCOPE_LOCK.md`. Phase 9 acceptance remains closed and protected; this checkpoint grants no further writer scope.
+
 ### ANNIVIBE_R2_CLOSE_R3_OPEN_SYNC_V1A_OPEN
 - ROAD STEP 5 / R2 is CLOSED / ACCEPTED at `3132ace353f59847bd2a161cc6167868690636d5` (`fix: make diary persistence atomic across tabs`); BSEC-01 is RESOLVED. The earlier R2 governance approval was `a3d91496f985c4672f1fbefa6a55f12fe6b9f43c`. The rejected Web Lock + localStorage mutation design is not the final fix: dedicated device-local IndexedDB `majandus_diary_v1` version `1`, store `diary`, record key `state` is the authority for PIN and entries. Päevik has no backend sync, active localStorage mutation authority, or dual-write. The implementation commit contains only the seven R2 source/test files listed in the approved R2 plan.
 - Accepted implementation evidence: migration `18/18`, R1 persistence `17/17`, R2 concurrency `23/23`, shell `78/78`, storage `83/83`, build PASS, `git diff --check` PASS. Real concurrency evidence reported zero missing acknowledged writes for repeated 2 × 60 and 4 × 30 runs. Independent audit: PASS, BLOCKING `0`, MATERIAL `0`, MINOR `7`; human UI smoke: PASS (legacy migration, save/delete reload, PIN change, two-tab saves, Settings and Forgot-PIN reset, visual/navigation behavior). These are the R2 checkpoint's reported validation and human evidence, not checks rerun by this docs-only pass.
