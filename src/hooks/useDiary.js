@@ -1,75 +1,21 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { addDiaryEntry, changeDiaryPin, deleteDiaryEntry, loadDiary, resetDiary,
+  setupDiaryPin } from '../diary/diaryStore.js';
 
-const PIN_KEY     = 'sade_diary_pin';
-const ENTRIES_KEY = 'sade_diary_entries';
-
-function readEntries() {
-  try { return JSON.parse(localStorage.getItem(ENTRIES_KEY) || '[]'); } catch { return []; }
-}
-function writeEntries(entries) {
-  try {
-    localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error };
-  }
-}
-export function readPin() {
-  try { const v = localStorage.getItem(PIN_KEY); return v ? atob(v) : null; } catch { return null; }
-}
-export function writePin(pin) {
-  try {
-    localStorage.setItem(PIN_KEY, btoa(pin));
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, error };
-  }
-}
-export function clearDiaryStorage() {
-  let pinBytes;
-  let entryBytes;
-  try {
-    pinBytes = localStorage.getItem(PIN_KEY);
-    entryBytes = localStorage.getItem(ENTRIES_KEY);
-  } catch (error) {
-    return { ok: false, error, restored: false };
-  }
-
-  let pinMayHaveChanged = false;
-  let entriesMayHaveChanged = false;
-  try {
-    pinMayHaveChanged = true;
-    localStorage.removeItem(PIN_KEY);
-    entriesMayHaveChanged = true;
-    localStorage.removeItem(ENTRIES_KEY);
-    return { ok: true };
-  } catch (error) {
-    let restored = true;
-    for (const [changed, key, bytes] of [
-      [pinMayHaveChanged, PIN_KEY, pinBytes],
-      [entriesMayHaveChanged, ENTRIES_KEY, entryBytes],
-    ]) {
-      if (!changed) continue;
-      try {
-        if (bytes === null) localStorage.removeItem(key);
-        else localStorage.setItem(key, bytes);
-        if (localStorage.getItem(key) !== bytes) restored = false;
-      } catch {
-        restored = false;
-      }
-    }
-    return { ok: false, error, restored };
-  }
+function statusFrom(result) {
+  if (!result.ok) return result.code === 'MIGRATION_FAILED' ? 'migration-failed' : 'unavailable';
+  if (result.state.pin === null && result.state.entries.length) return 'orphaned';
+  return 'ready';
 }
 
 export function todayStr() {
   const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function daysBetween(dateStr, now = new Date()) {
   if (!dateStr) return Infinity;
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = new Date(`${dateStr}T00:00:00`);
   const n = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.floor((n - d) / 86400000);
 }
@@ -83,91 +29,113 @@ export function streakInfo(entries) {
 }
 
 export function useDiary() {
-  const [unlocked,  setUnlocked]  = useState(false);
-  const [entries,   setEntries]   = useState([]);
-  const [pinError,  setPinError]  = useState(false);
-  const committedEntries = useRef([]);
+  const [status, setStatus] = useState('loading');
+  const [authority, setAuthority] = useState(null);
+  const [unlocked, setUnlocked] = useState(false);
+  const [entries, setEntries] = useState([]);
+  const [pinError, setPinError] = useState(false);
+  const [legacyNotice, setLegacyNotice] = useState(false);
+  const [legacyCheckFailed, setLegacyCheckFailed] = useState(false);
 
-  const pinSet = !!readPin();
+  useEffect(() => {
+    let active = true;
+    loadDiary().then(result => {
+      if (!active) return;
+      setStatus(statusFrom(result));
+      if (result.ok) {
+        setAuthority(result.state);
+        setLegacyNotice(result.legacyChanged);
+        setLegacyCheckFailed(result.legacyCheckFailed);
+      }
+    }).catch(() => { if (active) setStatus('unavailable'); });
+    return () => { active = false; };
+  }, []);
 
-  const setupPin = useCallback((pin) => {
-    const result = writePin(pin);
+  const setupPin = useCallback(async pin => {
+    const result = await setupDiaryPin(pin);
     if (!result.ok) return result;
-    committedEntries.current = [];
+    setAuthority(result.state);
     setEntries([]);
     setUnlocked(true);
     setPinError(false);
+    setStatus('ready');
     return result;
   }, []);
 
-  const tryUnlock = useCallback((pin) => {
-    if (pin === readPin()) {
-      const savedEntries = readEntries();
-      committedEntries.current = savedEntries;
-      setEntries(savedEntries);
-      setUnlocked(true);
-      setPinError(false);
-      return true;
+  const tryUnlock = useCallback(async pin => {
+    const result = await loadDiary();
+    if (!result.ok) { setStatus(statusFrom(result)); return false; }
+    setAuthority(result.state);
+    setLegacyNotice(result.legacyChanged);
+    setLegacyCheckFailed(result.legacyCheckFailed);
+    if (result.state.pin === null || result.state.pin !== btoa(pin)) {
+      setPinError(true);
+      return false;
     }
-    setPinError(true);
-    return false;
+    setEntries(result.state.entries);
+    setUnlocked(true);
+    setPinError(false);
+    setStatus('ready');
+    return true;
   }, []);
 
   const lock = useCallback(() => {
-    committedEntries.current = [];
     setUnlocked(false);
     setEntries([]);
     setPinError(false);
   }, []);
 
-  const changePin = useCallback((oldPin, newPin) => {
-    if (oldPin !== readPin()) return false;
-    return writePin(newPin).ok;
-  }, []);
+  const verifyPin = useCallback(pin => authority?.pin !== null && authority?.pin === btoa(pin), [authority]);
 
-  const resetPin = useCallback(() => {
-    const result = clearDiaryStorage();
-    if (!result.ok) return result;
-    committedEntries.current = [];
-    setUnlocked(false);
-    setEntries([]);
-    setPinError(false);
+  const changePin = useCallback(async (oldPin, newPin) => {
+    const result = await changeDiaryPin(oldPin, newPin);
+    if (result.ok) setAuthority(result.state);
     return result;
   }, []);
 
-  const addEntry = useCallback((data) => {
+  const resetPin = useCallback(async () => {
+    const result = await resetDiary();
+    if (!result.ok) return result;
+    setAuthority(result.state);
+    setEntries([]);
+    setUnlocked(false);
+    setPinError(false);
+    setLegacyNotice(result.legacyCleanupFailed);
+    setStatus('ready');
+    return result;
+  }, []);
+
+  const addEntry = useCallback(async data => {
     const entry = {
-      id: String(Date.now()),
+      id: globalThis.crypto?.randomUUID?.() ?? String(Date.now()),
       date: todayStr(),
       createdAt: new Date().toISOString(),
       emoji: data.emoji || '😐',
       title: data.title || '',
-      good:  data.good  || '',
-      hard:  data.hard  || '',
-      free:  data.free  || '',
+      good: data.good || '',
+      hard: data.hard || '',
+      free: data.free || '',
     };
-    const next = [entry, ...committedEntries.current];
-    const result = writeEntries(next);
+    const result = await addDiaryEntry(entry);
     if (!result.ok) return result;
-    committedEntries.current = next;
-    setEntries(next);
+    setAuthority(result.state);
+    setEntries(result.state.entries);
     return { ok: true, entry };
   }, []);
 
-  const deleteEntry = useCallback((id) => {
-    const next = committedEntries.current.filter(e => e.id !== id);
-    const result = writeEntries(next);
+  const deleteEntry = useCallback(async id => {
+    const result = await deleteDiaryEntry(id);
     if (!result.ok) return result;
-    committedEntries.current = next;
-    setEntries(next);
-    return result;
+    setAuthority(result.state);
+    setEntries(result.state.entries);
+    return { ok: true, removed: result.removed };
   }, []);
 
-  const streak         = useMemo(() => streakInfo(entries), [entries]);
-  const hasTodayEntry  = useMemo(() => entries.some(e => e.date === todayStr()), [entries]);
+  const streak = useMemo(() => streakInfo(entries), [entries]);
+  const hasTodayEntry = useMemo(() => entries.some(entry => entry.date === todayStr()), [entries]);
 
   return {
-    pinSet, unlocked, entries, pinError, streak, hasTodayEntry,
-    setupPin, tryUnlock, lock, changePin, resetPin, addEntry, deleteEntry,
+    status, pinSet: Boolean(authority?.pin), unlocked, entries, pinError, legacyNotice, legacyCheckFailed,
+    streak, hasTodayEntry, setupPin, tryUnlock, lock, verifyPin, changePin, resetPin, addEntry, deleteEntry,
   };
 }

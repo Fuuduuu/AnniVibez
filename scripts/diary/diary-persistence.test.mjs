@@ -80,31 +80,41 @@ async function createHarness() {
   assert.ok(script, 'the real diary and Settings components must bundle');
   const html = `<!doctype html><meta charset="utf-8"><script>
     (() => {
-      const bytes = new Map();
-      let setFault = null;
-      let removeFault = null;
-      const storage = {
-        getItem(key) { return bytes.has(String(key)) ? bytes.get(String(key)) : null; },
-        setItem(key, value) {
-          if (setFault?.key === String(key)) throw new DOMException('synthetic write failure', setFault.name);
-          bytes.set(String(key), String(value));
-        },
-        removeItem(key) {
-          if (removeFault?.key === String(key)) throw new DOMException('synthetic delete failure', removeFault.name);
-          bytes.delete(String(key));
-        },
+      const originalPut = IDBObjectStore.prototype.put;
+      let fault = null;
+      IDBObjectStore.prototype.put = function(value, ...args) {
+        if (fault && value?.key === 'state') {
+          if (fault.mode === 'abort') {
+            const request = originalPut.call(this, value, ...args);
+            this.transaction.abort();
+            return request;
+          }
+          throw new DOMException('synthetic IndexedDB failure', fault.name);
+        }
+        return originalPut.call(this, value, ...args);
       };
-      Object.defineProperty(window, 'localStorage', { configurable: true, value: storage });
-      if (window.localStorage !== storage) throw new Error('synthetic localStorage was not installed');
-      window.__bytes = {
-        storage,
-        reset() { bytes.clear(); setFault = null; removeFault = null; },
-        seed(key, value) { bytes.set(key, value); },
-        get(key) { return storage.getItem(key); },
-        failSet(key, name) { setFault = { key, name }; },
-        clearSetFault() { setFault = null; },
-        failRemove(key, name) { removeFault = { key, name }; },
+      window.__faults = {
+        set(name = 'QuotaExceededError') { fault = { mode: 'throw', name }; },
+        abort() { fault = { mode: 'abort' }; },
+        clear() { fault = null; },
       };
+      window.__state = () => new Promise((resolveState, rejectState) => {
+        const open = indexedDB.open('majandus_diary_v1', 1);
+        open.onerror = () => rejectState(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains('diary')) { db.close(); resolveState(null); return; }
+          const request = db.transaction('diary', 'readonly').objectStore('diary').get('state');
+          request.onsuccess = () => { resolveState(request.result ?? null); db.close(); };
+          request.onerror = () => { rejectState(request.error); db.close(); };
+        };
+      });
+      window.__resetDb = () => new Promise((resolveReset, rejectReset) => {
+        const request = indexedDB.deleteDatabase('majandus_diary_v1');
+        request.onsuccess = () => resolveReset(true);
+        request.onerror = () => rejectReset(request.error);
+        request.onblocked = () => rejectReset(new Error('diary test DB remained open'));
+      });
     })();
   </script><div id="root"></div><script src="/fixture.js"></script>`;
   const server = createServer((request, response) => {
@@ -203,7 +213,7 @@ async function createHarness() {
     await send('Runtime.enable');
     await send('Page.enable');
     await send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}` });
-    await waitFor('Boolean(window.__app && window.__bytes && window.localStorage === window.__bytes.storage)');
+    await waitFor('Boolean(window.__app && window.__faults && window.__state)');
     return { evaluate, waitFor, flush, click, type, cleanup };
   } catch (error) {
     await cleanup();
@@ -216,11 +226,13 @@ before(async () => { harness = await createHarness(); });
 after(async () => { await harness?.cleanup(); });
 
 async function prepare(view) {
-  await harness.evaluate(`(() => {
+  await harness.evaluate(`(async () => {
     window.__app.unmount();
-    window.__bytes.reset();
-    window.__bytes.seed('sade_diary_pin', ${JSON.stringify(OLD_PIN_BYTES)});
-    window.__bytes.seed('sade_diary_entries', ${JSON.stringify(PRIOR_ENTRIES_BYTES)});
+    window.__faults.clear();
+    localStorage.clear();
+    await window.__resetDb();
+    localStorage.setItem('sade_diary_pin', ${JSON.stringify(OLD_PIN_BYTES)});
+    localStorage.setItem('sade_diary_entries', ${JSON.stringify(PRIOR_ENTRIES_BYTES)});
     window.__app.mount(${JSON.stringify(view)});
     return true;
   })()`);
@@ -244,7 +256,7 @@ async function fillDiary(title, draft) {
 }
 
 async function diaryFailureSnapshot(title) {
-  return harness.evaluate(`(() => {
+  return harness.evaluate(`(async () => {
     const text = document.body.innerText;
     const draft = document.querySelector('textarea[placeholder="See on sinu privaatne koht."]');
     return {
@@ -254,7 +266,7 @@ async function diaryFailureSnapshot(title) {
         .some(element => Boolean(element.textContent.trim())) ||
         /ei õnnestunud|ebaõnnest|salvestamata|viga|proovi uuesti/i.test(text),
       newEntryVisible: text.includes(${JSON.stringify(title)}),
-      storedBytes: window.__bytes.get('sade_diary_entries'),
+      storedEntries: (await window.__state()).entries,
     };
   })()`);
 }
@@ -282,10 +294,10 @@ async function enterResetConfirmation() {
 }
 
 async function pinFailureSnapshot() {
-  return harness.evaluate(`(() => {
+  return harness.evaluate(`(async () => {
     const text = document.body.innerText;
     return {
-      pinBytes: window.__bytes.get('sade_diary_pin'),
+      pinBytes: (await window.__state()).pin,
       successVisible: text.includes('PIN uuendatud'),
       failureVisible: [...document.querySelectorAll('[role=alert],.mm-field-error')]
         .some(element => Boolean(element.textContent.trim())) ||
@@ -295,11 +307,12 @@ async function pinFailureSnapshot() {
 }
 
 async function resetFailureSnapshot() {
-  return harness.evaluate(`(() => {
+  return harness.evaluate(`(async () => {
     const text = document.body.innerText;
+    const state = await window.__state();
     return {
-      pinBytes: window.__bytes.get('sade_diary_pin'),
-      entryBytes: window.__bytes.get('sade_diary_entries'),
+      pinBytes: state.pin,
+      entries: state.entries,
       successVisible: text.includes('PIN ja päevik on kustutatud'),
       claimsNoPin: text.includes('PIN pole veel peal'),
       failureVisible: [...document.querySelectorAll('[role=alert],.mm-field-error')]
@@ -315,8 +328,8 @@ test('successful diary save persists and survives a fresh diary mount', { timeou
   await fillDiary('Durable new entry', 'Durable authored text');
   await harness.click('Salvesta ✓');
   await harness.waitFor("document.body.innerText.includes('Durable new entry')");
-  const raw = await harness.evaluate("window.__bytes.get('sade_diary_entries')");
-  assert.deepEqual(JSON.parse(raw).map(entry => entry.title), ['Durable new entry', 'Prior durable entry']);
+  const state = await harness.evaluate('window.__state()');
+  assert.deepEqual(state?.entries?.map(entry => entry.title), ['Durable new entry', 'Prior durable entry']);
   await harness.evaluate("window.__app.mount('diary'); true");
   await harness.waitFor("document.body.innerText.includes('Sinu salapäevik')");
   await unlockDiary();
@@ -327,7 +340,7 @@ test('successful PIN change makes the new PIN authoritative on a fresh diary mou
   await prepare('settings');
   await enterPinChange();
   await harness.click('Salvesta PIN-i');
-  assert.equal(await harness.evaluate("window.__bytes.get('sade_diary_pin')"), NEW_PIN_BYTES);
+  assert.equal(await harness.evaluate('window.__state().then(state => state.pin)'), NEW_PIN_BYTES);
   await harness.evaluate("window.__app.mount('diary'); true");
   await harness.waitFor("document.body.innerText.includes('Sinu salapäevik')");
   await harness.type('input[type=password]', '1234');
@@ -340,19 +353,19 @@ test('successful reset removes both the PIN and diary entries', { timeout: 60000
   await prepare('settings');
   await enterResetConfirmation();
   await harness.click('Kustuta kõik');
-  assert.deepEqual(await harness.evaluate("({ pin: window.__bytes.get('sade_diary_pin'), entries: window.__bytes.get('sade_diary_entries') })"),
-    { pin: null, entries: null });
+  assert.deepEqual(await harness.evaluate('window.__state().then(state => ({ pin: state.pin, entries: state.entries }))'),
+    { pin: null, entries: [] });
 });
 
 test('QuotaExceededError keeps the diary draft and editor instead of showing an uncommitted save', { timeout: 60000 }, async () => {
   await prepare('diary');
   await unlockDiary();
   await fillDiary('Quota uncommitted entry', 'Quota-authored draft');
-  await harness.evaluate("window.__bytes.failSet('sade_diary_entries', 'QuotaExceededError'); true");
+  await harness.evaluate("window.__faults.set('QuotaExceededError'); true");
   await harness.click('Salvesta ✓');
   assert.deepEqual(await diaryFailureSnapshot('Quota uncommitted entry'), {
     editorOpen: true, draft: 'Quota-authored draft', failureVisible: true,
-    newEntryVisible: false, storedBytes: PRIOR_ENTRIES_BYTES,
+    newEntryVisible: false, storedEntries: JSON.parse(PRIOR_ENTRIES_BYTES),
   });
 });
 
@@ -360,11 +373,11 @@ test('SecurityError keeps the diary draft and editor instead of showing an uncom
   await prepare('diary');
   await unlockDiary();
   await fillDiary('Denied uncommitted entry', 'Denied-storage draft');
-  await harness.evaluate("window.__bytes.failSet('sade_diary_entries', 'SecurityError'); true");
+  await harness.evaluate("window.__faults.set('SecurityError'); true");
   await harness.click('Salvesta ✓');
   assert.deepEqual(await diaryFailureSnapshot('Denied uncommitted entry'), {
     editorOpen: true, draft: 'Denied-storage draft', failureVisible: true,
-    newEntryVisible: false, storedBytes: PRIOR_ENTRIES_BYTES,
+    newEntryVisible: false, storedEntries: JSON.parse(PRIOR_ENTRIES_BYTES),
   });
 });
 
@@ -372,11 +385,12 @@ test('failed diary persistence does not publish the new entry in hook memory', {
   await prepare('hook');
   await harness.evaluate("window.__hook.tryUnlock('1234')");
   await harness.waitFor('window.__hook.unlocked === true');
-  await harness.evaluate("window.__bytes.failSet('sade_diary_entries', 'SecurityError'); true");
-  await harness.evaluate("(() => { try { window.__hook.addEntry({ title: 'Memory-only entry', free: 'not durable' }); } catch {} return true; })()");
+  await harness.evaluate("window.__faults.set('SecurityError'); true");
+  const result = await harness.evaluate("window.__hook.addEntry({ title: 'Memory-only entry', free: 'not durable' })");
+  assert.equal(result.ok, false);
   await harness.flush();
-  assert.deepEqual(await harness.evaluate("({ titles: window.__hook.entries.map(entry => entry.title), bytes: window.__bytes.get('sade_diary_entries') })"),
-    { titles: ['Prior durable entry'], bytes: PRIOR_ENTRIES_BYTES });
+  assert.deepEqual(await harness.evaluate("window.__state().then(state => ({ titles: window.__hook.entries.map(entry => entry.title), entries: state.entries }))"),
+    { titles: ['Prior durable entry'], entries: JSON.parse(PRIOR_ENTRIES_BYTES) });
 });
 
 test('failed entry deletion keeps the authored entry visible and reports the storage failure', { timeout: 60000 }, async () => {
@@ -384,9 +398,9 @@ test('failed entry deletion keeps the authored entry visible and reports the sto
   await unlockDiary();
   await harness.click('Prior durable entry');
   await harness.click('Kustuta see kirje');
-  await harness.evaluate("window.__bytes.failSet('sade_diary_entries', 'QuotaExceededError'); true");
+  await harness.evaluate("window.__faults.set('QuotaExceededError'); true");
   await harness.click('Jah, kustuta');
-  assert.deepEqual(await harness.evaluate(`(() => {
+  assert.deepEqual(await harness.evaluate(`(async () => {
     const text = document.body.innerText;
     return {
       detailOpen: text.includes('Kustuta see kirje') || text.includes('Kas kustutame selle kirje jäädavalt?'),
@@ -394,62 +408,62 @@ test('failed entry deletion keeps the authored entry visible and reports the sto
       failureVisible: [...document.querySelectorAll('[role=alert],.mm-field-error')]
         .some(element => Boolean(element.textContent.trim())) ||
         /ei õnnestunud|ebaõnnest|kustutamata|viga|proovi uuesti/i.test(text),
-      storedBytes: window.__bytes.get('sade_diary_entries'),
+      storedEntries: (await window.__state()).entries,
     };
   })()`), {
     detailOpen: true, entryVisible: true, failureVisible: true,
-    storedBytes: PRIOR_ENTRIES_BYTES,
+    storedEntries: JSON.parse(PRIOR_ENTRIES_BYTES),
   });
 });
 
 test('failed PIN persistence cannot show success while the old PIN remains authoritative', { timeout: 60000 }, async () => {
   await prepare('settings');
   await enterPinChange();
-  await harness.evaluate("window.__bytes.failSet('sade_diary_pin', 'QuotaExceededError'); true");
+  await harness.evaluate("window.__faults.set('QuotaExceededError'); true");
   await harness.click('Salvesta PIN-i');
   assert.deepEqual(await pinFailureSnapshot(), {
     pinBytes: OLD_PIN_BYTES, successVisible: false, failureVisible: true,
   });
 });
 
-test('reset failure before the first removal cannot claim diary deletion', { timeout: 60000 }, async () => {
+test('reset put failure cannot claim diary deletion', { timeout: 60000 }, async () => {
   await prepare('settings');
   await enterResetConfirmation();
-  await harness.evaluate("window.__bytes.failRemove('sade_diary_pin', 'SecurityError'); true");
+  await harness.evaluate("window.__faults.set('SecurityError'); true");
   await harness.click('Kustuta kõik');
   assert.deepEqual(await resetFailureSnapshot(), {
-    pinBytes: OLD_PIN_BYTES, entryBytes: PRIOR_ENTRIES_BYTES,
+    pinBytes: OLD_PIN_BYTES, entries: JSON.parse(PRIOR_ENTRIES_BYTES),
     successVisible: false, claimsNoPin: false, failureVisible: true,
   });
 });
 
-test('reset failure after PIN removal cannot leave a partially deleted diary', { timeout: 60000 }, async () => {
+test('reset transaction abort cannot leave a partially deleted diary', { timeout: 60000 }, async () => {
   await prepare('settings');
   await enterResetConfirmation();
-  await harness.evaluate("window.__bytes.failRemove('sade_diary_entries', 'SecurityError'); true");
+  await harness.evaluate("window.__faults.abort(); true");
   await harness.click('Kustuta kõik');
   assert.deepEqual(await resetFailureSnapshot(), {
-    pinBytes: OLD_PIN_BYTES, entryBytes: PRIOR_ENTRIES_BYTES,
+    pinBytes: OLD_PIN_BYTES, entries: JSON.parse(PRIOR_ENTRIES_BYTES),
     successVisible: false, claimsNoPin: false, failureVisible: true,
   });
 });
 
 test('initial diary PIN setup failure stays recoverable and succeeds on retry', { timeout: 60000 }, async () => {
-  await harness.evaluate("window.__app.unmount(); window.__bytes.reset(); window.__app.mount('diary'); true");
+  await harness.evaluate("(async () => { window.__app.unmount(); window.__faults.clear(); localStorage.clear(); await window.__resetDb(); window.__app.mount('diary'); return true; })()");
   await harness.waitFor("document.body.innerText.includes('Pane päevikule PIN')");
-  assert.equal(await harness.evaluate("window.__bytes.get('sade_diary_pin')"), null);
+  assert.equal(await harness.evaluate('window.__state().then(state => state.pin)'), null);
 
   await harness.type('input[type=password]', '4321');
   await harness.click('Edasi →');
   await harness.waitFor("document.body.innerText.includes('Korda PIN-i')");
   await harness.type('input[type=password]', '4321');
-  await harness.evaluate("window.__bytes.failSet('sade_diary_pin', 'QuotaExceededError'); true");
+  await harness.evaluate("window.__faults.set('QuotaExceededError'); true");
   await harness.click('Valmis ✨');
 
-  assert.deepEqual(await harness.evaluate(`(() => {
+  assert.deepEqual(await harness.evaluate(`(async () => {
     const text = document.body.innerText;
     return {
-      pinBytes: window.__bytes.get('sade_diary_pin'),
+      pinBytes: (await window.__state()).pin,
       setupVisible: text.includes('Korda PIN-i'),
       confirmation: document.querySelector('input[type=password]')?.value ?? null,
       failureVisible: text.includes('PIN-i salvestamine ei õnnestunud. Proovi uuesti.'),
@@ -460,11 +474,11 @@ test('initial diary PIN setup failure stays recoverable and succeeds on retry', 
     failureVisible: true, diaryListVisible: false,
   });
 
-  await harness.evaluate('window.__bytes.clearSetFault(); true');
+  await harness.evaluate('window.__faults.clear(); true');
   await harness.click('Valmis ✨');
   await harness.waitFor("document.body.innerText.includes('Minu salapäevik')");
-  assert.deepEqual(await harness.evaluate(`(() => ({
-    pinBytes: window.__bytes.get('sade_diary_pin'),
+  assert.deepEqual(await harness.evaluate(`(async () => ({
+    pinBytes: (await window.__state()).pin,
     setupVisible: document.body.innerText.includes('Korda PIN-i'),
     diaryListVisible: document.body.innerText.includes('Minu salapäevik'),
   }))()`), {
@@ -472,24 +486,21 @@ test('initial diary PIN setup failure stays recoverable and succeeds on retry', 
   });
 });
 
-test('diary ForgotPin reset failure stays visible and preserves exact raw bytes', { timeout: 60000 }, async () => {
+test('diary ForgotPin reset abort stays visible and preserves exact authoritative state', { timeout: 60000 }, async () => {
   await prepare('diary');
-  const before = await harness.evaluate(`({
-    pin: window.__bytes.get('sade_diary_pin'),
-    entries: window.__bytes.get('sade_diary_entries'),
-  })`);
-  assert.deepEqual(before, { pin: OLD_PIN_BYTES, entries: PRIOR_ENTRIES_BYTES });
+  const before = await harness.evaluate('window.__state()');
+  assert.equal(before.pin, OLD_PIN_BYTES);
+  assert.deepEqual(before.entries, JSON.parse(PRIOR_ENTRIES_BYTES));
 
   await harness.click('Unustasin PIN-i');
   await harness.waitFor("document.body.innerText.includes('Kas kustutame päeviku?')");
-  await harness.evaluate("window.__bytes.failRemove('sade_diary_entries', 'SecurityError'); true");
+  await harness.evaluate("window.__faults.abort(); true");
   await harness.click('Kustuta kõik ja alusta uuesti');
 
-  assert.deepEqual(await harness.evaluate(`(() => {
+  assert.deepEqual(await harness.evaluate(`(async () => {
     const text = document.body.innerText;
     return {
-      pin: window.__bytes.get('sade_diary_pin'),
-      entries: window.__bytes.get('sade_diary_entries'),
+      state: await window.__state(),
       forgotVisible: text.includes('Kas kustutame päeviku?'),
       retryAvailable: [...document.querySelectorAll('button')]
         .some(button => button.textContent.includes('Kustuta kõik ja alusta uuesti')),
@@ -499,7 +510,113 @@ test('diary ForgotPin reset failure stays visible and preserves exact raw bytes'
       diaryListVisible: text.includes('Minu salapäevik'),
     };
   })()`), {
-    ...before, forgotVisible: true, retryAvailable: true, failureVisible: true,
+    state: before, forgotVisible: true, retryAvailable: true, failureVisible: true,
     successVisible: false, setupVisible: false, diaryListVisible: false,
   });
+});
+
+test('unavailable IndexedDB open keeps the authored draft and the previous durable entry', { timeout: 60000 }, async () => {
+  await prepare('diary');
+  await unlockDiary();
+  await fillDiary('UNAVAILABLE-DRAFT', 'Still here');
+  const before = await harness.evaluate('window.__state()');
+  await harness.evaluate(`(() => {
+    const original = IDBFactory.prototype.open;
+    IDBFactory.prototype.open = function() { throw new DOMException('synthetic denial', 'SecurityError'); };
+    window.__restoreOpen = () => { IDBFactory.prototype.open = original; };
+    return true;
+  })()`);
+  try {
+    await harness.click('Salvesta ✓');
+    await harness.waitFor("document.body.innerText.includes('Salvestamine ei õnnestunud')");
+    assert.deepEqual(await harness.evaluate(`({
+      draft: document.querySelector('textarea[placeholder="See on sinu privaatne koht."]')?.value,
+      editorOpen: Boolean(document.querySelector('textarea[placeholder="See on sinu privaatne koht."]')),
+      falseSuccess: document.body.innerText.includes('UNAVAILABLE-DRAFT') &&
+        document.body.innerText.includes('Minu salapäevik'),
+    })`), { draft: 'Still here', editorOpen: true, falseSuccess: false });
+  } finally {
+    await harness.evaluate('window.__restoreOpen(); true');
+  }
+  assert.deepEqual(await harness.evaluate('window.__state()'), before);
+});
+
+test('old-tab legacy changes show a notice without replacing authoritative diary entries', { timeout: 60000 }, async () => {
+  await prepare('diary');
+  const before = await harness.evaluate('window.__state()');
+  await harness.evaluate("localStorage.setItem('sade_diary_entries', '[]'); window.__app.unmount(); window.__app.mount('diary'); true");
+  await harness.waitFor("document.body.innerText.includes('Vana päevikukoopia')");
+  assert.deepEqual(await harness.evaluate('window.__state()'), before);
+  await unlockDiary();
+  assert.equal(await harness.evaluate("document.body.innerText.includes('Prior durable entry')"), true);
+});
+
+test('failed legacy cleanup warns visibly but does not deny an already committed reset', { timeout: 60000 }, async () => {
+  await prepare('settings');
+  await enterResetConfirmation();
+  await harness.evaluate(`(() => {
+    const original = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function(key) {
+      if (key === 'sade_diary_entries') throw new DOMException('synthetic denial', 'SecurityError');
+      return original.call(this, key);
+    };
+    window.__restoreRemove = () => { Storage.prototype.removeItem = original; };
+    return true;
+  })()`);
+  try {
+    await harness.click('Kustuta kõik');
+    await harness.waitFor("document.body.innerText.includes('vana päevikukoopia')");
+    assert.deepEqual(await harness.evaluate(`(async () => ({
+      pin: (await window.__state()).pin,
+      entries: (await window.__state()).entries,
+      legacyEntries: localStorage.getItem('sade_diary_entries'),
+      warning: document.body.innerText.includes('vana päevikukoopia'),
+      falseFullCleanup: document.body.innerText.includes('PIN ja päevik on kustutatud'),
+    }))()`), { pin: null, entries: [], legacyEntries: PRIOR_ENTRIES_BYTES,
+      warning: true, falseFullCleanup: false });
+  } finally {
+    await harness.evaluate('window.__restoreRemove(); true');
+  }
+});
+
+test('invalid legacy diary shows a migration failure without replacing it with empty setup', { timeout: 60000 }, async () => {
+  await harness.evaluate(`(async () => {
+    window.__app.unmount();
+    window.__faults.clear();
+    localStorage.clear();
+    await window.__resetDb();
+    localStorage.setItem('sade_diary_pin', ${JSON.stringify(OLD_PIN_BYTES)});
+    localStorage.setItem('sade_diary_entries', '{not-json');
+    window.__app.mount('diary');
+    return true;
+  })()`);
+  await harness.waitFor("document.body.innerText.includes('Vana päeviku andmeid ei õnnestunud')");
+  assert.deepEqual(await harness.evaluate(`(async () => ({
+    state: await window.__state(),
+    legacy: localStorage.getItem('sade_diary_entries'),
+    setupVisible: document.body.innerText.includes('Pane päevikule PIN'),
+  }))()`), { state: null, legacy: '{not-json', setupVisible: false });
+});
+
+test('unavailable IndexedDB on diary opening shows a storage error instead of empty setup', { timeout: 60000 }, async () => {
+  await harness.evaluate(`(async () => {
+    window.__app.unmount();
+    window.__faults.clear();
+    localStorage.clear();
+    await window.__resetDb();
+    localStorage.setItem('sade_diary_pin', ${JSON.stringify(OLD_PIN_BYTES)});
+    localStorage.setItem('sade_diary_entries', ${JSON.stringify(PRIOR_ENTRIES_BYTES)});
+    const original = IDBFactory.prototype.open;
+    IDBFactory.prototype.open = function() { throw new DOMException('synthetic denial', 'SecurityError'); };
+    window.__restoreOpen = () => { IDBFactory.prototype.open = original; };
+    window.__app.mount('diary');
+    return true;
+  })()`);
+  try {
+    await harness.waitFor("document.body.innerText.includes('Päeviku salvestusruum pole saadaval')");
+    assert.equal(await harness.evaluate("document.body.innerText.includes('Pane päevikule PIN')"), false);
+  } finally {
+    await harness.evaluate('window.__restoreOpen(); true');
+  }
+  assert.equal(await harness.evaluate('window.__state()'), null);
 });

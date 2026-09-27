@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useDiary, todayStr } from '../hooks/useDiary';
 import { AV, FONT, card, labelStyle, inp, shell, shellNarrow } from '../design/tokens';
 
@@ -33,15 +33,28 @@ function PinSetup({ onDone }) {
   const [conf, setConf]   = useState('');
   const [step, setStep]   = useState(1);
   const [err,  setErr]    = useState('');
+  const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
 
-  function next() {
+  async function next() {
+    if (savePending.current) return;
     if (step === 1) {
       if (pin.length < 4) { setErr('PIN peab olema vähemalt 4 numbrit'); return; }
       if (!/^\d+$/.test(pin)) { setErr('PIN-is võivad olla ainult numbrid'); return; }
       setErr(''); setStep(2);
     } else {
       if (conf !== pin) { setErr('PIN-id ei lähe kokku'); setConf(''); return; }
-      if (!onDone(pin).ok) setErr('PIN-i salvestamine ei õnnestunud. Proovi uuesti.');
+      savePending.current = true;
+      setSaving(true);
+      try {
+        const result = await onDone(pin);
+        if (!result?.ok) setErr('PIN-i salvestamine ei õnnestunud. Proovi uuesti.');
+      } catch {
+        setErr('PIN-i salvestamine ei õnnestunud. Proovi uuesti.');
+      } finally {
+        savePending.current = false;
+        setSaving(false);
+      }
     }
   }
 
@@ -67,7 +80,7 @@ function PinSetup({ onDone }) {
           style={{ ...inp, textAlign:'center', letterSpacing:8, fontSize:22, marginBottom:8 }}
         />
         {err && <div style={{ fontSize:13, color:AV.danger, marginBottom:6 }}>{err}</div>}
-        <button onClick={next} style={{
+        <button onClick={next} disabled={saving} style={{
           width:'100%', padding:'13px 0', borderRadius:14, border:'none',
           background:AV.purple, color:'#fff', fontSize:15, fontWeight:600, cursor:'pointer',
         }}>
@@ -75,7 +88,7 @@ function PinSetup({ onDone }) {
         </button>
       </div>
       {step === 2 && (
-        <button onClick={() => { setStep(1); setConf(''); setErr(''); }} style={{
+        <button onClick={() => { setStep(1); setConf(''); setErr(''); }} disabled={saving} style={{
           width:'100%', marginTop:8, padding:'10px 0', borderRadius:12,
           border:'none', background:'none', fontSize:13, color:AV.muted, cursor:'pointer',
         }}>← Muuda PIN-i</button>
@@ -86,6 +99,14 @@ function PinSetup({ onDone }) {
 
 function PinUnlock({ onUnlock, error, onForgot }) {
   const [pin, setPin] = useState('');
+  const [unlocking, setUnlocking] = useState(false);
+  const unlockPending = useRef(false);
+  const unlock = async () => {
+    if (pin.length < 4 || unlockPending.current) return;
+    unlockPending.current = true;
+    setUnlocking(true);
+    try { await onUnlock(pin); } finally { unlockPending.current = false; setUnlocking(false); }
+  };
   return (
     <div style={{ ...shellNarrow }}>
       <div style={{ textAlign:'center', marginBottom:28 }}>
@@ -99,19 +120,19 @@ function PinUnlock({ onUnlock, error, onForgot }) {
           type="password" inputMode="numeric" maxLength={8} autoFocus
           value={pin}
           onChange={e => { setPin(e.target.value.replace(/\D/g,'')); }}
-          onKeyDown={e => e.key === 'Enter' && onUnlock(pin)}
+          onKeyDown={e => e.key === 'Enter' && unlock()}
           placeholder="• • • •"
           style={{ ...inp, textAlign:'center', letterSpacing:8, fontSize:22, borderColor: error ? AV.danger : AV.border, marginBottom:8 }}
         />
         {error && <div style={{ fontSize:13, color:AV.danger, marginBottom:6 }}>See PIN ei klapi. Proovi uuesti.</div>}
-        <button onClick={() => onUnlock(pin)} disabled={pin.length < 4} style={{
+        <button onClick={unlock} disabled={pin.length < 4 || unlocking} style={{
           width:'100%', padding:'13px 0', borderRadius:14, border:'none',
           background: pin.length >= 4 ? AV.purple : AV.border,
           color:'#fff', fontSize:15, fontWeight:600,
           cursor: pin.length >= 4 ? 'pointer' : 'default',
         }}>Ava →</button>
       </div>
-      <button onClick={onForgot} style={{
+      <button onClick={onForgot} disabled={unlocking} style={{
         width:'100%', marginTop:8, padding:'10px 0',
         border:'none', background:'none', fontSize:13, color:AV.muted, cursor:'pointer',
       }}>Unustasin PIN-i</button>
@@ -121,6 +142,24 @@ function PinUnlock({ onUnlock, error, onForgot }) {
 
 function ForgotPin({ onReset, onCancel }) {
   const [error, setError] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const resetPending = useRef(false);
+  const reset = async () => {
+    if (resetPending.current) return;
+    resetPending.current = true;
+    setResetting(true);
+    try {
+      const result = await onReset();
+      if (!result?.ok) setError(result?.restored === false
+        ? 'Kustutamine ei õnnestunud. Kontrolli päeviku andmeid enne uuesti proovimist.'
+        : 'Kustutamine ei õnnestunud. Proovi uuesti.');
+    } catch {
+      setError('Kustutamine ei õnnestunud. Proovi uuesti.');
+    } finally {
+      resetPending.current = false;
+      setResetting(false);
+    }
+  };
   return (
     <div style={{ ...shellNarrow, textAlign:'center' }}>
       <div style={{ fontSize:40, marginBottom:12 }}>⚠️</div>
@@ -129,16 +168,11 @@ function ForgotPin({ onReset, onCancel }) {
         PIN-i lähtestamine kustutab kõik päeviku kirjed jäädavalt. Seda sammu ei saa tagasi võtta.
       </p>
       {error && <div role="alert" style={{ fontSize:13, color:AV.danger, marginBottom:10 }}>{error}</div>}
-      <button onClick={() => {
-        const result = onReset();
-        if (!result.ok) setError(result.restored === false
-          ? 'Kustutamine ei õnnestunud. Kontrolli päeviku andmeid enne uuesti proovimist.'
-          : 'Kustutamine ei õnnestunud. Proovi uuesti.');
-      }} style={{
+      <button onClick={reset} disabled={resetting} style={{
         width:'100%', padding:'13px 0', borderRadius:14, border:'none',
         background:AV.danger, color:'#fff', fontSize:15, fontWeight:600, cursor:'pointer', marginBottom:10,
       }}>Kustuta kõik ja alusta uuesti</button>
-      <button onClick={onCancel} style={{
+      <button onClick={onCancel} disabled={resetting} style={{
         width:'100%', padding:'11px 0', borderRadius:12,
         border:'none', background:'none', fontSize:14, color:AV.muted, cursor:'pointer',
       }}>← Tagasi</button>
@@ -167,12 +201,29 @@ function EntryForm({ onSave, onCancel }) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ emoji:'😊', title:'', good:'', hard:'', free:'' });
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
   const up = (k, v) => { setForm(f => ({ ...f, [k]: v })); setError(''); };
   const canSave = form.good || form.hard || form.free;
+  const save = async () => {
+    if (!canSave || savePending.current) return;
+    savePending.current = true;
+    setSaving(true);
+    setError('');
+    try {
+      const result = await onSave(form);
+      if (!result?.ok) setError('Salvestamine ei õnnestunud. Sinu tekst on alles. Proovi uuesti.');
+    } catch {
+      setError('Salvestamine ei õnnestunud. Sinu tekst on alles. Proovi uuesti.');
+    } finally {
+      savePending.current = false;
+      setSaving(false);
+    }
+  };
 
   return (
     <div style={{ animation:'av-in .2s' }}>
-      <button onClick={onCancel} style={{ background:'none', border:'none', fontSize:14, color:AV.muted, cursor:'pointer', marginBottom:16 }}>← Päevik</button>
+      <button onClick={onCancel} disabled={saving} style={{ background:'none', border:'none', fontSize:14, color:AV.muted, cursor:'pointer', marginBottom:16 }}>← Päevik</button>
       <div style={{ fontSize:10, ...labelStyle }}>Uus sissekanne</div>
       <div style={{ fontFamily:FONT.display, fontSize:22, fontWeight:600, color:AV.text, marginBottom:20 }}>
         {step === 0 ? 'Kuidas sul täna läks?' : 'Kirjuta nii palju kui tahad'}
@@ -217,14 +268,12 @@ function EntryForm({ onSave, onCancel }) {
             </div>
           ))}
           <div style={{ display:'flex', gap:10 }}>
-            <button onClick={() => setStep(0)} style={{
+            <button onClick={() => setStep(0)} disabled={saving} style={{
               flex:1, padding:'13px 0', borderRadius:14,
               border:`1px solid ${AV.border}`, background:AV.card,
               fontSize:14, color:AV.muted, cursor:'pointer',
             }}>← Tagasi</button>
-            <button onClick={() => {
-              if (canSave && !onSave(form).ok) setError('Salvestamine ei õnnestunud. Sinu tekst on alles. Proovi uuesti.');
-            }} disabled={!canSave} style={{
+            <button onClick={save} disabled={!canSave || saving} style={{
               flex:2, padding:'13px 0', borderRadius:14, border:'none',
               background: canSave ? AV.sage : AV.border,
               color:'#fff', fontSize:14, fontWeight:600, cursor: canSave ? 'pointer' : 'default',
@@ -307,6 +356,23 @@ function EntryList({ entries, streak, hasTodayEntry, onNew, onOpen, onLock }) {
 function EntryDetail({ entry, onBack, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const deletePending = useRef(false);
+  const remove = async () => {
+    if (deletePending.current) return;
+    deletePending.current = true;
+    setDeleting(true);
+    setError('');
+    try {
+      const result = await onDelete(entry.id);
+      if (!result?.ok) setError('Kustutamine ei õnnestunud. Kirje on alles. Proovi uuesti.');
+    } catch {
+      setError('Kustutamine ei õnnestunud. Kirje on alles. Proovi uuesti.');
+    } finally {
+      deletePending.current = false;
+      setDeleting(false);
+    }
+  };
   const fields = [
     { key:'good', label:'Mis tegi tuju heaks',  emoji:'🌟', bg:'hsl(55,80%,95%)' },
     { key:'hard', label:'Mis oli keeruline',    emoji:'🌧️', bg:'hsl(220,60%,96%)' },
@@ -315,7 +381,7 @@ function EntryDetail({ entry, onBack, onDelete }) {
 
   return (
     <div style={{ animation:'av-in .2s' }}>
-      <button onClick={onBack} style={{ background:'none', border:'none', fontSize:14, color:AV.muted, cursor:'pointer', marginBottom:16 }}>← Päevik</button>
+      <button onClick={onBack} disabled={deleting} style={{ background:'none', border:'none', fontSize:14, color:AV.muted, cursor:'pointer', marginBottom:16 }}>← Päevik</button>
 
       <div style={{ ...card, background:`linear-gradient(135deg, ${AV.purpleL}, ${AV.roseL})`, border:`1px solid ${AV.purpleM}`, textAlign:'center', marginBottom:12, boxShadow:'none' }}>
         <div style={{ fontSize:48, marginBottom:8 }}>{entry.emoji}</div>
@@ -344,10 +410,8 @@ function EntryDetail({ entry, onBack, onDelete }) {
         <div style={{ ...card, borderColor:'#fca5a5', background:'#fff5f5', marginTop:8 }}>
           <p style={{ fontSize:14, color:AV.danger, margin:'0 0 12px' }}>Kas kustutame selle kirje jäädavalt?</p>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={() => { setConfirmDelete(false); setError(''); }} style={{ flex:1, padding:'10px 0', borderRadius:12, border:`1px solid ${AV.border}`, background:AV.card, fontSize:13, color:AV.muted, cursor:'pointer' }}>Ei veel</button>
-            <button onClick={() => {
-              if (!onDelete(entry.id).ok) setError('Kustutamine ei õnnestunud. Kirje on alles. Proovi uuesti.');
-            }} style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:AV.danger, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}>Jah, kustuta</button>
+            <button onClick={() => { setConfirmDelete(false); setError(''); }} disabled={deleting} style={{ flex:1, padding:'10px 0', borderRadius:12, border:`1px solid ${AV.border}`, background:AV.card, fontSize:13, color:AV.muted, cursor:'pointer' }}>Ei veel</button>
+            <button onClick={remove} disabled={deleting} style={{ flex:1, padding:'10px 0', borderRadius:12, border:'none', background:AV.danger, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}>Jah, kustuta</button>
           </div>
           {error && <div role="alert" style={{ fontSize:13, color:AV.danger, marginTop:10 }}>{error}</div>}
         </div>
@@ -369,18 +433,24 @@ export function PaeviikTab() {
 
   return (
     <div style={{ ...shell, fontFamily:FONT.body }}>
-      {screen === 'setup'  && <PinSetup onDone={pin => {
-        const result = diary.setupPin(pin);
+      {diary.status === 'loading' && <div role="status">Päevik avaneb…</div>}
+      {diary.status === 'migration-failed' && <div role="alert">Vana päeviku andmeid ei õnnestunud turvaliselt üle tuua. Andmeid ei muudetud. Kontrolli selle seadme salvestusruumi.</div>}
+      {diary.status === 'unavailable' && <div role="alert">Päeviku salvestusruum pole saadaval. Proovi hiljem uuesti.</div>}
+      {diary.status === 'orphaned' && <div role="alert">Päeviku kirjed on alles, kuid PIN puudub. Uue PIN-i loomine on peatatud, et vältida andmete segunemist.</div>}
+      {diary.status === 'ready' && diary.legacyNotice && <div role="alert" style={{ marginBottom:12, color:AV.danger }}>Vana päevikukoopia on selles seadmes endiselt alles. Ära kasuta vana rakenduse versiooni; see ei kirjuta uut päevikut üle.</div>}
+      {diary.status === 'ready' && diary.legacyCheckFailed && <div role="alert" style={{ marginBottom:12, color:AV.danger }}>Vana päevikukoopia olekut ei saanud kontrollida.</div>}
+      {diary.status === 'ready' && screen === 'setup'  && <PinSetup onDone={async pin => {
+        const result = await diary.setupPin(pin);
         if (result.ok) setView('list');
         return result;
       }} />}
-      {screen === 'lock'   && <PinUnlock onUnlock={pin => { if(diary.tryUnlock(pin)) setView('list'); }} error={diary.pinError} onForgot={() => setView('forgot')} />}
-      {screen === 'forgot' && <ForgotPin onReset={() => {
-        const result = diary.resetPin();
+      {diary.status === 'ready' && screen === 'lock'   && <PinUnlock onUnlock={async pin => { if(await diary.tryUnlock(pin)) setView('list'); }} error={diary.pinError} onForgot={() => setView('forgot')} />}
+      {diary.status === 'ready' && screen === 'forgot' && <ForgotPin onReset={async () => {
+        const result = await diary.resetPin();
         if (result.ok) setView('lock');
         return result;
       }} onCancel={() => setView('lock')} />}
-      {screen === 'list'   && (
+      {diary.status === 'ready' && screen === 'list'   && (
         <EntryList
           entries={diary.entries} streak={diary.streak} hasTodayEntry={diary.hasTodayEntry}
           onNew={() => setView('new')}
@@ -388,22 +458,22 @@ export function PaeviikTab() {
           onLock={() => { diary.lock(); setView('lock'); }}
         />
       )}
-      {screen === 'new' && (
+      {diary.status === 'ready' && screen === 'new' && (
         <EntryForm
-          onSave={form => {
-            const result = diary.addEntry(form);
+          onSave={async form => {
+            const result = await diary.addEntry(form);
             if (result.ok) setView('list');
             return result;
           }}
           onCancel={() => setView('list')}
         />
       )}
-      {screen === 'detail' && openEntry && (
+      {diary.status === 'ready' && screen === 'detail' && openEntry && (
         <EntryDetail
           entry={openEntry}
           onBack={() => { setOpenEntry(null); setView('list'); }}
-          onDelete={id => {
-            const result = diary.deleteEntry(id);
+          onDelete={async id => {
+            const result = await diary.deleteEntry(id);
             if (result.ok) { setOpenEntry(null); setView('list'); }
             return result;
           }}
