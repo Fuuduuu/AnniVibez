@@ -14,7 +14,6 @@ import { useSavedPlaces, createLegacyPlacesRepository, PLACES_KEY } from './hook
 import { StorageStatus, StorageNotice, StorageSplash, RELOAD_COPY } from './components/StorageStatus';
 import { createEventRepository, EVENT_STORAGE_KEY } from './calendar/eventRepository';
 import { createHouseholdRepository, HOUSEHOLD_KEY } from './waste/householdRepository';
-import { canWriteLegacy } from './storage/storageAuthority.js';
 import { createReplicaRepositories } from './storage/replicaRepositories.js';
 import './design/shell.css';
 import './design/calendar.css';
@@ -76,7 +75,7 @@ function createDomainStore(session, { domain, repository, legacyKeys, unreadable
   async function mutate(run, saveFailed) {
     if (!session.writesEnabled()) throw new Error(RELOAD_COPY);
     let result;
-    try { result = await run(repository); }
+    try { result = await session.runMutation(() => run(repository)); }
     catch (error) { throw session.mapWriteError(error, saveFailed); }
     generation += 1;
     apply(result);
@@ -126,18 +125,18 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
     reload,
   };
 
-  // LEGACY writes go through the accepted hint guard: a non-null or unreadable hint refuses the write and
-  // hands the decision to C4, which moves the tab to RELOAD_REQUIRED. There is no retry and no fallback.
+  // Repository loads read the current shared bytes. Mutations receive only the scoped staging adapter
+  // while the controller owns the fenced write transaction.
+  let activeLegacyAdapter = null;
   const guardedLegacyStorage = () => ({
-    getItem: key => storage.getItem(key),
+    getItem: key => (activeLegacyAdapter ?? storage).getItem(key),
     setItem: (key, value) => {
-      if (!canWriteLegacy(storage)) {
-        forward({ type: 'storage', key: null });
+      if (!activeLegacyAdapter) {
         const refused = new Error(RELOAD_COPY);
         refused.name = 'LegacyWriteRefusedError';
         throw refused;
       }
-      storage.setItem(key, value);
+      activeLegacyAdapter.setItem(key, value);
     },
   });
 
@@ -147,6 +146,10 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
     const owned = {
       id: ++sessions, mode, stores,
       writesEnabled: () => WRITE_STATES.includes(controller.getState()),
+      runMutation: run => mode === 'LEGACY' ? controller.runLegacyWrite(adapter => {
+        activeLegacyAdapter = adapter;
+        try { return run(); } finally { activeLegacyAdapter = null; }
+      }) : run(),
       invalidDomains: () => invalid,
       register: entry => { registrations.add({ ...entry, session: owned }); },
       // Storage failures get the accepted per-domain copy; domain errors keep their own message; ownership

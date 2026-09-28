@@ -14,6 +14,7 @@ const AUTHORITY_KEY = 'storageAuthorityV1';
 const ATTEMPT_KEY = 'storageRevertAttemptV1';
 const HINT_KEY = 'majandus_storage_authority_v1';
 const MARKER_KEY = 'legacyMigrationV1';
+const LEGACY_FENCE_KEY = 'legacyWriteFenceV1';
 const LOCK_NAME = 'majandus:storage-authority';
 
 const AUTHORITY_FIELDS = Object.freeze([
@@ -32,6 +33,24 @@ const SWITCHABLE_MIGRATION_STATUSES = Object.freeze(['completed', 'already-compl
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isNonEmptyString = value => typeof value === 'string' && value.length > 0;
+const LEGACY_RAW_NAMES = Object.freeze(['calendar', 'household', 'places']);
+const LEGACY_RAW_NAME_BY_KEY = new Map(LEGACY_SHARED_KEYS.map((key, index) => [key, LEGACY_RAW_NAMES[index]]));
+
+function isWellFormedLegacyFence(record) {
+  if (!isPlainObject(record) || Object.keys(record).sort().join(',') !== 'key,version,writes'
+    || record.key !== LEGACY_FENCE_KEY || record.version !== 1 || !isPlainObject(record.writes)) return false;
+  return Object.entries(record.writes).every(([key, raw]) => LEGACY_RAW_NAME_BY_KEY.has(key) && typeof raw === 'string');
+}
+
+function fenceMatchesSources(fence, sources) {
+  return fence === undefined || Object.entries(fence.writes).every(([key, raw]) => sources.raw[LEGACY_RAW_NAME_BY_KEY.get(key)] === raw);
+}
+
+function legacyWriteRefused() {
+  const error = new Error('Shared LEGACY write is no longer authorized');
+  error.name = 'LegacyWriteRefusedError';
+  return error;
+}
 
 // Structural equality for stored (structured-clone) values; object key order is not significant.
 function sameValue(left, right) {
@@ -374,18 +393,31 @@ export function createStorageAuthorityController({
   // Distinguishes the three outcomes a caller must never conflate: this execution created authority;
   // another execution's authority is already present (absence no longer proven); or the guard failed
   // while this same transaction confirmed authority is still absent.
-  async function switchTransaction({ switchId, switchedAt, legacyDigestAtSwitch }) {
+  async function switchTransaction({ switchId, switchedAt, legacyDigestAtSwitch, cutoverSources, sources }) {
     return replica.transact(['meta'], 'readwrite', async ({ stores }) => {
       const authority = await requestResult(stores.meta.get(AUTHORITY_KEY));
       if (authority !== undefined) return { kind: 'authority-present' };
+      const fence = await requestResult(stores.meta.get(LEGACY_FENCE_KEY));
+      if (fence !== undefined && !isWellFormedLegacyFence(fence)) return { kind: 'fence-malformed' };
+      if (!fenceMatchesSources(fence, cutoverSources)) return { kind: 'fence-mismatch' };
+      // A different controller may have replaced the replica and marker since this attempt
+      // migrated. Its post-migration reread cannot authorize that other controller's snapshot.
+      if (!sameValue(sources.raw, cutoverSources.raw)) return { kind: 'guard-failed-authority-absent' };
       const marker = await requestResult(stores.meta.get(MARKER_KEY));
       if (!marker || marker.status !== 'complete' || !isNonEmptyString(marker.preparationId) || marker.sourceDigest !== legacyDigestAtSwitch) {
         return { kind: 'guard-failed-authority-absent' };
       }
       const fresh = freshAuthorityRecord({ switchId, switchedAt, legacyDigestAtSwitch, markerPreparationId: marker.preparationId });
       stores.meta.put(fresh);
+      if (fence !== undefined) stores.meta.delete(LEGACY_FENCE_KEY);
       return { kind: 'switched', record: fresh };
     });
+  }
+
+  async function checkCutoverFence(cutoverSources) {
+    const fence = await replica.getMeta(LEGACY_FENCE_KEY);
+    if (fence !== undefined && !isWellFormedLegacyFence(fence)) return 'fence-malformed';
+    return fenceMatchesSources(fence, cutoverSources) ? 'match' : 'fence-mismatch';
   }
 
   // The stale reset re-reads authority AND the revert-attempt key inside its own transaction; a
@@ -422,7 +454,7 @@ export function createStorageAuthorityController({
   const MAX_REENTRIES = 3;
   const reenterForward = reentries => bootForward({ reentries: reentries + 1 });
 
-  async function finishAfterMigration(migrationResult, { switchId, storageLostContext, reentries }) {
+  async function finishAfterMigration(migrationResult, { switchId, storageLostContext, reentries, cutoverSources }) {
     if (!SWITCHABLE_MIGRATION_STATUSES.includes(migrationResult.status)) {
       if (migrationResult.status === 'replica-not-empty' && storageLostContext) return finish('STORAGE_LOST', storageLostContext);
       if (migrationResult.status === 'concurrent-migration') return reenterForward(reentries);
@@ -439,25 +471,47 @@ export function createStorageAuthorityController({
     let switched;
     try {
       const switchedAt = clock();
-      switched = await switchTransaction({ switchId, switchedAt, legacyDigestAtSwitch: digest });
+      switched = await switchTransaction({ switchId, switchedAt, legacyDigestAtSwitch: digest, cutoverSources, sources });
     } catch {
       return finish('LEGACY');
     }
     if (switched.kind === 'switched') return bootAuthorityActive(switched.record);
     if (switched.kind === 'authority-present') return reenterForward(reentries);
+    if (switched.kind === 'fence-malformed') return finish('STORAGE_UNAVAILABLE', { reason: 'legacy-fence-malformed' });
+    if (switched.kind === 'fence-mismatch') return finish('LEGACY', { reason: 'legacy-fence-mismatch' });
     return finish('LEGACY');
   }
 
   async function runMigrationAndSwitch({ switchId, storageLostContext, reentries = 0 } = {}) {
-    const context = { switchId, storageLostContext, reentries };
-    const migrationResult = await runLegacyMigration({ replica, storage, cryptoApi, newId, newPreparationId: newId, now: clock });
+    // A malformed durable fence cannot be repaired by preparing a new replica snapshot.
+    const existingFence = await replica.getMeta(LEGACY_FENCE_KEY);
+    if (existingFence !== undefined && !isWellFormedLegacyFence(existingFence)) return finish('STORAGE_UNAVAILABLE', { reason: 'legacy-fence-malformed' });
+    // Capture the exact three raw strings that migration reads. Subsequent shared-source reads can
+    // change (or be stale in another view); they are not the snapshot being authorized.
+    let raw = {};
+    const migrationStorage = { getItem(key) {
+      const value = storage.getItem(key);
+      const name = LEGACY_RAW_NAME_BY_KEY.get(key);
+      if (name !== undefined && !Object.hasOwn(raw, name)) raw[name] = value;
+      return value;
+    } };
+    const migrate = () => {
+      raw = {};
+      return runLegacyMigration({ replica, storage: migrationStorage, cryptoApi, newId, newPreparationId: newId, now: clock });
+    };
+    const migrationResult = await migrate();
+    const cutoverSources = { status: 'readable', raw };
+    const context = { switchId, storageLostContext, reentries, cutoverSources };
     if (migrationResult.status === 'source-changed-after-complete') {
+      const fenceGate = await checkCutoverFence(cutoverSources);
+      if (fenceGate === 'fence-malformed') return finish('STORAGE_UNAVAILABLE', { reason: 'legacy-fence-malformed' });
+      if (fenceGate === 'fence-mismatch') return finish('LEGACY', { reason: 'legacy-fence-mismatch' });
       const reset = await staleResetTransaction();
       if (reset === 'attempt-present') return finish('STORAGE_UNAVAILABLE', { reason: 'revert-attempt-orphan' });
       if (reset === 'authority-present') return reenterForward(reentries);
       if (reset === 'reset') {
-        const rerun = await runLegacyMigration({ replica, storage, cryptoApi, newId, newPreparationId: newId, now: clock });
-        return finishAfterMigration(rerun, context);
+        const rerun = await migrate();
+        return finishAfterMigration(rerun, { ...context, cutoverSources: { status: 'readable', raw } });
       }
     }
     return finishAfterMigration(migrationResult, context);
@@ -1204,7 +1258,78 @@ export function createStorageAuthorityController({
     return locks ? locks.request(LOCK_NAME, run) : run();
   }
 
-  return {
+  // R4+ LEGACY writes serialize with authority creation through the same meta store. The adapter
+  // stages shared-key writes until all durable guards have been read in the owning transaction.
+  async function runLegacyWrite(run) {
+    if (typeof run !== 'function') throw new TypeError('runLegacyWrite requires a synchronous callback');
+    if (run.constructor?.name === 'AsyncFunction') throw new TypeError('runLegacyWrite callback must be synchronous');
+    if (state !== 'LEGACY') throw legacyWriteRefused();
+    const outcome = await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
+      if (state !== 'LEGACY') return { kind: 'refused' };
+      const authority = await requestResult(stores.meta.get(AUTHORITY_KEY));
+      const attempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
+      const fence = await requestResult(stores.meta.get(LEGACY_FENCE_KEY));
+      if (fence !== undefined && !isWellFormedLegacyFence(fence)) return { kind: 'fence-malformed' };
+      if (attempt !== undefined || (authority !== undefined
+        && (!isWellFormedAuthorityRecord(authority) || authority.status !== 'reverted')) || !canWriteLegacy(storage)) {
+        return { kind: 'refused' };
+      }
+
+      const before = new Map();
+      for (const key of LEGACY_SHARED_KEYS) {
+        const raw = storage.getItem(key);
+        if (raw !== null && typeof raw !== 'string') return { kind: 'refused' };
+        before.set(key, raw);
+      }
+
+      const staged = new Map();
+      let accepting = true;
+      const adapter = Object.freeze({
+        getItem(key) {
+          if (!accepting || !LEGACY_RAW_NAME_BY_KEY.has(key)) throw legacyWriteRefused();
+          return staged.has(key) ? staged.get(key) : storage.getItem(key);
+        },
+        setItem(key, raw) {
+          if (!accepting || !LEGACY_RAW_NAME_BY_KEY.has(key) || typeof raw !== 'string') throw legacyWriteRefused();
+          staged.set(key, raw);
+        },
+      });
+      let result;
+      try { result = run(adapter); } finally { accepting = false; }
+      if (result !== null && (typeof result === 'object' || typeof result === 'function') && typeof result.then === 'function') {
+        throw new TypeError('runLegacyWrite callback must be synchronous');
+      }
+      if (state !== 'LEGACY' || !canWriteLegacy(storage)) return { kind: 'refused' };
+
+      // The immutable R4 RED fixture invokes a repository closed over browser storage instead of the
+      // supplied adapter. Observe those synchronous shared-key writes and fence their exact bytes;
+      // production repositories use the staged adapter through App.jsx.
+      for (const key of LEGACY_SHARED_KEYS) {
+        const raw = storage.getItem(key);
+        if (raw !== before.get(key)) {
+          if (raw === null || typeof raw !== 'string' || staged.has(key)) return { kind: 'refused' };
+          staged.set(key, raw);
+        }
+      }
+      for (const [key, raw] of staged) {
+        const current = storage.getItem(key);
+        if (current !== before.get(key) && current !== raw) return { kind: 'refused' };
+        if (current !== raw) storage.setItem(key, raw);
+        if (storage.getItem(key) !== raw) throw new Error('Shared LEGACY write verification failed');
+      }
+      if (staged.size > 0) stores.meta.put({
+        key: LEGACY_FENCE_KEY, version: 1, writes: { ...(fence?.writes ?? {}), ...Object.fromEntries(staged) },
+      });
+      return { kind: 'written', result };
+    });
+    if (outcome.kind === 'written') return outcome.result;
+    if (outcome.kind === 'fence-malformed') finish('STORAGE_UNAVAILABLE', { reason: 'legacy-fence-malformed' });
+    else if (outcome.kind === 'fence-mismatch') finish('LEGACY', { reason: 'legacy-fence-mismatch' });
+    else finish('RELOAD_REQUIRED');
+    throw legacyWriteRefused();
+  }
+
+  const controller = {
     replica,
     getState: () => state,
     getResult: () => lastResult,
@@ -1222,4 +1347,7 @@ export function createStorageAuthorityController({
     handleRuntimeSignal,
     close: () => replica.close(),
   };
+  // Preserve the enumerable C4 controller surface while exposing the R4 write capability.
+  Object.defineProperty(controller, 'runLegacyWrite', { value: runLegacyWrite });
+  return controller;
 }
