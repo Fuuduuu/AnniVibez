@@ -2,6 +2,13 @@
 
 ## Accepted checkpointid
 
+### ANNIVIBE_R3_STORAGE_REVERT_EXPORTER_RACE
+- status: ROAD STEP 6 / R3 COMPLETED / CHECKPOINTED / CLOSED at `d6b5a43f39a420d88a011a2014a718cd56c23b0f` (`fix: make revert export ownership atomic`); B-STORAGE-01 RESOLVED. The implementation commit changed exactly `src/storage/storageAuthority.js`, `scripts/storage/indexeddb-browser.test.mjs`, and `scripts/storage/revert-race.test.mjs`. R3 production/test writer scope is closed.
+- Accepted validation: `revert-race` 5/5 PASS; `indexeddb-browser` 88/88 PASS, 0 skipped; storage 83/83 PASS; shell 78/78 PASS; build PASS. Independent final code review PASS with BLOCKING 0. These are checkpoint results, not tests rerun in this docs-only pass.
+- Human smoke: PASS (USER-REPORTED / HUMAN-CONFIRMED; not independently rerun by Codex): forward-mode startup PASS; revert to LEGACY PASS; post-revert save survives refresh/reopen PASS; two-tab post-revert save survives PASS.
+- Final invariant: a stale/superseded revert controller performs zero shared-key writes; export is authorized inside the owning IndexedDB readwrite transaction. Web Locks remain supplemental.
+- R4 / B-STORAGE-02 is now OPEN / CURRENT under the separate docs-only RED scope in `docs/ACTIVE_SCOPE_LOCK.md`. Only `scripts/storage/pre-switch-adoption.test.mjs` is writable for RED; R4 production GREEN remains LOCKED. No R4 implementation checkpoint is claimed. The older R2 checkpoint's R3-open/R4-locked wording below is historical and superseded.
+
 ### ANNIVIBE_SYNC_V1A1_CALENDAR_MUTATION_PRIMITIVE
 - status: `SYNC-V1A-1` COMPLETED / CHECKPOINTED / CLOSED at `abec42364dd501fb022928582d347176b49deee4` (`feat: add calendar sync mutation primitive`). The checkpoint is the server-side `calendar_event` mutation primitive only.
 - Exact changed files: `functions/_lib/sync.js`, `functions/_lib/syncRepository.js`, and `scripts/backend/sync-mutations.test.mjs`. Accepted validation: Sync `42/42 PASS`; existing backend `61/61 PASS`; combined backend + Sync `103/103 PASS`; migration `13/13 PASS`; foundation `13/13 PASS`; Phase 1–9 `87/87 PASS`; build PASS. Manual smoke: NOT REQUIRED. These are checkpoint results, not checks rerun by this docs-only closeout.
