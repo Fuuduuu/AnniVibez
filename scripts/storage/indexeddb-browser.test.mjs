@@ -2812,107 +2812,239 @@ test('C4 abort-before-export consistency race: an attempt-identity change during
 });
 
 test('C4 compensation consistency race: an attempt-identity change during export failure refuses the final compensation transition and leaves durable state for the next boot', { concurrency: false, timeout: 120000 }, async () => {
-  const harness = await c4Harness();
+  const harness = await raceHarness();
   try {
-    const result = await harness.evaluate(`(async () => {
-      const { reset, seed, makeController, dump, authorityOf } = window.__c4;
-      const { api } = window.__c4;
-      const [calKey, houseKey, placesKey] = window.__t.legacy.LEGACY_SHARED_KEYS;
+    const phaseA = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf, attemptOf, legacyBytes, api } = window.__c4;
+      const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
+      const houseKey = SHARED[1];
       await reset();
-      seed({ household: '{"version":1,"profile":{"name":"Kodu","address":""}}' });
+      seed({ household: '{\"version\":1,\"profile\":{\"name\":\"Kodu\",\"address\":\"\"}}' });
       const forward = makeController({ ids: ['switch-1', 'prep-1'] });
       await forward.boot();
       await forward.close();
+      const before = legacyBytes();
 
       const raceDb = await api.openMajandusDb(indexedDB);
       let raced = false;
+      let t2Seen;
+      let t2Done;
+      const order = [];
       const storage = {
         getItem: k => localStorage.getItem(k),
-        removeItem: k => localStorage.removeItem(k),
+        removeItem: k => {
+          if (raced && SHARED.includes(k)) order.push('restore:' + k);
+          localStorage.removeItem(k);
+        },
         setItem: (k, v) => {
           if (k === houseKey && !raced) {
             raced = true;
-            // Race: the durable attempt's commitCountAtStart consistency breaks at the exact moment
-            // the export write fails and compensateAndFail is about to run its final transition.
             const txn = raceDb.transaction(['meta'], 'readwrite');
+            t2Done = new Promise(resolve => {
+              txn.addEventListener('complete', () => resolve('complete'), { once: true });
+              txn.addEventListener('abort', () => resolve('abort'), { once: true });
+            });
             const store = txn.objectStore('meta');
-            const getRequest = store.get('storageRevertAttemptV1');
-            getRequest.onsuccess = () => { store.put({ ...getRequest.result, commitCountAtStart: 99 }); };
+            const read = store.get('storageRevertAttemptV1');
+            read.onsuccess = () => {
+              t2Seen = read.result;
+              order.push('t2-read');
+              if (t2Seen !== undefined) store.put({ ...t2Seen, commitCountAtStart: 99 });
+            };
             throw new Error('blocked household export write');
           }
+          if (raced && SHARED.includes(k)) order.push('restore:' + k);
           localStorage.setItem(k, v);
         },
       };
       const revert = makeController({ mode: 'revert', ids: ['attempt-1'], storage });
       const revertResult = await revert.boot();
+      const t2Status = raced ? await t2Done : null;
       raceDb.close();
       const data = await dump();
-      const authority = authorityOf(data);
-      const attempt = data.meta.find(r => r.key === 'storageRevertAttemptV1');
       await revert.close();
-      return { revertResult, authority, attempt };
+      return {
+        raced, t2Status, t2Seen, order, revertResult,
+        authority: authorityOf(data), attempt: attemptOf(data),
+        before, legacyAfter: legacyBytes(),
+        backups: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
+      };
     })()`);
-    assert.equal(result.revertResult.state, 'REVERT_FAILED');
-    assert.equal(result.authority.status, 'reverting', 'authority is not incorrectly returned to active from a stale-identity compensation');
-    assert.ok(result.attempt, 'the attempt record is not incorrectly deleted');
-    assert.equal(result.attempt.commitCountAtStart, 99, 'the race-winning durable state survives for the next boot to resume from');
-  } finally {
-    await harness.cleanup();
-  }
-});
+    assert.equal(phaseA.raced, true, 'household export hook fired');
+    assert.deepEqual(phaseA.revertResult, { state: 'REVERT_FAILED', reason: 'revert-compensation-verified' });
+    assert.equal(phaseA.t2Status, 'complete');
+    assert.equal(phaseA.t2Seen, undefined, 'T2 sees the attempt already deleted by owner compensation');
+    const t2Read = phaseA.order.indexOf('t2-read');
+    const restores = phaseA.order.map((event, index) => event.startsWith('restore:') ? index : -1).filter(index => index >= 0);
+    assert.equal(restores.length, 3, 'owner restores all three shared keys');
+    assert.ok(t2Read > Math.max(...restores), 'every owner restore occurs before the queued T2 read');
+    assert.deepEqual(phaseA.legacyAfter, phaseA.before, 'legacy bytes are restored byte-for-byte');
+    assert.ok(phaseA.backups.every(Boolean), 'the original backup set is retained');
+    assert.deepEqual(Object.values(phaseA.legacyAfter), phaseA.backups.map(raw => JSON.parse(raw).raw));
+    assert.equal(phaseA.authority.status, 'active');
+    assert.equal(phaseA.authority.legacyUntrusted, false, 'verified compensation preserves the existing trust flag');
+    assert.equal(phaseA.attempt, null, 'owner compensation deletes its attempt');
 
-test('C4 ambiguous revert-complete race: a different attempt observed on reread gives REVERT_FAILED with no compensation from the stale backup set', { concurrency: false, timeout: 120000 }, async () => {
-  const harness = await c4Harness();
-  try {
-    const result = await harness.evaluate(`(async () => {
-      const { reset, seed, makeController, dump, authorityOf } = window.__c4;
-      const { api } = window.__c4;
-      const [calKey, houseKey, placesKey] = window.__t.legacy.LEGACY_SHARED_KEYS;
+    const phaseB = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf, attemptOf, legacyBytes } = window.__c4;
+      const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
       await reset();
-      seed({ household: '{"version":1,"profile":{"name":"Kodu","address":""}}' });
+      seed({ household: '{\"version\":1,\"profile\":{\"name\":\"Kodu\",\"address\":\"\"}}' });
       const forward = makeController({ ids: ['switch-1', 'prep-1'] });
       await forward.boot();
       await forward.close();
+      const before = legacyBytes();
 
-      const raceDb = await api.openMajandusDb(indexedDB);
-      let raced = false;
+      let t2Done;
+      let t2Seen;
+      let superseded = false;
+      const writesAfterSupersession = [];
+      const race = await window.__race.install({
+        match: (list, mode) => mode === 'readwrite' && list.length === 1 && list[0] === 'meta',
+        nth: 2,
+        apply: store => {
+          const txn = store.transaction;
+          t2Done = new Promise(resolve => {
+            txn.addEventListener('complete', () => { superseded = true; resolve('complete'); }, { once: true });
+            txn.addEventListener('abort', () => resolve('abort'), { once: true });
+          });
+          const read = store.get('storageRevertAttemptV1');
+          read.onsuccess = () => {
+            t2Seen = read.result;
+            if (t2Seen !== undefined) store.put({ ...t2Seen, commitCountAtStart: 99 });
+          };
+        },
+      });
       const storage = {
         getItem: k => localStorage.getItem(k),
-        removeItem: k => localStorage.removeItem(k),
+        removeItem: k => {
+          if (superseded && SHARED.includes(k)) writesAfterSupersession.push(['remove', k]);
+          localStorage.removeItem(k);
+        },
         setItem: (k, v) => {
+          if (superseded && SHARED.includes(k)) writesAfterSupersession.push(['set', k]);
           localStorage.setItem(k, v);
-          if (k === placesKey && !raced) {
-            raced = true;
-            // Race: right after the export writes succeed (and would verify), the durable attempt is
-            // replaced by an unrelated one before the revert-complete transition reads it.
-            const txn = raceDb.transaction(['meta'], 'readwrite');
-            const store = txn.objectStore('meta');
-            store.put({ key: 'storageRevertAttemptV1', switchId: 'switch-1', attemptId: 'attempt-unrelated', commitCountAtStart: 0, phase: 'backups-verified' });
-          }
         },
       };
       const revert = makeController({ mode: 'revert', ids: ['attempt-1'], storage });
       const revertResult = await revert.boot();
-      raceDb.close();
-      const legacyAfterRevert = window.__c4.legacyBytes();
+      const fired = race.fired();
+      const t2Status = fired ? await t2Done : null;
+      race.restore();
       const data = await dump();
-      const authority = authorityOf(data);
-      const attempt = data.meta.find(r => r.key === 'storageRevertAttemptV1');
       await revert.close();
-      const originalBackup = localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_household');
-      return { revertResult, legacyAfterRevert, authority, attempt, originalBackup };
+      return {
+        fired, t2Status, t2Seen, revertResult, writesAfterSupersession,
+        authority: authorityOf(data), attempt: attemptOf(data),
+        before, legacyAfter: legacyBytes(),
+        backups: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
+      };
     })()`);
-    assert.deepEqual(result.revertResult, { state: 'REVERT_FAILED', reason: 'revert-complete-reread-failed' });
-    assert.equal(result.authority.status, 'reverting', 'authority is left exactly as the race-winning write left it');
-    assert.equal(result.attempt.attemptId, 'attempt-unrelated', 'the race-winning attempt survives; nothing was cleaned up from a stale identity');
-    // No compensation ran: the household legacy key still holds the exported value, not the restored original.
-    assert.deepEqual(JSON.parse(result.legacyAfterRevert.majamajandus_household_profile_v1).profile, { name: 'Kodu', address: '' });
-    assert.ok(result.originalBackup, 'the original backup set from attempt-1 is untouched and retained');
+    assert.equal(phaseB.fired, true, 'second meta readwrite transaction was selected');
+    assert.equal(phaseB.t2Status, 'complete');
+    assert.equal(phaseB.t2Seen?.phase, 'backups-verified');
+    assert.deepEqual(phaseB.revertResult, { state: 'REVERT_FAILED', reason: 'revert-attempt-superseded' });
+    assert.equal(phaseB.authority.status, 'reverting', 'authority is not incorrectly returned to active from stale compensation');
+    assert.ok(phaseB.attempt, 'the race-winning attempt is not deleted');
+    assert.equal(phaseB.attempt.commitCountAtStart, 99, 'the race-winning durable attempt survives');
+    assert.deepEqual(phaseB.writesAfterSupersession, [], 'zero shared-key writes after supersession');
+    assert.deepEqual(phaseB.legacyAfter, phaseB.before, 'legacy bytes are unchanged');
+    assert.ok(phaseB.backups.every(Boolean), 'attempt-1 backups are retained');
   } finally {
     await harness.cleanup();
   }
 });
+test('C4 ambiguous revert-complete race: a different attempt observed on reread gives REVERT_FAILED with no compensation from the stale backup set', { concurrency: false, timeout: 120000 }, async () => {
+  const harness = await raceHarness();
+  try {
+    const result = await harness.evaluate(`(async () => {
+      const { reset, seed, makeController, dump, authorityOf, attemptOf, legacyBytes, api } = window.__c4;
+      const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
+      const placesKey = SHARED[2];
+      const runCase = async unrelated => {
+        await reset();
+        seed({ household: '{\"version\":1,\"profile\":{\"name\":\"Kodu\",\"address\":\"\"}}' });
+        const forward = makeController({ ids: ['switch-1', 'prep-1'] });
+        await forward.boot();
+        await forward.close();
+        const before = legacyBytes();
 
+        const raceDb = unrelated ? await api.openMajandusDb(indexedDB) : null;
+        const owner = window.__race.ownerAbort();
+        let hookFired = false;
+        let exportedAtHook = null;
+        let t2Done;
+        const afterHook = [];
+        const storage = {
+          getItem: k => localStorage.getItem(k),
+          removeItem: k => {
+            if (hookFired && SHARED.includes(k)) afterHook.push(['remove', k]);
+            localStorage.removeItem(k);
+          },
+          setItem: (k, v) => {
+            if (hookFired && SHARED.includes(k)) afterHook.push(['set', k]);
+            localStorage.setItem(k, v);
+            if (k === placesKey && !hookFired) {
+              hookFired = true;
+              exportedAtHook = legacyBytes();
+              owner.abort();
+              if (raceDb) {
+                const txn = raceDb.transaction(['meta'], 'readwrite');
+                t2Done = new Promise(resolve => {
+                  txn.addEventListener('complete', () => resolve('complete'), { once: true });
+                  txn.addEventListener('abort', () => resolve('abort'), { once: true });
+                });
+                txn.objectStore('meta').put({
+                  key: 'storageRevertAttemptV1', switchId: 'switch-1',
+                  attemptId: 'attempt-unrelated', commitCountAtStart: 0, phase: 'backups-verified',
+                });
+              }
+            }
+          },
+        };
+        const revert = makeController({ mode: 'revert', ids: ['attempt-1'], storage });
+        const revertResult = await revert.boot();
+        const t2Status = t2Done ? await t2Done : null;
+        owner.restore();
+        raceDb?.close();
+        const data = await dump();
+        await revert.close();
+        return {
+          revertResult, t2Status, hookFired, ownerAborted: owner.fired(), afterHook,
+          before, exportedAtHook, legacyAfter: legacyBytes(),
+          authority: authorityOf(data), attempt: attemptOf(data),
+          backups: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
+        };
+      };
+      return { unrelated: await runCase(true), control: await runCase(false) };
+    })()`);
+
+    const raced = result.unrelated;
+    assert.equal(raced.hookFired, true);
+    assert.equal(raced.ownerAborted, true, 'the owning transaction was aborted after export');
+    assert.equal(raced.t2Status, 'complete', 'unrelated attempt commits before classification');
+    assert.deepEqual(raced.revertResult, { state: 'REVERT_FAILED', reason: 'revert-complete-reread-failed' });
+    assert.equal(raced.authority.status, 'reverting', 'authority is left as the race-winning write left it');
+    assert.equal(raced.attempt.attemptId, 'attempt-unrelated', 'the race-winning attempt survives');
+    assert.deepEqual(raced.afterHook, [], 'no shared-key write after the abort hook');
+    assert.deepEqual(raced.legacyAfter, raced.exportedAtHook, 'the exported legacy bytes remain without stale compensation');
+    assert.deepEqual(JSON.parse(raced.legacyAfter.majamajandus_household_profile_v1).profile, { name: 'Kodu', address: '' });
+    assert.ok(raced.backups.every(Boolean), 'the original attempt-1 backups are retained');
+
+    const control = result.control;
+    assert.equal(control.hookFired, true);
+    assert.equal(control.ownerAborted, true);
+    assert.equal(control.t2Status, null, 'no unrelated racer was installed');
+    assert.deepEqual(control.revertResult, { state: 'REVERT_FAILED', reason: 'revert-compensation-verified' });
+    assert.deepEqual(control.legacyAfter, control.before, 'ambiguous completion restores the original bytes');
+    assert.equal(control.afterHook.length, 3, 'control compensates all three shared keys');
+    assert.equal(control.authority.status, 'active');
+    assert.equal(control.attempt, null);
+    assert.ok(control.backups.every(Boolean), 'the backup set remains available after compensation');
+  } finally {
+    await harness.cleanup();
+  }
+});
 // ---- AMEND D: explicit backup/preparation failure matrix (Section 8 C4, Section 6b) ----------
 
 test('C4 backup/preparation failure matrix: each locked case gives the exact plan outcome with zero shared-key writes and existing bytes unchanged', { concurrency: false, timeout: 120000 }, async () => {
@@ -3047,31 +3179,57 @@ test('C4 backup/preparation failure matrix: each locked case gives the exact pla
 // transactions in creation order, so the race commits after that transaction and before the
 // controller's next one.
 const RACE_PAGE = `window.__race = (() => {
-  const install = async ({ match, apply }) => {
+  // A second connection queues its meta write after the selected controller transaction.
+  const install = async ({ match, apply, nth = 1 }) => {
     const raceDb = await window.storageApi.openMajandusDb(indexedDB);
     const originalTransaction = IDBDatabase.prototype.transaction;
+    let matched = 0;
     let fired = false;
     IDBDatabase.prototype.transaction = function (names, mode, ...rest) {
       const txn = originalTransaction.call(this, names, mode, ...rest);
       const list = Array.isArray(names) ? names : [names];
       if (!fired && this !== raceDb && match(list, mode)) {
-        fired = true;
-        const race = originalTransaction.call(raceDb, ['meta'], 'readwrite');
-        apply(race.objectStore('meta'));
+        matched += 1;
+        if (matched === nth) {
+          fired = true;
+          const race = originalTransaction.call(raceDb, ['meta'], 'readwrite');
+          apply(race.objectStore('meta'));
+        }
       }
       return txn;
     };
     return { fired: () => fired, restore: () => { IDBDatabase.prototype.transaction = originalTransaction; raceDb.close(); } };
+  };
+  // Capture only the controller's owning export transaction, never a meta-only competitor.
+  const ownerAbort = () => {
+    const originalTransaction = IDBDatabase.prototype.transaction;
+    const ownerStores = ['meta', 'householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState'];
+    let owner = null;
+    let fired = false;
+    IDBDatabase.prototype.transaction = function (names, mode, ...rest) {
+      const txn = originalTransaction.call(this, names, mode, ...rest);
+      const list = Array.isArray(names) ? names : [names];
+      if (mode === 'readwrite' && ownerStores.every(name => list.includes(name))) owner = txn;
+      return txn;
+    };
+    return {
+      abort: () => {
+        if (!owner) throw new Error('owning export transaction was not captured');
+        owner.abort();
+        fired = true;
+      },
+      fired: () => fired,
+      restore: () => { IDBDatabase.prototype.transaction = originalTransaction; },
+    };
   };
   // Creates the racing meta transaction immediately (for use from synchronous storage hooks).
   const now = async () => {
     const raceDb = await window.storageApi.openMajandusDb(indexedDB);
     return { run: apply => apply(raceDb.transaction(['meta'], 'readwrite').objectStore('meta')), close: () => raceDb.close() };
   };
-  return { install, now };
+  return { install, ownerAbort, now };
 })();
 'ready';`;
-
 async function raceHarness() {
   const harness = await c4Harness();
   await harness.evaluate(RACE_PAGE);
@@ -3143,63 +3301,83 @@ test('C4 compensation checks the exact durable attempt before its first restore 
     const result = await harness.evaluate(`(async () => {
       const { reset, seed, makeController, dump, authorityOf, attemptOf } = window.__c4;
       const SHARED = window.__t.legacy.LEGACY_SHARED_KEYS;
-      const [calKey, houseKey] = SHARED;
+      const placesKey = SHARED[2];
       await reset();
-      // Non-compact raw calendar bytes, so the export (and any stale restore) visibly changes them.
-      seed({ calendar: '{ "version": 1, "events": [] }', household: '{"version":1,"profile":{"name":"Kodu","address":""}}', places: '[{"name":"Kodu"}]' });
+      // Non-compact raw calendar bytes make export and any stale restore observably different.
+      seed({ calendar: '{ \"version\": 1, \"events\": [] }', household: '{\"version\":1,\"profile\":{\"name\":\"Kodu\",\"address\":\"\"}}', places: '[{\"name\":\"Kodu\"}]' });
       const forward = makeController({ ids: ['switch-1', 'prep-1', 'place-1', 'place-2', 'place-3'] });
       await forward.boot();
       await forward.close();
 
-      const racer = await window.__race.now();
+      const owner = window.__race.ownerAbort();
       const attempt2 = { key: 'storageRevertAttemptV1', switchId: 'switch-1', attemptId: 'attempt-2', commitCountAtStart: 0, phase: 'backups-verified' };
-      let raced = false;
+      let hookFired = false;
+      let recording = false;
       let atRace = null;
+      let raceDone;
       const afterRace = [];
+      const capture = () => ({
+        legacy: Object.fromEntries(SHARED.map(key => [key, localStorage.getItem(key)])),
+        backups: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
+      });
+      const race = await window.__race.install({
+        match: (list, mode) => owner.fired() && mode === 'readonly' && list.length === 1 && list[0] === 'meta',
+        apply: store => {
+          const txn = store.transaction;
+          raceDone = new Promise(resolve => {
+            txn.addEventListener('complete', () => { atRace = capture(); recording = true; resolve('complete'); }, { once: true });
+            txn.addEventListener('abort', () => resolve('abort'), { once: true });
+          });
+          store.put(attempt2);
+        },
+      });
       const storage = {
         getItem: k => localStorage.getItem(k),
-        removeItem: k => { if (raced && SHARED.includes(k)) afterRace.push(['remove', k]); localStorage.removeItem(k); },
+        removeItem: k => {
+          if (recording && SHARED.includes(k)) afterRace.push(['remove', k]);
+          localStorage.removeItem(k);
+        },
         setItem: (k, v) => {
-          if (k === houseKey && !raced) {
-            raced = true;
-            // attempt-1 is backups-verified and the calendar key is already exported. Before
-            // compensation runs, the durable attempt is replaced by an unrelated attempt-2.
-            racer.run(store => store.put(attempt2));
-            atRace = {
-              legacy: Object.fromEntries(SHARED.map(key => [key, localStorage.getItem(key)])),
-              backups: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
-            };
-            throw new Error('blocked household export write');
-          }
-          if (raced && SHARED.includes(k)) afterRace.push(['set', k]);
+          if (recording && SHARED.includes(k)) afterRace.push(['set', k]);
           localStorage.setItem(k, v);
+          if (k === placesKey && !hookFired) {
+            hookFired = true;
+            owner.abort();
+          }
         },
       };
       const revert = makeController({ mode: 'revert', ids: ['attempt-1'], storage });
       const revertResult = await revert.boot();
-      racer.close();
+      const raceFired = race.fired();
+      const raceStatus = raceFired ? await raceDone : null;
+      race.restore();
+      owner.restore();
       const data = await dump();
       await revert.close();
       return {
-        revertResult, atRace, afterRace,
-        legacyAfter: Object.fromEntries(SHARED.map(key => [key, localStorage.getItem(key)])),
-        backupsAfter: ['calendar', 'household', 'places'].map(d => localStorage.getItem('majandus_legacy_backup_v1_switch-1_attempt-1_' + d)),
+        revertResult, hookFired, ownerAborted: owner.fired(), raceFired, raceStatus,
+        atRace, afterRace,
+        legacyAfter: capture().legacy,
+        backupsAfter: capture().backups,
         authority: authorityOf(data), attempt: attemptOf(data), attempt2,
       };
     })()`);
-    assert.equal(result.revertResult.state, 'REVERT_FAILED');
-    assert.deepEqual(result.afterRace, [], 'no shared-key setItem/removeItem from the stale attempt-1 compensation');
-    assert.deepEqual(result.legacyAfter, result.atRace.legacy, 'shared legacy bytes are unchanged from the race-winning state');
-    assert.notEqual(result.atRace.legacy.majamajandus_household_events_v1, '{ "version": 1, "events": [] }', 'the calendar key had already been exported before the race');
+    assert.equal(result.hookFired, true, 'places export hook fired');
+    assert.equal(result.ownerAborted, true, 'the owning transaction was aborted after the shared write');
+    assert.equal(result.raceFired, true, 'the first durable meta reread was selected');
+    assert.equal(result.raceStatus, 'complete', 'attempt-2 became durable before compensation');
+    assert.deepEqual(result.revertResult, { state: 'REVERT_FAILED', reason: 'revert-compensation-guard-failed' });
+    assert.deepEqual(result.afterRace, [], 'no shared-key setItem/removeItem after attempt-2 became durable');
+    assert.deepEqual(result.legacyAfter, result.atRace.legacy, 'legacy bytes are unchanged from the race-winning state');
+    assert.notEqual(result.atRace.legacy.majamajandus_household_events_v1, '{ \"version\": 1, \"events\": [] }', 'calendar was exported before the race');
     assert.deepEqual(result.attempt, result.attempt2, 'attempt-2 survives untouched');
     assert.equal(result.authority.status, 'reverting', 'no stale meta cleanup');
-    assert.deepEqual(result.backupsAfter, result.atRace.backups, 'attempt-1 backups are retained untouched');
+    assert.deepEqual(result.backupsAfter, result.atRace.backups, 'attempt-1 backups remain untouched');
     assert.ok(result.atRace.backups.every(Boolean));
   } finally {
     await harness.cleanup();
   }
 });
-
 test('C4 reverted reset re-reads the attempt key inside its transaction: a raced-in attempt refuses the reset with authority and domain bytes unchanged', { concurrency: false, timeout: 120000 }, async () => {
   const harness = await raceHarness();
   try {

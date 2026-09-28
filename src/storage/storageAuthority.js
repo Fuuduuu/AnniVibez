@@ -667,15 +667,23 @@ export function createStorageAuthorityController({
 
   // meta extras records are stored as { key, value: { sourceVersion, fields } } (Section 5 item 6 /
   // legacyMigration.js envelopeExtras); unwrapped here so downstream code only sees { sourceVersion, fields }.
-  async function readDomainSnapshotForExport() {
-    return replica.transact(['meta', 'householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState'], 'readonly', async ({ stores }) => ({
+  async function readExportSnapshotFromStores(stores) {
+    return {
       calendarExtras: (await requestResult(stores.meta.get(EXTRA_META_KEYS[0])))?.value ?? null,
       householdExtras: (await requestResult(stores.meta.get(EXTRA_META_KEYS[1])))?.value ?? null,
       householdProfile: (await requestResult(stores.householdProfile.get('household'))) ?? null,
       wasteState: (await requestResult(stores.wasteState.get('waste'))) ?? null,
       calendarEvents: await requestResult(stores.calendarEvents.getAll()),
       sharedPlaces: await requestResult(stores.sharedPlaces.getAll()),
-    }));
+    };
+  }
+
+  async function readDomainSnapshotForExport() {
+    return replica.transact(
+      ['meta', 'householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState'],
+      'readonly',
+      ({ stores }) => readExportSnapshotFromStores(stores),
+    );
   }
 
   function buildExportPayloads(snapshot) {
@@ -838,65 +846,113 @@ export function createStorageAuthorityController({
     }
   }
 
-  async function completeRevert(authority, attempt) {
-    try {
-      const ok = await replica.transact(['meta'], 'readwrite', async ({ stores }) => {
-        const currentAuthority = await requestResult(stores.meta.get(AUTHORITY_KEY));
-        const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
-        if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting' || currentAuthority.switchId !== authority.switchId
-          || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.switchId !== authority.switchId
-          || currentAttempt.attemptId !== attempt.attemptId || currentAttempt.phase !== 'backups-verified'
-          || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) return false;
-        stores.meta.put({ ...currentAuthority, status: 'reverted' });
-        stores.meta.delete(ATTEMPT_KEY);
-        return true;
-      });
-      if (ok) return true;
-    } catch {
-      // fall through to the ambiguous re-read
-    }
-    // Ambiguous failure: re-read BOTH records before deciding. Compensation may only run against the
-    // exact same attempt identity that was just exported; anything else (including a newer, different
-    // attempt) is REVERT_FAILED with no further shared-key write, never a compensation from a stale set.
+  // If the owning transaction's outcome was not confirmed, re-read BOTH records before deciding.
+  // Compensation may run only for the exact attempt that could have exported, never a successor.
+  async function rereadExportOutcome(authority, attempt) {
     let reread;
     try {
-      reread = await replica.transact(['meta'], 'readonly', async ({ stores }) => ({
-        authority: await requestResult(stores.meta.get(AUTHORITY_KEY)),
-        attempt: await requestResult(stores.meta.get(ATTEMPT_KEY)),
-      }));
+      reread = await readAuthorityAndAttempt();
     } catch {
       return 'failed-unknown';
     }
-    if (isWellFormedAuthorityRecord(reread.authority) && reread.authority.status === 'reverted' && reread.attempt === undefined) return true;
+    if (isWellFormedAuthorityRecord(reread.authority) && reread.authority.status === 'reverted'
+      && reread.authority.switchId === authority.switchId && reread.attempt === undefined) return 'completed';
     if (isWellFormedAuthorityRecord(reread.authority) && reread.authority.status === 'reverting' && reread.authority.switchId === authority.switchId
       && isWellFormedRevertAttemptRecord(reread.attempt) && reread.attempt.switchId === authority.switchId
       && reread.attempt.attemptId === attempt.attemptId && reread.attempt.phase === 'backups-verified'
+      && reread.attempt.commitCountAtStart === attempt.commitCountAtStart
       && reread.attempt.commitCountAtStart === reread.authority.commitCount) return 'compensate';
     return 'failed-unknown';
   }
 
+  async function finishAfterLostExportGuard(authority) {
+    let reread;
+    try {
+      reread = await readAuthorityAndAttempt();
+    } catch {
+      return finish('REVERT_FAILED', { reason: 'revert-complete-reread-failed' });
+    }
+    if (isWellFormedAuthorityRecord(reread.authority) && reread.authority.status === 'reverted'
+      && reread.authority.switchId === authority.switchId && reread.attempt === undefined) return bootRevertAuthorityReverted();
+    return finish('REVERT_FAILED', { reason: 'revert-attempt-superseded' });
+  }
+
+  // The readwrite transaction owns the exact durable attempt from guard through snapshot read,
+  // synchronous legacy side effects, and authority completion. A stale controller cannot export.
+  async function exportAndComplete(authority, attempt) {
+    let guardPassed = false;
+    try {
+      return await replica.transact(
+        ['meta', 'householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState'],
+        'readwrite',
+        async ({ stores }) => {
+          const currentAuthority = await requestResult(stores.meta.get(AUTHORITY_KEY));
+          const currentAttempt = await requestResult(stores.meta.get(ATTEMPT_KEY));
+          if (!isWellFormedAuthorityRecord(currentAuthority) || currentAuthority.status !== 'reverting'
+            || currentAuthority.switchId !== authority.switchId || currentAuthority.commitCount !== authority.commitCount
+            || !isWellFormedRevertAttemptRecord(currentAttempt) || currentAttempt.switchId !== authority.switchId
+            || currentAttempt.attemptId !== attempt.attemptId || currentAttempt.phase !== 'backups-verified'
+            || currentAttempt.commitCountAtStart !== attempt.commitCountAtStart
+            || currentAttempt.commitCountAtStart !== currentAuthority.commitCount) return { kind: 'guard-lost' };
+          guardPassed = true;
+
+          const backupSet = readBackupSet(authority.switchId, attempt.attemptId);
+          if (!backupSet.ok) return { kind: 'backups-lost' };
+          const compensateOwnedExport = () => {
+            const verified = compensate(backupSet.backups);
+            stores.meta.put(verified ? { ...currentAuthority, status: 'active' } : { ...currentAuthority, status: 'active', legacyUntrusted: true });
+            stores.meta.delete(ATTEMPT_KEY);
+            return { kind: 'compensated', verified };
+          };
+
+          // Every request stays inside this transaction. The last request's continuation performs
+          // only synchronous validation, injected storage work and queued meta writes; no outside await.
+          const snapshot = await readExportSnapshotFromStores(stores);
+          let payloads;
+          try {
+            if (classifyDomainValidity(snapshot).length > 0) return compensateOwnedExport();
+            payloads = buildExportPayloads(snapshot);
+          } catch {
+            return compensateOwnedExport();
+          }
+
+          let exported = true;
+          try {
+            storage.setItem(LEGACY_SHARED_KEYS[0], payloads.calendar);
+            storage.setItem(LEGACY_SHARED_KEYS[1], payloads.household);
+            storage.setItem(LEGACY_SHARED_KEYS[2], payloads.places);
+          } catch {
+            exported = false;
+          }
+          if (exported) {
+            try { exported = verifyExportedLegacy(snapshot); } catch { exported = false; }
+          }
+          if (!exported) return compensateOwnedExport();
+
+          stores.meta.put({ ...currentAuthority, status: 'reverted' });
+          stores.meta.delete(ATTEMPT_KEY);
+          return { kind: 'completed' };
+        },
+      );
+    } catch {
+      return { kind: guardPassed ? 'ambiguous' : 'guard-read-failed' };
+    }
+  }
+
   async function continueReverting(authority, initialAttempt) {
     let attempt = initialAttempt;
-    let snapshot;
-    let payloads;
-    try {
-      snapshot = await readDomainSnapshotForExport();
-      // Section 6c step 3: read AND VALIDATE all three domain snapshots before export. An invalid
-      // record must never be exported merely because the legacy repository can parse the result.
-      const invalidDomains = classifyDomainValidity(snapshot);
-      if (invalidDomains.length > 0) throw new Error(`revert snapshot invalid: ${invalidDomains.join(',')}`);
-      payloads = buildExportPayloads(snapshot);
-    } catch {
-      if (attempt.phase === 'started') {
+
+    if (attempt.phase === 'started') {
+      // Preserve the pre-backup invalid-snapshot abort. This preflight is discarded; the actual
+      // export snapshot is read again inside the owning readwrite transaction above.
+      try {
+        const preflight = await readDomainSnapshotForExport();
+        if (classifyDomainValidity(preflight).length > 0) throw new Error('revert snapshot invalid');
+        buildExportPayloads(preflight);
+      } catch {
         await abortBeforeExport(authority, attempt);
         return finish('REVERT_FAILED', { reason: 'revert-snapshot-invalid' });
       }
-      const backupSet = readBackupSet(authority.switchId, attempt.attemptId);
-      if (!backupSet.ok) return finish('REVERT_FAILED', { reason: 'revert-backups-lost' });
-      return compensateAndFail(authority, attempt);
-    }
-
-    if (attempt.phase === 'started') {
       const prep = await prepareBackups({ switchId: authority.switchId, attemptId: attempt.attemptId });
       if (!prep.ok) {
         await abortBeforeExport(authority, attempt);
@@ -907,23 +963,16 @@ export function createStorageAuthorityController({
       attempt = transitioned;
     }
 
-    const backupSet = readBackupSet(authority.switchId, attempt.attemptId);
-    if (!backupSet.ok) return finish('REVERT_FAILED', { reason: 'revert-backups-lost' });
-
-    let exported = true;
-    try {
-      storage.setItem(LEGACY_SHARED_KEYS[0], payloads.calendar);
-      storage.setItem(LEGACY_SHARED_KEYS[1], payloads.household);
-      storage.setItem(LEGACY_SHARED_KEYS[2], payloads.places);
-    } catch {
-      exported = false;
+    const outcome = await exportAndComplete(authority, attempt);
+    if (outcome.kind === 'guard-lost') return finishAfterLostExportGuard(authority);
+    if (outcome.kind === 'guard-read-failed') return finish('REVERT_FAILED', { reason: 'revert-complete-reread-failed' });
+    if (outcome.kind === 'backups-lost') return finish('REVERT_FAILED', { reason: 'revert-backups-lost' });
+    if (outcome.kind === 'compensated') return finish('REVERT_FAILED', { reason: outcome.verified ? 'revert-compensation-verified' : 'revert-compensation-failed' });
+    if (outcome.kind === 'ambiguous') {
+      const reread = await rereadExportOutcome(authority, attempt);
+      if (reread === 'failed-unknown') return finish('REVERT_FAILED', { reason: 'revert-complete-reread-failed' });
+      if (reread === 'compensate') return compensateAndFail(authority, attempt);
     }
-    if (exported && !verifyExportedLegacy(snapshot)) exported = false;
-    if (!exported) return compensateAndFail(authority, attempt);
-
-    const completed = await completeRevert(authority, attempt);
-    if (completed === 'failed-unknown') return finish('REVERT_FAILED', { reason: 'revert-complete-reread-failed' });
-    if (completed === 'compensate') return compensateAndFail(authority, attempt);
     const removed = removeHintVerified(storage);
     if (!removed) return finish('STORAGE_UNAVAILABLE', { reason: 'hint-removal-failed' });
     return finish('LEGACY');
