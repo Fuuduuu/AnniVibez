@@ -2,12 +2,19 @@
 
 ## Accepted checkpointid
 
+### ANNIVIBE_R4_PRE_SWITCH_ADOPTION_CLOSEOUT
+- status: ROAD STEP 7 / R4 / B-STORAGE-02 CLOSED / ACCEPTED / CHECKPOINTED at `2bd87175df20421c3b8cf1474a83283992961cfd` (`fix: fence legacy writes before storage cutover`). R1–R4 STORAGE ROAD is COMPLETE. The implementation commit changed exactly `src/storage/storageAuthority.js`, `src/App.jsx`, and `scripts/storage/pre-switch-adoption.test.mjs`; R4 source/test writer scope is closed.
+- Accepted final validation: pre-switch `6/6 PASS`, revert-race `5/5 PASS`, indexeddb-browser `88/88 PASS`, storage `83/83 PASS`, shell `78/78 PASS`, build PASS. Independent final audit: PASS, BLOCKING `0`, MATERIAL `0`, MINOR `2`. Human smoke: PASS / USER-CONFIRMED. The audit and human-smoke verdicts are reported acceptance evidence; none of these checks was rerun by this docs-only closeout.
+- Final R4 guarantee: acknowledged R4+ shared LEGACY writes update `legacyWriteFenceV1`; each migration retry owns a fresh coherent source snapshot; a cross-tab switch can authorize only matching bytes from its own migration attempt. Fence mismatch fails closed in LEGACY (`legacy-fence-mismatch`); malformed fence yields `STORAGE_UNAVAILABLE / legacy-fence-malformed`. Authority creation and fence deletion are atomic. No automatic merge or re-adoption occurs. R3 revert behavior is preserved, Web Locks are not required for correctness, and `DB_VERSION`/schema did not change. Older builds are not retroactively fenced.
+- Non-blocking R4 MINOR backlog, recorded in `docs/AUDIT_FINDINGS_BACKLOG.md`: a failed/unacknowledged save may leave localStorage bytes that a later save can build on; and the fence-mismatch branch inside `runLegacyWrite` is unreachable. Neither finding opens repair scope here.
+- Next product/runtime direction: LIVE BACKEND + D1 + CLIENT SYNC, subject to separate gates. Remote Cloudflare/D1 inspection or mutation, binding, deployment, client sync implementation, and real-user readiness receive no authorization from this checkpoint. Sync V1A-2+ remains LOCKED; Päevik and Tegevus remain DEVICE_LOCAL_ONLY.
+
 ### ANNIVIBE_R3_STORAGE_REVERT_EXPORTER_RACE
 - status: ROAD STEP 6 / R3 COMPLETED / CHECKPOINTED / CLOSED at `d6b5a43f39a420d88a011a2014a718cd56c23b0f` (`fix: make revert export ownership atomic`); B-STORAGE-01 RESOLVED. The implementation commit changed exactly `src/storage/storageAuthority.js`, `scripts/storage/indexeddb-browser.test.mjs`, and `scripts/storage/revert-race.test.mjs`. R3 production/test writer scope is closed.
 - Accepted validation: `revert-race` 5/5 PASS; `indexeddb-browser` 88/88 PASS, 0 skipped; storage 83/83 PASS; shell 78/78 PASS; build PASS. Independent final code review PASS with BLOCKING 0. These are checkpoint results, not tests rerun in this docs-only pass.
 - Human smoke: PASS (USER-REPORTED / HUMAN-CONFIRMED; not independently rerun by Codex): forward-mode startup PASS; revert to LEGACY PASS; post-revert save survives refresh/reopen PASS; two-tab post-revert save survives PASS.
 - Final invariant: a stale/superseded revert controller performs zero shared-key writes; export is authorized inside the owning IndexedDB readwrite transaction. Web Locks remain supplemental.
-- R4 / B-STORAGE-02 is now OPEN / CURRENT under the separate docs-only RED scope in `docs/ACTIVE_SCOPE_LOCK.md`. Only `scripts/storage/pre-switch-adoption.test.mjs` is writable for RED; R4 production GREEN remains LOCKED. No R4 implementation checkpoint is claimed. The older R2 checkpoint's R3-open/R4-locked wording below is historical and superseded.
+- Historical R3 closeout opened R4 / B-STORAGE-02 for RED only; that opening is superseded by the accepted R4 checkpoint above. The older R2 checkpoint's R3-open/R4-locked wording below is also historical and superseded.
 
 ### ANNIVIBE_SYNC_V1A1_CALENDAR_MUTATION_PRIMITIVE
 - status: `SYNC-V1A-1` COMPLETED / CHECKPOINTED / CLOSED at `abec42364dd501fb022928582d347176b49deee4` (`feat: add calendar sync mutation primitive`). The checkpoint is the server-side `calendar_event` mutation primitive only.

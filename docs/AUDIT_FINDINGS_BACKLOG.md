@@ -16,6 +16,13 @@ This file is planning only. No fixes are marked as done here.
   - county-lines-as-city-lines mapping
   - city-specific normalisation
 
+## R4 non-blocking MINOR backlog
+
+R4 / B-STORAGE-02 is CLOSED / ACCEPTED / CHECKPOINTED at `2bd87175df20421c3b8cf1474a83283992961cfd`. The independent final audit reported PASS, BLOCKING `0`, MATERIAL `0`, MINOR `2`. These findings are recorded for separately scoped follow-up; this closeout does not repair or open either one.
+
+1. A failed/unacknowledged shared LEGACY save may leave localStorage bytes that a later save can build on.
+2. The fence-mismatch branch inside `runLegacyWrite` is unreachable.
+
 ## Confirmed positives
 
 - `depsWithMeta` core logic is mostly correct:
