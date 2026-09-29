@@ -2,6 +2,14 @@
 
 ## Accepted checkpointid
 
+### ANNIVIBE_CALENDAR_SYNC_HTTP_TRANSPORT
+
+- status: `SYNC_HTTP_TRANSPORT_CALENDAR_V1` IMPLEMENTED / INDEPENDENT AUDIT PASS / CHECKPOINTED at `fdcdedb5d50049d3e09c315468c51cfcd6db29b2` (`feat: add calendar sync HTTP transport`). The transport implementation writer scope is closed.
+- Exact implementation files: `functions/api/sync/bootstrap.js`, `functions/api/sync/pull.js`, `functions/api/sync/push.js`, `functions/_lib/syncRepository.js`, and `scripts/backend/sync-api.test.mjs`. Authenticated server-only routes are `GET /api/sync/bootstrap`, `GET /api/sync/pull?after=<cursor>`, and `POST /api/sync/push`, limited to `calendar_event`.
+- Accepted independent audit: PASS; BLOCKING `0`; MATERIAL `0`; MINOR `4`. Accepted validation: sync-api `14/14 PASS`; sync-mutations `42/42 PASS`; full backend `143/143 PASS`; `0 failed`; `0 skipped`; build PASS; `git diff --check` PASS. These are results from the completed implementation and reported independent audit, not tests, build, or an independent implementation audit rerun by this docs-only pass.
+- The four audit MINORs remain unrepaired at this checkpoint. `SYNC_PUSH_CLIENT_READINESS_HARDENING` is OPEN / CURRENT to resolve them before any client relies on `/api/sync/push`; the exact four-file allowlist and required contract are in `docs/ACTIVE_SCOPE_LOCK.md`.
+- This local checkpoint provides no deployment or live sync smoke evidence. Client/runtime sync and Sync V1A-2+ remain LOCKED; Päevik and Tegevus remain DEVICE_LOCAL_ONLY. No Cloudflare/D1 operation, deployment, or live-fixture change is authorized here. The live-backend checkpoint's transport-open next-action marker below is historical and superseded by this entry; its accepted evidence is preserved.
+
 ### ANNIVIBE_LIVE_BACKEND_PRODUCTION_VERIFIED
 - status: LIVE MAJANDUS BACKEND = PRODUCTION VERIFIED / ACCEPTED. Production `https://annivibe.pages.dev` belongs to Pages project `majandus`; the production `DB` binding targets D1 `majandus-backend-v1` (`8d7f229b-d821-4ce3-bd63-7efb427269e4`). The accepted production deployment is `e76b4a7a-7136-4c03-a7ca-2906405f7a21`, from source `9ee4c00148dec8ff12cee697cd52008bec7dd079`.
 - Accepted read-only live smoke: missing-bearer `GET /api/auth/session` returned 401; a syntactically valid unknown bearer returned 401 after a live D1 lookup; `GET /api/auth/create-household` returned 405 with `Allow: POST`; `HEAD /api/auth/session` returned 405 with `Allow: GET`. Application row counts and the single migration record stayed unchanged; no D1 writes occurred during this read-only smoke.
