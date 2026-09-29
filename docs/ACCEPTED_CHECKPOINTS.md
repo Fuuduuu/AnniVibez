@@ -2,6 +2,13 @@
 
 ## Accepted checkpointid
 
+### ANNIVIBE_SYNC_PUSH_CLIENT_READINESS_HARDENING
+
+- status: `SYNC_PUSH_CLIENT_READINESS_HARDENING` COMPLETE / CHECKPOINTED at `168074b9c04e8001bf8c1ec5862339fb4797cccd` (`fix: harden calendar sync transport`). The exact four-file server hardening scope is CLOSED.
+- Accepted validation from the preceding implementation: HTTP `12/12`, sync-api `20/20`, sync-mutations `42/42`, full backend `153/153`, `0 failed`, `0 skipped`, build PASS and diff check PASS. The default JSON limit remains 8192 bytes; push explicitly accepts 65536 bytes, reports oversize as canonical 413, and caps batches at eight. The valid notes fixture is 2500 emojis = 5000 UTF-16 code units / 10000 UTF-8 bytes. Bootstrap/pull batch and dependent push-order regressions are present. No mutation engine, repository, schema, remote setting, or deployment changed.
+- The human explicitly authorized this checkpoint without another independent audit. These are recorded implementation results, not tests or an audit rerun during this docs amendment.
+- Next local scope: `CALENDAR_SYNC_CLIENT_MVP_V1`, OPEN / CURRENT under `docs/ACTIVE_SCOPE_LOCK.md`. Client implementation and human smoke are not yet performed at this scope-opening checkpoint. No Cloudflare/D1 operation, deployment, second-device flow, or real-user readiness is authorized.
+
 ### ANNIVIBE_CALENDAR_SYNC_HTTP_TRANSPORT
 
 - status: `SYNC_HTTP_TRANSPORT_CALENDAR_V1` IMPLEMENTED / INDEPENDENT AUDIT PASS / CHECKPOINTED at `fdcdedb5d50049d3e09c315468c51cfcd6db29b2` (`feat: add calendar sync HTTP transport`). The transport implementation writer scope is closed.
