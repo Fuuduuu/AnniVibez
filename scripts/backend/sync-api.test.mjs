@@ -9,7 +9,7 @@ import * as bootstrapEndpoint from "../../functions/api/sync/bootstrap.js";
 import * as pullEndpoint from "../../functions/api/sync/pull.js";
 import * as pushEndpoint from "../../functions/api/sync/push.js";
 import { insertHouseholdCreation } from "../../functions/_lib/db.js";
-import { applyCalendarMutation } from "../../functions/_lib/sync.js";
+import { applyCalendarMutation, validateCalendarEventPayload } from "../../functions/_lib/sync.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const migrationSql = readFileSync(resolve(root, "migrations/0001_majandus_backend.sql"), "utf8");
@@ -78,6 +78,43 @@ function request(path, owner, options = {}) {
   return new Request(`https://example.test${path}`, { method: options.method ?? "GET", headers, body: options.body });
 }
 
+function observeDbBoundaries(db, { rejectConcurrent = false } = {}) {
+  const batches = [];
+  const standalone = [];
+  const statements = new WeakMap();
+  let active = 0;
+  async function execute(run) {
+    if (rejectConcurrent) assert.equal(active, 0, "dependent mutations must not overlap D1 operations");
+    active += 1;
+    try {
+      return await run();
+    } finally {
+      active -= 1;
+    }
+  }
+  function observeStatement(statement) {
+    const observed = { bind: (...values) => observeStatement(statement.bind(...values)) };
+    for (const method of ["first", "all", "run", "raw"]) {
+      observed[method] = (...args) => {
+        standalone.push(method);
+        return execute(() => statement[method](...args));
+      };
+    }
+    statements.set(observed, statement);
+    return observed;
+  }
+  return {
+    db: {
+      prepare: (sql) => observeStatement(db.prepare(sql)),
+      batch: (prepared) => {
+        batches.push(prepared.length);
+        return execute(() => db.batch(prepared.map((statement) => statements.get(statement))));
+      },
+    },
+    batches, standalone,
+  };
+}
+
 test("sync route modules expose only their Pages method and fallback handlers", () => {
   assert.deepEqual(Object.keys(bootstrapEndpoint).sort(), ["onRequest", "onRequestGet"]);
   assert.deepEqual(Object.keys(pullEndpoint).sort(), ["onRequest", "onRequestGet"]);
@@ -140,6 +177,26 @@ test("bootstrap returns ordered active records and tombstones with a household-o
       cursor: 1,
       calendarEvents: [{ id: "evt_b", payload: event("evt_b", "Private B"), revision: 1, createdAt: NOW, updatedAt: NOW, deletedAt: null }],
     });
+  });
+});
+
+test("bootstrap reads cursor and records through one D1 batch after its auth lookup", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    await apply(db, a, mutation("CREATE", "mut_bootstrap_batch", "evt_batch", event("evt_batch")));
+    const observed = observeDbBoundaries(db);
+    const response = await bootstrapEndpoint.onRequestGet({
+      request: request("/api/sync/bootstrap", a), env: { DB: observed.db },
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      cursor: 1,
+      calendarEvents: [{
+        id: "evt_batch", payload: event("evt_batch"), revision: 1,
+        createdAt: NOW, updatedAt: NOW, deletedAt: null,
+      }],
+    });
+    assert.deepEqual(observed.batches, [2], "cursor and records must share one two-statement batch");
+    assert.deepEqual(observed.standalone, ["first"], "only the auth lookup may read outside that batch");
   });
 });
 
@@ -239,6 +296,30 @@ test("pull collapses repeated entity history, sorts latest deltas, and isolates 
   });
 });
 
+test("pull reads cursor, ownership, and records through one D1 batch after its auth lookup", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    await apply(db, a, mutation("CREATE", "mut_pull_create", "evt_batch", event("evt_batch")));
+    await apply(db, a, mutation("UPDATE", "mut_pull_update", "evt_batch", { title: "Batch snapshot" }, 1));
+    const observed = observeDbBoundaries(db);
+    const response = await pullEndpoint.onRequestGet({
+      request: request("/api/sync/pull?after=1", a), env: { DB: observed.db },
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      cursor: 2,
+      changes: [{
+        seq: 2, entityType: "calendar_event", entityId: "evt_batch", operation: "UPDATE", revision: 2,
+        record: {
+          id: "evt_batch", payload: event("evt_batch", "Batch snapshot"), revision: 2,
+          createdAt: NOW, updatedAt: NOW, deletedAt: null,
+        },
+      }],
+    });
+    assert.deepEqual(observed.batches, [3], "cursor, ownership, and records must share one batch");
+    assert.deepEqual(observed.standalone, ["first"], "only the auth lookup may read outside that batch");
+  });
+});
+
 test("pull rejects malformed queries and foreign, impossible, or unprovable cursors", async () => {
   await withFreshDb(async ({ db, a, b }) => {
     for (const path of [
@@ -306,6 +387,152 @@ test("push creates a calendar event for the bearer household and bootstrap reads
     assert.equal(snapshot.cursor, 1);
     assert.equal(snapshot.calendarEvents[0].id, "evt_push");
     assert.deepEqual(snapshot.calendarEvents[0].payload, event("evt_push"));
+  });
+});
+
+test("push accepts maximum valid multibyte notes and preserves them in bootstrap", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    const notes = "😀".repeat(2500);
+    assert.equal(notes.length, 5000);
+    assert.equal(new TextEncoder().encode(notes).byteLength, 10000);
+    const value = mutation("CREATE", "mut_large_notes", "evt_large_notes", {
+      ...event("evt_large_notes"), notes,
+    });
+    const body = JSON.stringify({ mutations: [value] });
+    assert.ok(new TextEncoder().encode(body).byteLength > 8192);
+    assert.ok(new TextEncoder().encode(body).byteLength < 65536);
+    const response = await pushEndpoint.onRequestPost({
+      request: request("/api/sync/push", a, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body,
+      }), env: { DB: db },
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      results: [{ mutationId: "mut_large_notes", status: "APPLIED", revision: 1 }],
+    });
+    const bootstrap = await bootstrapEndpoint.onRequestGet({
+      request: request("/api/sync/bootstrap", a), env: { DB: db },
+    });
+    assert.equal(bootstrap.status, 200);
+    const snapshot = await bootstrap.json();
+    assert.equal(snapshot.cursor, 1);
+    assert.equal(snapshot.calendarEvents[0].payload.notes, notes);
+  });
+});
+
+test("push returns canonical 413 above its UTF-8 byte cap while preserving auth and parse errors", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    const payload = {
+      ...event("evt_large_overrides"),
+      recurrence: { frequency: "weekly", interval: 1 },
+      seriesId: "series:evt_large_overrides",
+      overrides: Object.fromEntries([
+        "2026-10-12", "2026-10-19", "2026-10-26", "2026-11-02",
+        "2026-11-09", "2026-11-16", "2026-11-23", "2026-11-30",
+      ].map((date) => [date, { notes: "😀".repeat(2500) }])),
+    };
+    assert.doesNotThrow(() => validateCalendarEventPayload(payload, payload.id));
+    const oversized = JSON.stringify({
+      mutations: [mutation("CREATE", "mut_large_overrides", payload.id, payload)],
+    });
+    assert.ok(oversized.length < 65536);
+    assert.ok(new TextEncoder().encode(oversized).byteLength > 65536);
+    const post = (body, owner = a, headers = {}) => pushEndpoint.onRequestPost({
+      request: request("/api/sync/push", owner, {
+        method: "POST", headers: { "Content-Type": "application/json", ...headers }, body,
+      }), env: { DB: db },
+    });
+    for (const [body, headers] of [
+      [oversized, {}],
+      ['{"mutations":[]}', { "Content-Length": "65537" }],
+    ]) {
+      const response = await post(body, a, headers);
+      assert.equal(response.status, 413);
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+      assert.equal(response.headers.get("Content-Type"), "application/json; charset=utf-8");
+      assert.deepEqual(await response.json(), {
+        error: { code: "PAYLOAD_TOO_LARGE", message: "Request body too large." },
+      });
+    }
+    const exactCap = await post('{"mutations":[]}'.padEnd(65536, " "));
+    assert.equal(exactCap.status, 200);
+    assert.deepEqual(await exactCap.json(), { results: [] });
+    const malformed = await post("{");
+    assert.equal(malformed.status, 400);
+    assert.deepEqual(await malformed.json(), {
+      error: { code: "INVALID_REQUEST", message: "Invalid request." },
+    });
+    const missingBearer = await post(oversized, null);
+    assert.equal(missingBearer.status, 401);
+    assert.equal(missingBearer.headers.get("WWW-Authenticate"), "Bearer");
+    const snapshot = await bootstrapEndpoint.onRequestGet({
+      request: request("/api/sync/bootstrap", a), env: { DB: db },
+    });
+    assert.deepEqual(await snapshot.json(), { cursor: 0, calendarEvents: [] });
+  });
+});
+
+test("push accepts eight mutations and rejects nine before applying any of them", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    const post = (mutations) => pushEndpoint.onRequestPost({
+      request: request("/api/sync/push", a, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mutations }),
+      }), env: { DB: db },
+    });
+    const eight = Array.from({ length: 8 }, (_, index) => mutation(
+      "CREATE", `mut_batch_${index}`, `evt_batch_${index}`, event(`evt_batch_${index}`),
+    ));
+    const allowed = await post(eight);
+    assert.equal(allowed.status, 200);
+    assert.deepEqual(await allowed.json(), {
+      results: eight.map(({ mutationId }) => ({ mutationId, status: "APPLIED", revision: 1 })),
+    });
+    const nine = Array.from({ length: 9 }, (_, index) => mutation(
+      "CREATE", `mut_rejected_batch_${index}`, `evt_rejected_batch_${index}`, event(`evt_rejected_batch_${index}`),
+    ));
+    const rejected = await post(nine);
+    assert.equal(rejected.status, 400);
+    assert.deepEqual(await rejected.json(), {
+      error: { code: "INVALID_REQUEST", message: "Invalid request." },
+    });
+    const bootstrap = await bootstrapEndpoint.onRequestGet({
+      request: request("/api/sync/bootstrap", a), env: { DB: db },
+    });
+    assert.deepEqual((await bootstrap.json()).calendarEvents.map(({ id }) => id),
+      eight.map(({ entityId }) => entityId));
+  });
+});
+
+test("push applies dependent CREATE UPDATE DELETE in input order with revisions one two three", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    const observed = observeDbBoundaries(db, { rejectConcurrent: true });
+    const response = await pushEndpoint.onRequestPost({
+      request: request("/api/sync/push", a, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mutations: [
+          mutation("CREATE", "mut_order_create", "evt_order", event("evt_order"), 0),
+          mutation("UPDATE", "mut_order_update", "evt_order", { title: "Ordered update" }, 1),
+          mutation("DELETE", "mut_order_delete", "evt_order", {}, 2),
+        ] }),
+      }), env: { DB: observed.db },
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { results: [
+      { mutationId: "mut_order_create", status: "APPLIED", revision: 1 },
+      { mutationId: "mut_order_update", status: "APPLIED", revision: 2 },
+      { mutationId: "mut_order_delete", status: "APPLIED", revision: 3 },
+    ] });
+    const bootstrap = await bootstrapEndpoint.onRequestGet({
+      request: request("/api/sync/bootstrap", a), env: { DB: db },
+    });
+    assert.equal(bootstrap.status, 200);
+    const snapshot = await bootstrap.json();
+    assert.equal(snapshot.cursor, 3);
+    assert.equal(snapshot.calendarEvents.length, 1);
+    assert.equal(snapshot.calendarEvents[0].revision, 3);
+    assert.equal(snapshot.calendarEvents[0].payload.title, "Ordered update");
+    assert.notEqual(snapshot.calendarEvents[0].deletedAt, null);
   });
 });
 

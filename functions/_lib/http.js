@@ -1,5 +1,6 @@
 const MAX_JSON_BODY_BYTES = 8192;
 const INVALID_REQUEST = { ok: false, code: "INVALID_REQUEST" };
+const BODY_TOO_LARGE = Symbol("body-too-large");
 
 function jsonHeaders(headers) {
   const result = new Headers(headers);
@@ -29,9 +30,9 @@ function normalizedString(value, maximum) {
   return trimmed;
 }
 
-async function readBodyBytes(request) {
+async function readBodyBytes(request, maxBytes) {
   const declaredLength = request.headers.get("content-length");
-  if (/^\d+$/.test(declaredLength ?? "") && Number(declaredLength) > MAX_JSON_BODY_BYTES) return null;
+  if (/^\d+$/.test(declaredLength ?? "") && Number(declaredLength) > maxBytes) return BODY_TOO_LARGE;
   if (!request.body) return null;
 
   const reader = request.body.getReader();
@@ -41,9 +42,13 @@ async function readBodyBytes(request) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      if (size + value.byteLength > MAX_JSON_BODY_BYTES) {
-        await reader.cancel();
-        return null;
+      if (size + value.byteLength > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          // The measured oversize remains authoritative if cancellation fails.
+        }
+        return BODY_TOO_LARGE;
       }
       chunks.push(value);
       size += value.byteLength;
@@ -76,10 +81,15 @@ export function requireMethod(request, method) {
 }
 
 export async function readJsonObject(request, options = {}) {
-  void options;
   if (!isJsonContentType(request.headers.get("content-type"))) return INVALID_REQUEST;
   try {
-    const bytes = await readBodyBytes(request);
+    const maxBytes = options.maxBytes ?? MAX_JSON_BODY_BYTES;
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) return INVALID_REQUEST;
+    const bytes = await readBodyBytes(request, maxBytes);
+    if (bytes === BODY_TOO_LARGE) {
+      const code = options.oversizeCode ?? "INVALID_REQUEST";
+      return code === "INVALID_REQUEST" ? INVALID_REQUEST : { ok: false, code };
+    }
     if (!bytes) return INVALID_REQUEST;
     const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
     if (value === null || Array.isArray(value) || typeof value !== "object") return INVALID_REQUEST;

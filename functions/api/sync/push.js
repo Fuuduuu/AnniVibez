@@ -2,7 +2,7 @@ import { requireAuthenticated } from "../../_lib/auth.js";
 import { apiError, json, readJsonObject, requireMethod } from "../../_lib/http.js";
 import { applyCalendarMutation } from "../../_lib/sync.js";
 
-const MAX_MUTATIONS = 50;
+const MAX_MUTATIONS = 8;
 
 function internalError() {
   return apiError(500, "INTERNAL_ERROR", "Internal server error.");
@@ -21,7 +21,12 @@ export async function onRequestPost({ request, env }) {
     if (authentication.ok !== true) throw new TypeError("Invalid authentication result");
     if (new URL(request.url).searchParams.size !== 0) return invalidRequest();
 
-    const body = await readJsonObject(request);
+    const body = await readJsonObject(request, {
+      maxBytes: 65536, oversizeCode: "PAYLOAD_TOO_LARGE",
+    });
+    if (body.code === "PAYLOAD_TOO_LARGE") {
+      return apiError(413, "PAYLOAD_TOO_LARGE", "Request body too large.");
+    }
     if (body.ok !== true) return invalidRequest();
     const input = body.value;
     if (Object.keys(input).length !== 1 || !Object.hasOwn(input, "mutations")

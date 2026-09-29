@@ -159,6 +159,84 @@ test("readJsonObject enforces the 8192-byte cap from both headers and the actual
   assert.deepEqual(await readJsonObject(requestWithBody(multibyte)), { ok: false, code: "INVALID_REQUEST" });
 });
 
+test("readJsonObject accepts an explicit larger byte limit without changing its default", async () => {
+  const body = jsonBodyWithExactByteLength(65536);
+  assert.equal(encoder.encode(body).byteLength, 65536);
+  assert.deepEqual(await readJsonObject(requestWithBody(body)), { ok: false, code: "INVALID_REQUEST" });
+  const result = await readJsonObject(requestWithBody(body), { maxBytes: 65536 });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.value, JSON.parse(body));
+});
+
+test("readJsonObject reports declared oversize with the requested code before reading the body", async () => {
+  let bodyReads = 0;
+  const request = {
+    headers: new Headers({ "content-type": "application/json", "content-length": "65537" }),
+    get body() {
+      bodyReads += 1;
+      throw new Error("An oversized declared body must not be read");
+    },
+  };
+  assert.deepEqual(await readJsonObject(request, {
+    maxBytes: 65536, oversizeCode: "PAYLOAD_TOO_LARGE",
+  }), { ok: false, code: "PAYLOAD_TOO_LARGE" });
+  assert.equal(bodyReads, 0);
+  assert.deepEqual(await readJsonObject(request, { maxBytes: 65536 }), {
+    ok: false, code: "INVALID_REQUEST",
+  });
+  assert.equal(bodyReads, 0);
+});
+
+test("readJsonObject stops oversized streams and counts UTF-8 bytes with explicit options", async () => {
+  const options = { maxBytes: 65536, oversizeCode: "PAYLOAD_TOO_LARGE" };
+  const firstChunk = encoder.encode(jsonBodyWithExactByteLength(65536));
+  const { request, state } = streamedRequest([
+    firstChunk, encoder.encode("x"), encoder.encode("this must not be read"),
+  ]);
+  assert.deepEqual(await readJsonObject(request, options), { ok: false, code: "PAYLOAD_TOO_LARGE" });
+  assert.equal(state.cancelled, true);
+  assert.ok(state.pulls <= 2, "the reader must stop at the chunk crossing the byte cap");
+
+  const multibyte = JSON.stringify({ value: "😀".repeat(16384) });
+  assert.ok(multibyte.length < 65536);
+  assert.ok(encoder.encode(multibyte).byteLength > 65536);
+  assert.deepEqual(await readJsonObject(requestWithBody(multibyte, {
+    "content-type": "application/json", "content-length": "1",
+  }), options), { ok: false, code: "PAYLOAD_TOO_LARGE" });
+
+  const cancellationFailure = new ReadableStream({
+    start(controller) { controller.enqueue(new Uint8Array(65537)); },
+    cancel() { throw new Error("injected cancellation failure"); },
+  });
+  const failingCancelRequest = new Request("https://example.test/api/sync/push", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: cancellationFailure, duplex: "half",
+  });
+  assert.deepEqual(await readJsonObject(failingCancelRequest, options), {
+    ok: false, code: "PAYLOAD_TOO_LARGE",
+  });
+  assert.equal(cancellationFailure.locked, false);
+});
+
+test("readJsonObject keeps malformed, non-object, media-type, and stream failures distinct from oversize", async () => {
+  const options = { maxBytes: 65536, oversizeCode: "PAYLOAD_TOO_LARGE" };
+  for (const body of ["{", "[]", "null", "true", "42", "", "\"text\""]) {
+    assert.deepEqual(await readJsonObject(requestWithBody(body), options), {
+      ok: false, code: "INVALID_REQUEST",
+    });
+  }
+  assert.deepEqual(await readJsonObject(requestWithBody("{}", {
+    "content-type": "text/plain", "content-length": "65537",
+  }), options), { ok: false, code: "INVALID_REQUEST" });
+  const unreadable = new ReadableStream({
+    pull(controller) { controller.error(new Error("injected stream failure")); },
+  });
+  assert.deepEqual(await readJsonObject(new Request("https://example.test/api/sync/push", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: unreadable, duplex: "half",
+  }), options), { ok: false, code: "INVALID_REQUEST" });
+});
+
 test("validateCreateHouseholdInput accepts only normalized client fields", () => {
   assert.deepEqual(validateCreateHouseholdInput({
     userName: "  Mari  ",
