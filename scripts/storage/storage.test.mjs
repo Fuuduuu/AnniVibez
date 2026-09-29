@@ -979,6 +979,12 @@ test('C3 calendar runtime records accept accepted event output and reject repair
   const payload = calendarPayload();
   const record = runtimeEnvelope({ id: 'event-1', payload });
   assert.equal(validateRuntimeRecord('calendarEvents', record), record);
+  for (const syncStatus of ['pending', 'synced', 'conflict']) {
+    assert.doesNotThrow(() => validateRuntimeRecord('calendarEvents', { ...record, syncStatus, revision: 2, deletedAt: RUNTIME_STAMP }));
+  }
+  rejectsRecord('calendarEvents', { ...record, syncStatus: 'synced' }, 'synced requires a server revision');
+  rejectsRecord('calendarEvents', { ...record, syncStatus: 'pending', revision: -1 }, 'negative revision');
+  rejectsRecord('calendarEvents', { ...record, syncStatus: 'unknown', revision: 1 }, 'unknown sync status');
   const series = calendarPayload({ id: 'event-2', seriesId: 'series:event-2', recurrence: { frequency: 'weekly', interval: 2 }, excludedDates: ['2026-09-27'], overrides: { '2026-10-04': { title: 'Nihkes' } } });
   assert.doesNotThrow(() => validateRuntimeRecord('calendarEvents', runtimeEnvelope({ id: 'event-2', payload: series })));
   const repairable = [
@@ -1013,9 +1019,11 @@ test('C3 waste runtime records accept accepted import history and reject invalid
   rejectsRecord('wasteState', runtimeEnvelope({ key: 'other', payload: { wasteImports: [] } }), 'key');
 });
 
-test('C3 household runtime records go through the accepted repository save path and require serverHouseholdId null', () => {
+test('C3 household runtime records retain local profile rules and accept only null or canonical server identity', () => {
   const record = runtimeEnvelope({ key: 'household', payload: { name: 'Kodu', address: 'Tamme 1, Rakvere', serverHouseholdId: null } });
   assert.equal(validateRuntimeRecord('householdProfile', record), record);
+  assert.doesNotThrow(() => validateRuntimeRecord('householdProfile', { ...record,
+    payload: { ...record.payload, serverHouseholdId: 'hld_00000000-0000-0000-0000-000000000001' } }));
   assert.doesNotThrow(() => validateRuntimeRecord('householdProfile', runtimeEnvelope({ key: 'household', payload: { name: '', address: '', serverHouseholdId: null } })));
   for (const [label, payload] of [
     ['untrimmed name', { name: ' Kodu ', address: '', serverHouseholdId: null }],
@@ -1055,13 +1063,17 @@ test('C3 shared place orders must be the contiguous integers 0..n-1', () => {
 });
 
 test('C3/C4 direct transaction calls stay confined to the accepted storage modules', () => {
-  const allowed = new Set(['src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/runtimeWrites.js', 'src/storage/storageAuthority.js']);
+  const allowed = new Set(['src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/runtimeWrites.js', 'src/storage/storageAuthority.js', 'src/sync/calendarSyncStore.js']);
   const files = [...runtimeSourceFiles(), ...readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).map(name => `${STORAGE_DIRECTORY}/${name}`)];
   const callers = files.filter(path => CODE_FILE.test(path))
     .filter(path => /\.transact\s*\(|(?<!function\s+)\brunTransaction\s*\(/.test(readFileSync(join(repositoryRoot, path), 'utf8')));
   for (const path of callers) assert.ok(allowed.has(path), `${path} must not call transact/runTransaction directly`);
   assert.ok(callers.includes('src/storage/runtimeWrites.js'), 'runtimeWrites.js owns runtime mutation transactions');
   assert.ok(callers.includes('src/storage/storageAuthority.js'), 'storageAuthority.js owns the C4 authority/revert transactions');
+  const syncStore = readFileSync(join(repositoryRoot, 'src/sync/calendarSyncStore.js'), 'utf8');
+  assert.equal((syncStore.match(/\.transact\s*\(/g) ?? []).length, 1, 'sync storage has only its coherent snapshot read');
+  assert.match(syncStore, /\.transact\(\['meta', \.\.\.STORES\], 'readonly'/);
+  assert.match(syncStore, /runReplicaMutation\(/, 'sync mutations retain the existing owning authority transaction');
   const records = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, 'runtimeRecords.js'), 'utf8');
   assert.doesNotMatch(records, /\/hooks\/|\buse[A-Z]\w*\b/, 'runtimeRecords.js imports no hook');
 });
@@ -1167,9 +1179,9 @@ test('storage import guard detects every equivalent static, side-effect, re-expo
   for (const source of safe) assert.deepEqual(storageImportFindings(source, 'src/components/Example.jsx'), [], source);
 });
 
-// C6: the Task 6 dormant guard becomes the runtime importer allowlist. Only these files may import the storage
-// foundation from outside src/storage/; a component, another hook or any other runtime file must not.
-const C6_STORAGE_IMPORTER_ALLOWLIST = ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/hooks/useSavedPlaces.js', 'src/main.jsx', 'src/waste/useHousehold.js'];
+// The client MVP adds exactly its sync store and pure outbox planner; components still never import storage.
+const C6_STORAGE_IMPORTER_ALLOWLIST = ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/hooks/useSavedPlaces.js', 'src/main.jsx', 'src/waste/useHousehold.js',
+  'src/sync/calendarOutbox.js', 'src/sync/calendarSyncStore.js'];
 
 test('only the accepted C6 runtime importers import the storage foundation from outside src/storage', () => {
   const files = runtimeSourceFiles();
@@ -1197,7 +1209,8 @@ test('only the accepted C6 runtime importers import the storage foundation from 
 // touches the storage foundation receives its capabilities by injection.
 test('C6 browser capabilities are read only in src/main.jsx, never in the runtime, the shared hooks or the status UI', () => {
   const globals = /\b(?:indexedDB|BroadcastChannel|localStorage|sessionStorage|navigator|crypto)\b/;
-  for (const path of ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/waste/useHousehold.js', 'src/hooks/useSavedPlaces.js', 'src/components/StorageStatus.jsx']) {
+  for (const path of ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/waste/useHousehold.js', 'src/hooks/useSavedPlaces.js', 'src/components/StorageStatus.jsx',
+    'src/sync/calendarSync.js', 'src/sync/calendarSyncStore.js', 'src/sync/calendarOutbox.js', 'src/sync/CalendarSyncSettings.jsx']) {
     const code = readFileSync(join(repositoryRoot, path), 'utf8').replace(/\/\/.*$/gm, '');
     assert.doesNotMatch(code, globals, `${path} must not read browser capabilities`);
   }
@@ -1239,7 +1252,7 @@ test('the application bundle contains the storage foundation only through the ac
       if (target === STORAGE_DIRECTORY || target.startsWith(`${STORAGE_DIRECTORY}/`)) importers.add(from);
     }
   }
-  assert.deepEqual([...importers].sort(), ['src/App.jsx', 'src/main.jsx'], 'src/storage enters the bundle only through accepted C6 importers');
+  assert.deepEqual([...importers].sort(), ['src/App.jsx', 'src/main.jsx', 'src/sync/calendarOutbox.js', 'src/sync/calendarSyncStore.js'], 'src/storage enters the bundle only through accepted runtime and sync importers');
   for (const path of [...importers]) assert.ok(C6_STORAGE_IMPORTER_ALLOWLIST.includes(path), `${path} is an allowlisted importer`);
   const js = bundleJavaScript(app);
   assert.ok(js.includes('majandus_local_v1'), 'the IndexedDB database name is in the bundle');
@@ -1254,7 +1267,7 @@ test('storage foundation modules stay injection-only: no network, global storage
   // C4 (storageAuthority.js) reuses legacyMigration.js, localReplica.js/indexedDb.js and the same pure domain modules; no new import surface.
   // C5 (replicaRepositories.js) additionally reuses runtimeWrites.js (runReplicaMutation); no other new import surface.
   const allowedImports = ['../calendar/eventRepository.js', '../waste/householdRepository.js', './indexedDb.js', './localReplica.js', './schema.js',
-    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js', './legacyMigration.js', './runtimeWrites.js'];
+    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js', './legacyMigration.js', './runtimeWrites.js', '../sync/calendarOutbox.js'];
   const forbidden = ['fetch(', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'navigator', 'localStorage', 'sessionStorage', 'window.', 'document.', 'serviceWorker', 'react'];
   for (const name of modules) {
     const source = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, name), 'utf8');

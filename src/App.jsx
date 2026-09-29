@@ -15,6 +15,7 @@ import { StorageStatus, StorageNotice, StorageSplash, RELOAD_COPY } from './comp
 import { createEventRepository, EVENT_STORAGE_KEY } from './calendar/eventRepository';
 import { createHouseholdRepository, HOUSEHOLD_KEY } from './waste/householdRepository';
 import { createReplicaRepositories } from './storage/replicaRepositories.js';
+import { createCalendarSync } from './sync/calendarSync.js';
 import './design/shell.css';
 import './design/calendar.css';
 import './design/waste.css';
@@ -97,7 +98,7 @@ function createDomainStore(session, { domain, repository, legacyKeys, unreadable
   };
 }
 
-export function createStorageRuntime({ controller, storage, windowTarget, documentTarget, channel = null, newId, clock, reload }) {
+export function createStorageRuntime({ controller, storage, windowTarget, documentTarget, channel = null, newId, clock, reload, fetchImpl }) {
   const listeners = new Set();
   const registrations = new Set();
   let snapshot = { state: controller.getState(), result: controller.getResult(), session: null };
@@ -165,9 +166,10 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
       committed: domain => {
         if (mode !== 'READY') return;
         try { channel?.postMessage({ type: 'committed', domain }); } catch { /* best-effort */ }
+        if (domain === 'calendar') owned.sync?.run();
       },
-      applyState: result => { invalid = result.domainInvalid ?? []; Object.values(stores).forEach(store => store.recompute()); },
-      dispose: () => { Object.values(stores).forEach(store => store.dispose()); [...registrations].filter(entry => entry.session === owned).forEach(entry => registrations.delete(entry)); },
+      applyState: result => { invalid = result.domainInvalid ?? []; Object.values(stores).forEach(store => store.recompute()); owned.sync?.refreshAvailability(); },
+      dispose: () => { owned.sync?.dispose(); Object.values(stores).forEach(store => store.dispose()); [...registrations].filter(entry => entry.session === owned).forEach(entry => registrations.delete(entry)); },
     };
     let repositories;
     if (mode === 'READY') {
@@ -183,6 +185,19 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
       unreadable: 'Majapidamise andmeid ei saanud lugeda. Salvestust ei kirjutata üle.', emptyData: { profile: { name: '', address: '' }, writable: false } });
     stores.places = createDomainStore(owned, { domain: 'places', repository: repositories.places, legacyKeys: [PLACES_KEY],
       unreadable: 'Salvestatud kohti ei saanud lugeda. Salvestust ei kirjutata üle.', emptyData: { places: [], writable: false } });
+    if (mode === 'READY') {
+      owned.sync = createCalendarSync({ replica: controller.replica, authority: identity, newId, clock, fetchImpl,
+        isReady: () => session === owned && controller.getState() === 'READY' && invalid.length === 0,
+        onCommitted: () => {
+          if (session !== owned || controller.getState() !== 'READY') return;
+          for (const domain of ['calendar', 'household']) {
+            refreshWhere(entry => entry.session === owned && entry.domain === domain);
+            try { channel?.postMessage({ type: 'committed', domain }); } catch { /* best-effort */ }
+          }
+        },
+      });
+      queueMicrotask(() => owned.sync.run());
+    }
     return owned;
   }
 
@@ -226,9 +241,11 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
     if (AUTO_RETRY_STATES.includes(controller.getState())) await retry();
     // Without BroadcastChannel a foreground signal is the only cross-tab freshness path: re-read, never poll.
     if (!channel && controller.getState() === 'READY') await refreshWhere(() => true);
+    if (controller.getState() === 'READY') session?.sync?.run();
   });
   const onFocus = () => foreground('focus');
   const onVisibility = () => { if (documentTarget.visibilityState === 'visible') foreground('visibility'); };
+  const onOnline = () => { if (controller.getState() === 'READY') session?.sync?.run(); };
   const onMessage = event => {
     const message = event?.data;
     if (message?.type === 'authority-changed') forward({ type: 'authority-changed' });
@@ -246,6 +263,7 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
     controller.subscribe(onControllerUpdate);
     windowTarget.addEventListener('storage', onStorage);
     windowTarget.addEventListener('focus', onFocus);
+    windowTarget.addEventListener('online', onOnline);
     documentTarget.addEventListener('visibilitychange', onVisibility);
     channel?.addEventListener('message', onMessage);
     bootPromise = controller.boot();
@@ -352,7 +370,7 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
       {tab === 'kalender' && <KalenderTab calendar={calendar} onAdd={openAdd} onOpen={openEvent} />}
       {deviceTab(tab, places, navigate)}
       {tab === 'seaded' && <SeadedTab profile={profile} saveName={saveName} places={places} placesWritable={placesWritable} placesError={placesError}
-        updatePlace={updatePlace} initialSection={settingsSection} household={household} calendar={calendar}
+        updatePlace={updatePlace} initialSection={settingsSection} household={household} calendar={calendar} sync={session.sync}
         onAddWaste={openWaste} onOpenEvent={openEvent} onSchedule={openSchedule} wasteLookup={wasteLookup} reminders={reminders} />}
     </ShellFrame>
   );

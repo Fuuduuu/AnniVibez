@@ -31,6 +31,7 @@ function createBrowserRuntime() {
   });
   return createStorageRuntime({
     controller, storage, windowTarget: window, documentTarget: document, channel, newId, clock,
+    fetchImpl: window.fetch.bind(window),
     reload: () => window.location.reload(),
   });
 }

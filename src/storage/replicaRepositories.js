@@ -4,6 +4,7 @@ import { validateRuntimeRecord, validateSharedPlaceOrders } from './runtimeRecor
 import { createHouseholdRepository, HOUSEHOLD_KEY } from '../waste/householdRepository.js';
 import { normalizePlace, normalizePlaces } from '../places/savedPlaces.js';
 import { createEventRepository, EVENT_STORAGE_KEY } from '../calendar/eventRepository.js';
+import { planCalendarOutbox } from '../sync/calendarOutbox.js';
 
 // Runtime cutover C5: dormant IndexedDB domain repositories (household, places, calendar + waste).
 // Every mutation runs through the accepted C3 runReplicaMutation; this module never calls
@@ -66,7 +67,7 @@ function createHouseholdReplicaRepository({ replica, authority, clock }) {
         const saved = createHouseholdRepository(householdAdapterFrom(currentRecord)).save(patch);
         const record = {
           key: 'household',
-          payload: { ...saved.profile, serverHouseholdId: null },
+          payload: { ...saved.profile, serverHouseholdId: currentRecord?.payload.serverHouseholdId ?? null },
           revision: 0,
           updatedAt: clock(),
           deletedAt: null,
@@ -154,7 +155,7 @@ function buildCalendarEnvelope({ extras, wasteState, calendarEvents }) {
   const envelope = {
     version: extras ? extras.sourceVersion : 1,
     ...(extras ? extras.fields : {}),
-    events: [...calendarEvents].sort(canonicalEventOrder).map(record => record.payload),
+    events: [...calendarEvents].filter(record => record.deletedAt === null).sort(canonicalEventOrder).map(record => record.payload),
   };
   if (wasteState) envelope.wasteImports = wasteState.payload.wasteImports;
   return envelope;
@@ -195,7 +196,7 @@ function diffCalendarOutcome(snapshot, outcome) {
     if (existing && sameValue(existing.payload, event)) continue;
     puts.push({ store: 'calendarEvents', record: { id: event.id, payload: event, revision: 0, updatedAt: undefined, deletedAt: null, syncStatus: 'local' } });
   }
-  for (const [id] of beforeById) if (!afterIds.has(id)) deletes.push({ store: 'calendarEvents', key: id });
+  for (const [id, record] of beforeById) if (record.deletedAt === null && !afterIds.has(id)) deletes.push({ store: 'calendarEvents', key: id });
 
   const hasWasteImports = Object.hasOwn(outcome, 'wasteImports') && outcome.wasteImports !== undefined;
   if (hasWasteImports) {
@@ -227,6 +228,9 @@ function createCalendarReplicaRepository({ replica, authority, newId, clock }) {
       extras: (await requestResult(stores.meta.get('calendarLegacyEnvelopeExtras')))?.value ?? null,
       wasteState: (await requestResult(stores.wasteState.get('waste'))) ?? null,
       calendarEvents: await requestResult(stores.calendarEvents.getAll()),
+      auth: await requestResult(stores.auth.get('device')),
+      outbox: await requestResult(stores.outbox.index('bySequence').getAll()),
+      sequence: (await requestResult(stores.meta.get('outboxSequence')))?.value ?? 0,
     };
   }
   // Read-only load, through the accepted public replica accessors only (no direct replica.transact).
@@ -246,9 +250,9 @@ function createCalendarReplicaRepository({ replica, authority, newId, clock }) {
     }
   }
   const mutate = operate => runReplicaMutation({
-    replica, authority, domain: 'calendar', stores: ['calendarEvents', 'wasteState'],
+    replica, authority, domain: 'calendar', stores: ['calendarEvents', 'wasteState', 'auth', 'outbox'],
     read: async stores => ({ ...(await readSnapshot(stores)), newId }),
-    plan: snapshot => planCalendarOperation(snapshot, operate, clock),
+    plan: snapshot => planCalendarOutbox(snapshot, planCalendarOperation(snapshot, operate, clock), { newId, clock }),
   });
   return {
     load,

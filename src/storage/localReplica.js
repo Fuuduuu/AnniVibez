@@ -86,6 +86,28 @@ export function validateOutboxRecord(record) {
   return record;
 }
 
+export function validateDeviceAuthRecord(record) {
+  requireObject(record, 'auth');
+  if (record.key !== 'device') invalid('auth key must be device');
+  if (!/^m1s_[A-Za-z0-9_-]{43}$/.test(record.deviceToken ?? '')) invalid('invalid device bearer token');
+  for (const [field, prefix] of [['householdId', 'hld'], ['userId', 'usr'], ['sessionId', 'ses']]) {
+    if (!new RegExp(`^${prefix}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).test(record[field] ?? '')) invalid(`invalid auth ${field}`);
+  }
+  if (Object.keys(record).some(key => !['key', 'deviceToken', 'householdId', 'userId', 'sessionId'].includes(key))) invalid('unknown auth field');
+  return record;
+}
+
+export function validateCalendarSyncState(record) {
+  requireObject(record, 'syncState');
+  if (record.key !== 'calendar') invalid('syncState key must be calendar');
+  if (!Number.isSafeInteger(record.serverCursor) || record.serverCursor < 0) invalid('invalid serverCursor');
+  if (typeof record.bootstrapCompleted !== 'boolean') invalid('invalid bootstrapCompleted');
+  requireTimestamp(record.lastSuccessfulSyncAt, 'lastSuccessfulSyncAt', true);
+  requireTimestamp(record.lastAttemptAt, 'lastAttemptAt', true);
+  if (record.setupStatus != null && !['creating', 'unknown'].includes(record.setupStatus)) invalid('invalid setupStatus');
+  return record;
+}
+
 function validateMetaRecord(record) {
   requireObject(record, 'record');
   requireNonEmptyString(record.key, 'record.key');
@@ -188,6 +210,18 @@ export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = (
     close,
     subscribe,
     transact,
+    getAuth: async () => {
+      const record = await get('auth', 'device');
+      if (record !== undefined) validateDeviceAuthRecord(record);
+      return record;
+    },
+    putAuth: record => put('auth', record, validateDeviceAuthRecord),
+    clearAuth: () => transact('auth', 'readwrite', ({ stores }) => requestResult(stores.auth.delete('device'))),
+    getSyncState: async () => {
+      const record = await get('syncState', 'calendar');
+      if (record !== undefined) validateCalendarSyncState(record);
+      return record;
+    },
     getHouseholdProfile: () => get('householdProfile', 'household'),
     putHouseholdProfile: record => put('householdProfile', record, validateHouseholdProfileRecord),
     getWasteState: () => get('wasteState', 'waste'),

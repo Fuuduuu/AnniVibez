@@ -63,8 +63,9 @@ function validateWastePayload(record) {
 // loaded and saved through it on an in-memory adapter and must come back unchanged.
 function validateHouseholdPayload(record) {
   const { payload } = record;
-  if (!isPlainObject(payload) || !Object.hasOwn(payload, 'serverHouseholdId') || payload.serverHouseholdId !== null) {
-    invalid('household payload must have serverHouseholdId null');
+  if (!isPlainObject(payload) || !Object.hasOwn(payload, 'serverHouseholdId') ||
+      (payload.serverHouseholdId !== null && !/^hld_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(payload.serverHouseholdId))) {
+    invalid('household payload must have a null or canonical serverHouseholdId');
   }
   const { serverHouseholdId, ...profile } = payload;
   const values = new Map([[HOUSEHOLD_KEY, JSON.stringify({ version: 1, profile })]]);
@@ -98,7 +99,7 @@ export function validateRuntimeRecord(store, record) {
   if (!Object.hasOwn(RUNTIME_STORES, store)) invalid(`${String(store)} is not a runtime domain store`);
   const [validateEnvelope, validatePayload] = RUNTIME_STORES[store];
   validateEnvelope(record);
-  requireRuntimeEnvelope(record);
+  if (store !== 'calendarEvents' || record.syncStatus === 'local') requireRuntimeEnvelope(record);
   validatePayload(record);
   return record;
 }

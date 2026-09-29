@@ -1,5 +1,5 @@
 import { requestResult } from './indexedDb.js';
-import { validateCalendarEventRecord } from './localReplica.js';
+import { validateCalendarEventRecord, validateDeviceAuthRecord, validateCalendarSyncState, validateOutboxRecord } from './localReplica.js';
 import { validateRuntimeRecord, validateSharedPlaceOrders } from './runtimeRecords.js';
 
 // Runtime mutation helper (runtime cutover C3). Every runtime domain write runs
@@ -17,9 +17,10 @@ const DIGEST = /^[0-9a-f]{64}$/;
 const DOMAIN_STORES = Object.freeze({
   household: Object.freeze(['householdProfile']),
   places: Object.freeze(['sharedPlaces']),
-  calendar: Object.freeze(['calendarEvents', 'wasteState']),
+  calendar: Object.freeze(['calendarEvents', 'wasteState', 'auth', 'outbox']),
+  calendarSync: Object.freeze(['auth', 'householdProfile', 'calendarEvents', 'outbox', 'syncState', 'conflicts']),
 });
-const KEY_PATHS = Object.freeze({ householdProfile: 'key', wasteState: 'key', calendarEvents: 'id', sharedPlaces: 'id' });
+const KEY_PATHS = Object.freeze({ householdProfile: 'key', wasteState: 'key', calendarEvents: 'id', sharedPlaces: 'id', auth: 'key', outbox: 'mutationId', syncState: 'key', conflicts: 'id', meta: 'key' });
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isNonEmptyString = value => typeof value === 'string' && value.length > 0;
@@ -82,7 +83,18 @@ function validatePlan(planned, writableStores) {
   };
   for (const put of planned.puts) {
     if (!isPlainObject(put) || !writableStores.has(put.store)) throw new TypeError('plan puts must target a store of this mutation');
-    validateRuntimeRecord(put.store, put.record);
+    if (put.store === 'auth') validateDeviceAuthRecord(put.record);
+    else if (put.store === 'syncState') validateCalendarSyncState(put.record);
+    else if (put.store === 'outbox') {
+      validateOutboxRecord(put.record);
+      if (put.record.entityType !== 'calendar_event' || !Number.isSafeInteger(put.record.sequence)) throw new TypeError('Only sequenced calendar outbox writes are allowed');
+    } else if (put.store === 'meta') {
+      if (put.record?.key !== 'outboxSequence' || !Number.isSafeInteger(put.record.value) || put.record.value < 0
+          || Object.keys(put.record).length !== 2) throw new TypeError('Only the outbox sequence counter may be planned');
+    } else if (put.store === 'conflicts') {
+      if (!isPlainObject(put.record) || !isNonEmptyString(put.record.id) || put.record.entityType !== 'calendar_event'
+          || !isNonEmptyString(put.record.entityId)) throw new TypeError('Invalid calendar conflict');
+    } else validateRuntimeRecord(put.store, put.record);
     touch(put.store, put.record[KEY_PATHS[put.store]]);
   }
   for (const removal of planned.deletes) {
@@ -111,6 +123,7 @@ export async function runReplicaMutation({ replica, authority, domain, stores, r
     throw new TypeError(`stores must be stores of the ${domain} domain`);
   }
   const writableStores = new Set(domainStores);
+  if (writableStores.has('outbox')) writableStores.add('meta');
   const storeNames = ['meta', ...domainStores];
 
   let body;

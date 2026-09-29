@@ -5,6 +5,7 @@ import { PageHeader } from './ShellViews';
 import { HouseholdSettings } from './HouseholdSettings';
 import { WasteSettings } from './WasteSettings';
 import { NotificationSettings } from './NotificationSettings';
+import { CalendarSyncSettings } from '../sync/CalendarSyncSettings.jsx';
 
 function SaveBtn({ saved, onClick, label = 'Salvesta', disabled = false }) {
   return (
@@ -366,6 +367,7 @@ export function SeadedTab(props = {}) {
           <ProfileSection profile={profile} saveName={saveName} />
         </details>
       </section>
+      <CalendarSyncSettings sync={props.sync} profile={profile} household={props.household} />
       <WasteSettings household={props.household} calendar={props.calendar} onAdd={props.onAddWaste}
         onOpen={props.onOpenEvent} onSchedule={props.onSchedule} lookup={props.wasteLookup} />
       <NotificationSettings reminders={props.reminders} />
