@@ -1,0 +1,171 @@
+/* Timetable-only palette from Anni tunniplaan.html. The app nav keeps its existing style. */
+[data-app-shell]:has(.mm-timetable-page) { background-image: linear-gradient(#fdf9f5,#fdf9f5); }
+.mm-timetable-page { position: relative; isolation: isolate; background: #fdf9f5; color: #3d3450;
+  min-height: calc(100svh - 180px); overflow: clip; padding-top: 18px; padding-bottom: 12px;
+  --tt-yellow: linear-gradient(180deg,#ffe58a 0%,#ffd45c 100%);
+  --tt-yellow-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 4px 10px rgba(230,170,20,.28), 0 1px 2px rgba(160,110,0,.18); }
+.mm-timetable-page > :not(.mm-timetable-decoration):not(dialog) { position: relative; }
+.mm-timetable-decoration { position: absolute; inset: 0 0 auto; height: 280px; overflow: hidden; z-index: -1; pointer-events: none; }
+.mm-school-blob { position: absolute; display: block; border-radius: 58% 42% 55% 45% / 55% 60% 40% 45%; }
+.mm-school-blob-purple { left: -44px; top: -54px; width: 170px; height: 130px; background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.55) 0 1px,transparent 1px 13px),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 1px,transparent 1px 13px), #e6dcf8;
+  animation: mm-school-blob-float 9s ease-in-out infinite; }
+.mm-school-blob-blue { left: 112px; top: -65px; width: 140px; height: 104px; background: #d9eef7; opacity: .9; }
+.mm-school-blob-peach { right: -34px; top: -44px; width: 150px; height: 120px; background:
+  repeating-linear-gradient(0deg,rgba(255,255,255,.5) 0 1px,transparent 1px 13px),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 1px,transparent 1px 13px), #fde2c4;
+  animation: mm-school-blob-float 11s ease-in-out infinite reverse; }
+.mm-school-blob-pink { right: -54px; top: 170px; width: 78px; height: 110px; background: #f6cfd9; opacity: .75; }
+.mm-school-butterfly { display: block; width: 28px; height: 26px; pointer-events: none; flex-shrink: 0; }
+.mm-school-wing { transform-box: fill-box; transform-origin: center; animation: mm-school-wing 3s ease-in-out infinite; }
+.mm-school-butterfly-header { position: absolute; right: 22%; top: 58px; animation: mm-school-bob 6s ease-in-out infinite; }
+.mm-school-sparkle { position: absolute; right: 12%; top: 70px; color: #c9b8f2; font-size: 14px; animation: mm-school-twinkle 4s ease-in-out infinite; }
+.mm-school-sparkle-small { right: 44%; top: 52px; color: #f4b3c4; font-size: 10px; animation-delay: 1s; }
+.mm-timetable-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 16px; padding: 0 6px; }
+.mm-timetable-header > div:first-child { min-width: 0; }
+.mm-timetable-page .mm-timetable-header h1 { font: 400 clamp(1.625rem,7.6vw,2.15rem)/1.15 'Comic Sans MS','Chalkboard SE',cursive; color: #5d5fb0; letter-spacing: -.03em; }
+.mm-timetable-page .mm-timetable-class { font-size: .6875rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #8c78a7; margin: 0 0 4px; overflow-wrap: anywhere; }
+.mm-timetable-header-tools { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.mm-timetable-settings { background: transparent; border: 0; box-shadow: none; width: 44px; min-height: 44px; padding: 11px; justify-content: center; color: #8c78a7; }
+.mm-timetable-rainbow { position: relative; display: block; width: 44px; height: 23px; overflow: hidden; }
+.mm-timetable-rainbow > i { position: absolute; display: block; width: 44px; height: 44px; border: 4px solid #f0b3b8; border-radius: 50%; }
+.mm-timetable-rainbow > i:nth-child(2) { inset: 4px auto auto 4px; width: 36px; height: 36px; border-color: #f3d7c6; }
+.mm-timetable-rainbow > i:nth-child(3) { inset: 8px auto auto 8px; width: 28px; height: 28px; border-color: #e8be5e; }
+.mm-timetable-rainbow > i:nth-child(4) { inset: 12px auto auto 12px; width: 20px; height: 20px; border-color: #a9d6e3; }
+.mm-timetable-week { text-align: center; }
+.mm-timetable-week-nav { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; gap: 8px; align-items: center; max-width: 310px; margin: 0 auto; }
+.mm-timetable-week-nav > button { min-height: 44px; width: 44px; padding: 10px; justify-content: center; border-radius: 50%; color: #6a5fb5;
+  background: linear-gradient(180deg,#ffffff,#f7f2ec); border: 1px solid rgba(120,100,80,.08); box-shadow: 0 1px 2px rgba(80,60,40,.08),0 4px 10px rgba(80,60,40,.07); }
+.mm-timetable-range { text-align: center; min-width: 0; }
+.mm-timetable-range strong { display: block; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mm-timetable-now { margin: 6px auto 12px; min-height: 44px; padding: 8px 20px; border-radius: 999px; border: 1px solid #f5cf55;
+  background: var(--tt-yellow); box-shadow: var(--tt-yellow-shadow); color: #4a3a10; font-size: .8125rem; }
+.mm-timetable-now[data-current=true] { background: rgba(255,255,255,.6); color: #8a7345; border-color: #f1e2b0; box-shadow: none; }
+.mm-timetable-days { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 4px; padding: 6px;
+  border-radius: 26px; background: rgba(255,255,255,.75); border: 1px solid rgba(120,100,80,.07);
+  box-shadow: 0 1px 2px rgba(80,60,40,.05),0 8px 22px rgba(80,60,40,.07); touch-action: pan-y; }
+[data-app-shell] .mm-timetable-day { position: relative; min-width: 0; min-height: 72px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; padding: 8px 2px 5px; border: 1px solid transparent;
+  border-radius: 20px; background: transparent; color: #4a4060; cursor: pointer; touch-action: pan-y;
+  transition: transform 300ms cubic-bezier(.2,.8,.2,1),background 300ms,box-shadow 300ms; }
+.mm-timetable-day > span { font-size: .75rem; font-weight: 800; color: var(--tt-day-color); }
+.mm-timetable-day > strong { font-size: 1.4375rem; font-weight: 500; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.mm-timetable-day > small { font-size: .5625rem; font-weight: 650; line-height: 1.1; min-height: .625rem; color: #987421; }
+.mm-timetable-today::after { content: ''; position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #e0a92a; }
+.mm-timetable-day[aria-pressed=true] { color: #3f310a; background: var(--tt-yellow); box-shadow: var(--tt-yellow-shadow); transform: translateY(-1px); }
+.mm-timetable-day[aria-pressed=true] > span { color: #6b5410; }
+.mm-timetable-day:active { transform: translateY(1px); }
+.mm-timetable-actions { display: flex; justify-content: space-between; gap: 8px; margin: 14px 2px 12px; }
+.mm-timetable-actions > button { min-height: 44px; padding: 8px 12px; justify-content: center; font-size: .75rem; border-radius: 999px; }
+.mm-timetable-actions > .mm-button-secondary { background: rgba(255,255,255,.6); color: #746585; border-color: #e8dfe6; box-shadow: none; }
+.mm-timetable-page .mm-button-primary { background: var(--tt-yellow); box-shadow: var(--tt-yellow-shadow); color: #4a3a10; }
+.mm-timetable-list { min-height: 190px; touch-action: pan-y; --tt-list-shift: 26px; }
+.mm-timetable-list[data-direction=backward] { --tt-list-shift: -26px; }
+.mm-timetable-list[data-phase=out] { animation: mm-school-list-out 150ms ease-in both; }
+.mm-timetable-list[data-phase=in] { animation: mm-school-list-in 340ms cubic-bezier(.2,.8,.2,1) both; }
+.mm-timetable-list-heading { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 3px 8px; margin: 0 6px 14px; }
+.mm-timetable-list-heading h2 { font-size: .6875rem; font-weight: 750; letter-spacing: .065em; text-transform: uppercase; color: var(--tt-day-color); }
+.mm-timetable-list-heading > span { color: #8c819f; font-size: .75rem; }
+.mm-timetable-lessons { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0 3px; }
+.mm-lesson { position: relative; border-radius: 22px; background: linear-gradient(180deg,#ffffff,#fbf8f4); border: 1px solid rgba(120,100,80,.08);
+  box-shadow: 0 1px 2px rgba(80,60,40,.05),0 4px 12px rgba(80,60,40,.05); }
+[data-app-shell] .mm-lesson-open { width: 100%; display: grid; grid-template-columns: 40px minmax(0,1fr) auto; gap: 10px 12px;
+  align-items: center; text-align: left; padding: 14px; border: 0; border-radius: inherit; color: inherit; background: transparent; cursor: pointer; touch-action: pan-y;
+  transition: transform 150ms; }
+.mm-lesson-open:active { transform: scale(.985); }
+.mm-lesson-number { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  border-radius: 58% 42% 52% 48% / 50% 58% 42% 50%; background: var(--tt-subject-tint); color: var(--tt-subject-ink); font-size: 1.4375rem; font-weight: 500; }
+.mm-lesson-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mm-lesson-copy > strong { font-size: 1.0625rem; font-weight: 700; line-height: 1.25; color: #3a3150; overflow-wrap: anywhere; }
+.mm-lesson-topline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.mm-lesson-topline > time { font-size: .71875rem; font-weight: 600; color: #746a89; font-variant-numeric: tabular-nums; }
+.mm-lesson-teacher { font-size: .75rem; line-height: 1.3; color: #817592; overflow-wrap: anywhere; }
+.mm-lesson-room { padding: 6px 9px; max-width: 62px; border-radius: 11px; background: var(--tt-subject-tint);
+  color: var(--tt-subject-ink); font-size: .71875rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.mm-lesson-room .mm-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.mm-lesson-status { font-size: .5625rem; font-weight: 750; letter-spacing: .075em; border-radius: 999px; padding: 4px 7px;
+  background: var(--tt-subject-tint); color: var(--tt-subject-ink); line-height: 1.3; }
+.mm-lesson-current { border-color: #bfdaf2; background: linear-gradient(160deg,#f1f8ff,#dcecfb); box-shadow: 0 2px 4px rgba(60,110,170,.08),0 10px 28px rgba(60,110,170,.17); }
+.mm-lesson-current .mm-lesson-status { background: #79aee0; color: #183d61; }
+.mm-lesson-next { transform: translateY(-2px) scale(1.01); box-shadow: 0 2px 4px rgba(80,60,40,.06),0 12px 28px rgba(80,60,40,.12),0 26px 50px rgba(80,60,40,.07); }
+.mm-lesson-past { opacity: .55; box-shadow: 0 1px 2px rgba(80,60,40,.04); }
+.mm-lesson-past:focus-within { opacity: 1; }
+.mm-lesson-progress { grid-column: 1 / -1; display: block; height: 5px; border-radius: 999px; background: rgba(79,143,204,.16); overflow: hidden; }
+.mm-lesson-progress > span { display: block; height: 100%; border-radius: inherit; background: #79aee0; transform-origin: left; transition: transform 600ms ease; }
+.mm-school-butterfly-perched { position: absolute; top: -14px; right: 24px; width: 24px; height: 24px; }
+.mm-lesson-edit { min-height: 44px; padding: 6px 12px; margin: 0 14px 12px 66px; font-size: .75rem; border-radius: 999px; }
+.mm-lesson-edit svg { width: 16px; height: 16px; }
+.mm-school-break { display: flex; align-items: center; gap: 6px; padding: 3px 2px; color: #a288ac; }
+.mm-school-break::before,.mm-school-break::after { content: ''; flex: 1; border-top: 1.5px dashed #e2dbee; }
+.mm-school-break > span { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 8px; padding: 6px; border-radius: 999px;
+  font-size: .59375rem; font-weight: 700; letter-spacing: .045em; text-transform: uppercase; }
+.mm-school-break time { font-variant-numeric: tabular-nums; }
+.mm-school-break-current { color: #95691d; }
+.mm-school-break-current > span { background: #fff1c9; }
+.mm-school-end { text-align: center; font-size: .9375rem; font-style: italic; color: #a69abb; padding-top: 14px; }
+.mm-timetable-empty { padding: 24px 18px; border-radius: 22px; background: rgba(255,255,255,.8); border: 1px dashed #ded4e7; }
+.mm-timetable-empty .mm-icon-tile { margin-bottom: 14px; background: #e8e2fb; color: #6a5fb5; }
+.mm-timetable-empty h3 { font-size: 1rem; font-weight: 600; }
+.mm-timetable-empty p { color: #817592; font-size: .8125rem; margin-top: 7px; }
+.mm-school-swipe-hint { padding-top: 16px; text-align: center; color: #9a8fae; font-size: .625rem; }
+.mm-timetable-note { margin-top: 10px; font-size: .6875rem; color: #8c819f; }
+.mm-timetable-delete { width: 100%; justify-content: center; margin-top: 6px; }
+.mm-timetable-student-name { margin-bottom: 12px !important; font-weight: 650; }
+.mm-timetable-dialog .mm-delete-confirm { margin-top: 0; }
+.mm-event-dialog.mm-timetable-dialog { background: linear-gradient(180deg,#ffffff,#fbf7f2); color: #3a3150; }
+.mm-lesson-sheet { padding: 12px 20px calc(24px + env(safe-area-inset-bottom,0px)); }
+.mm-lesson-sheet[open] { overflow-y: auto; overscroll-behavior: contain; }
+.mm-lesson-sheet[open]::before { margin: 0 auto 20px; background: #e4dbe6; }
+.mm-lesson-sheet-heading { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.mm-lesson-sheet-heading .mm-lesson-number { width: 54px; height: 54px; font-size: 1.875rem; flex-shrink: 0; }
+.mm-lesson-sheet-heading > div { min-width: 0; }
+.mm-lesson-sheet-heading p { font-size: .65625rem; font-weight: 750; letter-spacing: .075em; text-transform: uppercase; color: var(--tt-subject-ink); }
+.mm-lesson-sheet-heading h2 { font-size: 1.5rem; line-height: 1.2; overflow-wrap: anywhere; margin-top: 4px; }
+.mm-lesson-sheet-facts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin: 0 0 16px; }
+.mm-lesson-sheet-facts > div { padding: 12px 9px; border-radius: 16px; background: #f7f2ee; }
+.mm-lesson-sheet-facts dt { font-size: .625rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: #817592; }
+.mm-lesson-sheet-facts dd { margin: 5px 0 0; font-size: .8125rem; font-weight: 650; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.mm-lesson-homework { padding: 14px 16px; border-radius: 18px; border: 1.5px dashed #ddd2e4; }
+.mm-lesson-homework h3 { font-size: .8125rem; color: #6f6585; }
+.mm-lesson-homework p { font-size: .75rem; line-height: 1.4; color: #817592; margin-top: 5px; }
+.mm-lesson-sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.mm-lesson-sheet-actions button { min-height: 48px; justify-content: center; border-radius: 999px; }
+.mm-school-card { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 12px; padding: 18px 18px 16px; border-radius: 26px;
+  background: linear-gradient(165deg,#ffffff,#fbf6f1); border: 1px solid rgba(120,100,80,.08);
+  box-shadow: 0 1px 2px rgba(80,60,40,.06),0 10px 26px rgba(80,60,40,.09),0 28px 56px rgba(80,60,40,.06); }
+.mm-school-card > :not(.mm-school-home-blob) { position: relative; }
+.mm-school-home-blob { position: absolute; right: -30px; top: -34px; width: 120px; height: 96px; border-radius: 55% 45% 50% 50% / 55% 50% 50% 45%; pointer-events: none;
+  background: repeating-linear-gradient(0deg,rgba(255,255,255,.55) 0 1px,transparent 1px 12px),repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 1px,transparent 1px 12px),#e6dcf8; }
+.mm-school-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mm-school-heading h2 { font-size: .6875rem; font-weight: 750; letter-spacing: .14em; color: #8c78a7; }
+.mm-school-heading > span { font-size: .6875rem; color: #8c819f; overflow-wrap: anywhere; }
+.mm-school-summary > p { font-size: .8125rem; font-weight: 600; color: #8b819f; }
+.mm-school-summary > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-top: 3px; }
+.mm-school-summary time { font-size: 1.625rem; line-height: 1.2; font-weight: 750; color: #3a3150; font-variant-numeric: tabular-nums; }
+.mm-school-summary strong { font-size: 1.4375rem; line-height: 1.2; font-weight: 500; color: var(--tt-subject-ink); overflow-wrap: anywhere; }
+.mm-school-now { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 14px; background: linear-gradient(160deg,#eef6ff,#e0eefb); font-size: .75rem; font-weight: 600; color: #3f6f9e; }
+.mm-school-now > span { width: 7px; height: 7px; border-radius: 50%; background: #79aee0; flex-shrink: 0; }
+.mm-school-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 12px; border-top: 1px dashed #e8dfe6; }
+.mm-school-footer > span { font-size: .75rem; color: #6f6585; }
+.mm-school-footer .mm-button { min-height: 44px; padding: 9px 12px; border: 0; border-radius: 999px; font-size: .75rem;
+  background: linear-gradient(180deg,#ffe58a,#ffd45c); box-shadow: inset 0 1px 0 rgba(255,255,255,.8),0 3px 10px rgba(230,170,20,.25); color: #4a3a10; }
+.mm-school-footer svg { width: 15px; height: 15px; }
+.mm-school-card > .mm-school-butterfly-home { position: absolute; right: 34px; top: 20px; width: 22px; height: 22px; animation: mm-school-bob 6s ease-in-out infinite; }
+@keyframes mm-school-list-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateX(calc(-1 * var(--tt-list-shift))); } }
+@keyframes mm-school-list-in { from { opacity: 0; transform: translateX(var(--tt-list-shift)); } to { opacity: 1; transform: none; } }
+@keyframes mm-school-bob { 0%,100% { transform: translate(0,0) rotate(-8deg); } 50% { transform: translate(-12px,-6px) rotate(8deg); } }
+@keyframes mm-school-wing { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(.45); } }
+@keyframes mm-school-twinkle { 0%,100% { opacity: .3; transform: scale(.7) rotate(0deg); } 50% { opacity: 1; transform: scale(1.1) rotate(25deg); } }
+@keyframes mm-school-blob-float { 0%,100% { transform: none; } 50% { transform: translate(6px,-5px) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .mm-timetable-list,.mm-timetable-day,.mm-school-blob,.mm-school-butterfly,.mm-school-wing,.mm-school-sparkle { animation: none !important; transition: none !important; }
+  .mm-lesson-open,.mm-lesson-progress > span { transition: none; }
+}
+@media (max-width: 370px) {
+  .mm-timetable-page { padding-left: 12px; padding-right: 12px; }
+  .mm-timetable-rainbow { width: 36px; }
+  .mm-timetable-header { padding-left: 2px; padding-right: 0; }
+  .mm-lesson-open { gap: 8px; padding: 12px; }
+  .mm-school-break > span { font-size: .5625rem; }
+}

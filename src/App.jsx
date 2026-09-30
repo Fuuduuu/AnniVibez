@@ -8,6 +8,8 @@ import { SeadedTab } from './components/SeadedTab';
 import { KoduTab, VeelTab } from './components/ShellViews';
 import { KalenderTab } from './components/KalenderTab';
 import { EventDialog } from './components/EventDialog';
+import { TunniplaanTab } from './components/TunniplaanTab';
+import { useTimetable } from './timetable/useTimetable';
 import { useHouseholdEvents } from './calendar/useHouseholdEvents';
 import { ShellIcon } from './components/ShellIcon';
 import { useSettings } from './hooks/useSettings';
@@ -19,6 +21,7 @@ import { createReplicaRepositories } from './storage/replicaRepositories.js';
 import { createCalendarSync } from './sync/calendarSync.js';
 import './design/shell.css';
 import './design/calendar.css';
+import './design/timetable.css';
 import './design/waste.css';
 import { useHousehold } from './waste/useHousehold';
 import { useReminders } from './reminders/useReminders';
@@ -297,7 +300,7 @@ function ShellFrame({ tab, active, onNavigate, banner, overlay, children }) {
     <div data-app-shell style={SHELL_STYLE}>
       {banner}
       <main key={tab} id="main-content" className="mm-main">
-        {['loo', 'paevik'].includes(tab) && (
+        {['loo', 'paevik', 'tunniplaan'].includes(tab) && (
           <div className="mm-back">
             <button className="mm-button mm-button-secondary" onClick={() => onNavigate('veel')}>
               <ShellIcon name="back" />Tagasi: Veel
@@ -323,11 +326,12 @@ function ShellFrame({ tab, active, onNavigate, banner, overlay, children }) {
 }
 
 // Device-local destinations: they never depend on the shared domains, so they stay usable in every state.
-function deviceTab(tab, savedPlaces, onNavigate) {
+function deviceTab(tab, savedPlaces, onNavigate, timetable) {
   if (tab === 'buss') return <BussTab savedPlaces={savedPlaces} />;
   if (tab === 'veel') return <VeelTab onNavigate={onNavigate} />;
   if (tab === 'loo') return <LooTab />;
   if (tab === 'paevik') return <PaeviikTab />;
+  if (tab === 'tunniplaan') return <TunniplaanTab timetable={timetable} />;
   return null;
 }
 
@@ -376,9 +380,10 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
   const calendar = useHouseholdEvents(session);
   const household = useHousehold(session);
   const reminders = useReminders(notificationService);
+  const timetable = useTimetable();
   const { profile, saveName } = useSettings();
   const { places, loading: placesLoading, writable: placesWritable, error: placesError, update: updatePlace } = useSavedPlaces(session);
-  const active = ['loo', 'paevik'].includes(tab) ? 'veel' : tab;
+  const active = ['loo', 'paevik', 'tunniplaan'].includes(tab) ? 'veel' : tab;
 
   if (calendar.loading || household.loading || placesLoading) {
     return <div data-app-shell style={SHELL_STYLE}><StorageSplash /></div>;
@@ -396,9 +401,9 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
         {eventSelection && <EventDialog selection={eventSelection} calendar={calendar} onClose={() => setEventSelection(null)} />}
         <ReminderRuntime events={calendar.events} reminders={reminders} />
       </>}>
-      {tab === 'kodu' && <KoduTab savedPlaces={places} onNavigate={navigate} calendar={calendar} onAdd={openAdd} onOpen={openEvent} />}
+      {tab === 'kodu' && <KoduTab savedPlaces={places} onNavigate={navigate} calendar={calendar} onAdd={openAdd} onOpen={openEvent} timetable={timetable} />}
       {tab === 'kalender' && <KalenderTab calendar={calendar} onAdd={openAdd} onOpen={openEvent} />}
-      {deviceTab(tab, places, navigate)}
+      {deviceTab(tab, places, navigate, timetable)}
       {tab === 'seaded' && <SeadedTab profile={profile} saveName={saveName} places={places} placesWritable={placesWritable} placesError={placesError}
         updatePlace={updatePlace} initialSection={settingsSection} household={household} calendar={calendar} sync={session.sync}
         onAddWaste={openWaste} onOpenEvent={openEvent} onSchedule={openSchedule} wasteLookup={wasteLookup} reminders={reminders} />}
@@ -410,8 +415,9 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
 // shared hook is mounted; Buss and the device-local destinations stay usable with no saved places.
 function LimitedShell({ state, result, actions }) {
   const { tab, navigate } = useTabNavigation();
-  const active = ['loo', 'paevik'].includes(tab) ? 'veel' : tab;
-  const device = deviceTab(tab, [], navigate);
+  const timetable = useTimetable();
+  const active = ['loo', 'paevik', 'tunniplaan'].includes(tab) ? 'veel' : tab;
+  const device = deviceTab(tab, [], navigate, timetable);
   return (
     <ShellFrame tab={tab} active={active} onNavigate={navigate}>
       {device ?? <div className="mm-page"><StorageStatus state={state} result={result} actions={actions} /></div>}

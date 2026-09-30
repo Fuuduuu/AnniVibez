@@ -6,6 +6,7 @@ import { homeOccurrences } from '../reminders/due';
 import { expandOccurrences } from '../calendar/recurrence';
 import { localDate } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
+import { TimetableHomeCard } from './TimetableHomeCard';
 
 export function PageHeader({ title, subtitle }) {
   return <header className="mm-page-header">
@@ -14,7 +15,7 @@ export function PageHeader({ title, subtitle }) {
   </header>;
 }
 
-export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
+export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, timetable }) {
   const now = useCalendarNow();
   const today = localDate(now);
   const todayItems = expandOccurrences(calendar.events, today, today);
@@ -58,6 +59,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
         <p className="mm-footnote">Kalender töötab ka kohalikult. Pilvesüngi saad soovi korral Seadetes sisse lülitada.</p>
       </div>}
     </section>
+    <TimetableHomeCard timetable={timetable} now={now} onOpen={() => onNavigate('tunniplaan')} />
     <section className="mm-section" aria-labelledby="home-bus-heading">
       <h2 className="mm-section-label" id="home-bus-heading">Buss praegu</h2>
       <BussCard savedPlaces={savedPlaces} onOpenBuss={() => onNavigate('buss')} />
@@ -87,6 +89,7 @@ export function VeelTab({ onNavigate }) {
     <PageHeader title="Veel" subtitle="Muud tööriistad selles kodus" />
     <div className="mm-card mm-utility-list">
       {[
+        { id:'tunniplaan', title:'Tunniplaan', description:'Anni koolinädal, tunnid ja klassiruumid.' },
         { id:'loo', title:'Joonistamine ja loomine', description:'Ideed, joonistamise nipid ja väikesed loovad projektid.' },
         { id:'paevik', title:'Päevik', description:'Sinu mõtted ja päeva hetked, olemasoleva PIN-i taga.' },
       ].map(item => <button key={item.id} className="mm-utility-row" onClick={() => onNavigate(item.id)}>
