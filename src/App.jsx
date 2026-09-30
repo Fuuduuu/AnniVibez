@@ -98,7 +98,7 @@ function createDomainStore(session, { domain, repository, legacyKeys, unreadable
   };
 }
 
-export function createStorageRuntime({ controller, storage, windowTarget, documentTarget, channel = null, newId, clock, reload, fetchImpl }) {
+export function createStorageRuntime({ controller, storage, windowTarget, documentTarget, channel = null, newId, clock, reload, fetchImpl, initialDeviceLink = null }) {
   const listeners = new Set();
   const registrations = new Set();
   let snapshot = { state: controller.getState(), result: controller.getResult(), session: null };
@@ -187,6 +187,7 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
       unreadable: 'Salvestatud kohti ei saanud lugeda. Salvestust ei kirjutata üle.', emptyData: { places: [], writable: false } });
     if (mode === 'READY') {
       owned.sync = createCalendarSync({ replica: controller.replica, authority: identity, newId, clock, fetchImpl,
+        initialDeviceLink,
         isReady: () => session === owned && controller.getState() === 'READY' && invalid.length === 0,
         onCommitted: () => {
           if (session !== owned || controller.getState() !== 'READY') return;
@@ -327,8 +328,8 @@ function deviceTab(tab, savedPlaces, onNavigate) {
   return null;
 }
 
-function useTabNavigation(onLeave) {
-  const [tab, setTab] = useState('kodu');
+function useTabNavigation(onLeave, initialTab = 'kodu') {
+  const [tab, setTab] = useState(initialTab);
   const [settingsSection, setSettingsSection] = useState(null);
   const navigate = (next, section = null) => {
     onLeave?.();
@@ -342,7 +343,8 @@ function useTabNavigation(onLeave) {
 // Shared domains mounted: LEGACY or READY session (read-only under RELOAD_REQUIRED).
 function SharedApp({ session, state, result, actions, wasteLookup, notificationService }) {
   const [eventSelection, setEventSelection] = useState(null);
-  const { tab, settingsSection, navigate } = useTabNavigation(() => setEventSelection(null));
+  const { tab, settingsSection, navigate } = useTabNavigation(() => setEventSelection(null),
+    session.sync?.getSnapshot().hasIncomingLink ? 'seaded' : 'kodu');
   const calendar = useHouseholdEvents(session);
   const household = useHousehold(session);
   const reminders = useReminders(notificationService);

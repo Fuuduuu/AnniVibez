@@ -1,5 +1,5 @@
 const SECRET_BYTE_LENGTH = 32;
-const HASH_KINDS = new Set(["device-session", "household-recovery"]);
+const HASH_KINDS = new Set(["device-session", "household-recovery", "device-link"]);
 
 function base64url(bytes) {
   let binary = "";
@@ -17,6 +17,10 @@ export function newDeviceToken() {
 
 export function newRecoveryCode() {
   return newSecret("m1r_");
+}
+
+export function newDeviceLinkToken() {
+  return newSecret("m1l_");
 }
 
 export async function hashSecret(kind, secret) {

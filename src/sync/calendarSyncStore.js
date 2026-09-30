@@ -9,11 +9,12 @@ const emptyState = () => ({ key: 'calendar', serverCursor: 0, bootstrapCompleted
   lastSuccessfulSyncAt: null, lastAttemptAt: null, setupStatus: null });
 
 async function read(stores) {
-  const [auth, household, calendar, outbox, state, sequence, conflicts] = await Promise.all([
+  const [auth, household, calendar, outbox, state, sequence, conflicts, archive] = await Promise.all([
     requestResult(stores.auth.get('device')), requestResult(stores.householdProfile.get('household')),
     requestResult(stores.calendarEvents.getAll()), requestResult(stores.outbox.index('bySequence').getAll()),
     requestResult(stores.syncState.get('calendar')), requestResult(stores.meta.get('outboxSequence')),
     requestResult(stores.conflicts.getAll()),
+    requestResult(stores.meta.get('calendarBeforeDeviceLinkV1')),
   ]);
   if (auth !== undefined) validateDeviceAuthRecord(auth);
   const syncState = state ?? emptyState();
@@ -24,7 +25,7 @@ async function read(stores) {
   const calendarOutbox = outbox.filter(item => item.entityType === 'calendar_event');
   for (const item of calendarOutbox) validateOutboxRecord(item);
   return { auth, household, calendar, outbox: calendarOutbox, state: syncState, sequence: counter,
-    conflicts: conflicts.filter(item => item.entityType === 'calendar_event') };
+    conflicts: conflicts.filter(item => item.entityType === 'calendar_event'), archive };
 }
 
 export function createCalendarSyncStore({ replica, authority, clock, newId, isReady = () => true }) {
@@ -35,10 +36,19 @@ export function createCalendarSyncStore({ replica, authority, clock, newId, isRe
   const snapshot = () => replica.transact(['meta', ...STORES], 'readonly', ({ stores }) => read(stores));
   function setupStatus(status) {
     return mutate(current => {
+      if (current.auth && ['unknown', 'claim-unknown'].includes(status)) return { puts: [], deletes: [], result: null };
       if (status === 'creating' && (current.auth || current.state.setupStatus)) throw new Error('Setup already started');
+      if (status === 'claiming') {
+        if (current.auth || ['creating', 'claiming'].includes(current.state.setupStatus)) throw new Error('Setup already started');
+        if (current.archive && current.calendar.length) throw new Error('An earlier local calendar archive must be preserved');
+      }
       return { puts: [{ store: 'syncState', record: { ...current.state, setupStatus: status } }], deletes: [], result: null };
     });
   }
+  const recoverInterruptedClaim = () => mutate(current => {
+    if (current.auth || current.state.setupStatus !== 'claiming') return { puts: [], deletes: [], result: null };
+    return { puts: [{ store: 'syncState', record: { ...current.state, setupStatus: 'claim-unknown' } }], deletes: [], result: null };
+  });
   function install(auth) {
     validateDeviceAuthRecord(auth);
     return mutate(current => {
@@ -59,6 +69,30 @@ export function createCalendarSyncStore({ replica, authority, clock, newId, isRe
       puts.push({ store: 'meta', record: { key: 'outboxSequence', value: sequence } },
         { store: 'syncState', record: { ...emptyState(), lastAttemptAt: stamp } });
       return { puts, deletes: [], result: null };
+    });
+  }
+  function installJoined(auth) {
+    validateDeviceAuthRecord(auth);
+    return mutate(current => {
+      if (current.auth || current.state.setupStatus !== 'claiming') throw new Error('Device claim no longer owns setup');
+      const stamp = clock();
+      const puts = [{ store: 'auth', record: auth }];
+      // Joining is not OWNER setup. Retain unrelated local work privately; never enqueue it for this household.
+      if (current.calendar.length || current.outbox.length || current.conflicts.length) {
+        if (current.archive) throw new Error('An earlier local calendar archive must be preserved');
+        puts.push({ store: 'meta', record: { key: 'calendarBeforeDeviceLinkV1', savedAt: stamp,
+          calendarEvents: current.calendar, outbox: current.outbox, conflicts: current.conflicts } });
+      }
+      const profile = current.household?.payload ?? { ...createHouseholdRepository({getItem: () => null}).load().profile, serverHouseholdId: null };
+      puts.push({ store: 'householdProfile', record: { key: 'household', payload: { ...profile, serverHouseholdId: auth.householdId },
+        revision: 0, updatedAt: stamp, deletedAt: null, syncStatus: 'local' } },
+      { store: 'syncState', record: { ...emptyState(), lastAttemptAt: stamp } });
+      const deletes = [
+        ...current.calendar.map(record => ({ store: 'calendarEvents', key: record.id })),
+        ...current.outbox.map(record => ({ store: 'outbox', key: record.mutationId })),
+        ...current.conflicts.map(record => ({ store: 'conflicts', key: record.id })),
+      ];
+      return { puts, deletes, result: null };
     });
   }
   function attempt(mutationId) {
@@ -142,5 +176,5 @@ export function createCalendarSyncStore({ replica, authority, clock, newId, isRe
       return { puts, deletes: [], result: null };
     });
   }
-  return { snapshot, setupStatus, install, beginAttempt, attempt, acknowledge, reject, applyRemote };
+  return { snapshot, setupStatus, recoverInterruptedClaim, install, installJoined, beginAttempt, attempt, acknowledge, reject, applyRemote };
 }

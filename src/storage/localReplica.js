@@ -104,7 +104,7 @@ export function validateCalendarSyncState(record) {
   if (typeof record.bootstrapCompleted !== 'boolean') invalid('invalid bootstrapCompleted');
   requireTimestamp(record.lastSuccessfulSyncAt, 'lastSuccessfulSyncAt', true);
   requireTimestamp(record.lastAttemptAt, 'lastAttemptAt', true);
-  if (record.setupStatus != null && !['creating', 'unknown'].includes(record.setupStatus)) invalid('invalid setupStatus');
+  if (record.setupStatus != null && !['creating', 'unknown', 'claiming', 'claim-unknown'].includes(record.setupStatus)) invalid('invalid setupStatus');
   return record;
 }
 

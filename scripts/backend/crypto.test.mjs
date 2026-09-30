@@ -130,10 +130,22 @@ test("isTokenHash accepts only canonical lowercase SHA-256 representations", () 
   }
 });
 
-test("crypto module exports only Phase 3 APIs and has no secret-handling side effects", () => {
+test("device-link secrets are random and use a separate hash domain", async () => {
+  const first = cryptoHelpers.newDeviceLinkToken();
+  const second = cryptoHelpers.newDeviceLinkToken();
+  assertTokenShape(first, "m1l_");
+  assertTokenShape(second, "m1l_");
+  assert.notEqual(first, second);
+  assert.notEqual(await hashSecret("device-link", first), await hashSecret("device-session", first));
+  assert.notEqual(await hashSecret("device-link", first), await hashSecret("household-recovery", first));
+  assert.equal(isTokenHash(await hashSecret("device-link", first)), true);
+});
+
+test("crypto module exports accepted APIs plus the additive device-link generator without secret-handling side effects", () => {
   assert.deepEqual(Object.keys(cryptoHelpers).sort(), [
     "hashSecret",
     "isTokenHash",
+    "newDeviceLinkToken",
     "newDeviceToken",
     "newRecoveryCode",
   ]);

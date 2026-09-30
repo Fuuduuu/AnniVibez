@@ -71,7 +71,7 @@ function requireWritableAuthority(record, switchId) {
 const isThenable = value => (value !== null && (typeof value === 'object' || typeof value === 'function')) && typeof value.then === 'function';
 
 // Validates the private plan shape { puts: [{ store, record }], deletes: [{ store, key }], result }.
-function validatePlan(planned, writableStores) {
+function validatePlan(planned, writableStores, domain) {
   if (!isPlainObject(planned) || !Array.isArray(planned.puts) || !Array.isArray(planned.deletes)) {
     throw new TypeError('plan must return { puts: [], deletes: [] }');
   }
@@ -89,8 +89,21 @@ function validatePlan(planned, writableStores) {
       validateOutboxRecord(put.record);
       if (put.record.entityType !== 'calendar_event' || !Number.isSafeInteger(put.record.sequence)) throw new TypeError('Only sequenced calendar outbox writes are allowed');
     } else if (put.store === 'meta') {
-      if (put.record?.key !== 'outboxSequence' || !Number.isSafeInteger(put.record.value) || put.record.value < 0
-          || Object.keys(put.record).length !== 2) throw new TypeError('Only the outbox sequence counter may be planned');
+      if (domain === 'calendarSync' && put.record?.key === 'calendarBeforeDeviceLinkV1') {
+        const archive = put.record;
+        if (Object.keys(archive).length !== 5 || !isAcceptedTimestamp(archive.savedAt)
+            || !Array.isArray(archive.calendarEvents) || !Array.isArray(archive.outbox) || !Array.isArray(archive.conflicts)) {
+          throw new TypeError('Invalid pre-link calendar archive');
+        }
+        archive.calendarEvents.forEach(record => validateRuntimeRecord('calendarEvents', record));
+        archive.outbox.forEach(record => {
+          validateOutboxRecord(record);
+          if (record.entityType !== 'calendar_event') throw new TypeError('Only calendar may be archived');
+        });
+        if (archive.conflicts.some(record => !isPlainObject(record) || record.entityType !== 'calendar_event'
+            || !isNonEmptyString(record.id) || !isNonEmptyString(record.entityId))) throw new TypeError('Invalid archived conflict');
+      } else if (put.record?.key !== 'outboxSequence' || !Number.isSafeInteger(put.record.value) || put.record.value < 0
+          || Object.keys(put.record).length !== 2) throw new TypeError('Unsupported runtime metadata write');
     } else if (put.store === 'conflicts') {
       if (!isPlainObject(put.record) || !isNonEmptyString(put.record.id) || put.record.entityType !== 'calendar_event'
           || !isNonEmptyString(put.record.entityId)) throw new TypeError('Invalid calendar conflict');
@@ -141,7 +154,7 @@ export async function runReplicaMutation({ replica, authority, domain, stores, r
     if (isPlainObject(planned) && isThenable(planned.result)) throw new TypeError('plan result must be synchronous and must not be a thenable');
 
     // VALIDATE: every record and the resulting place order, before any write request.
-    validatePlan(planned, writableStores);
+    validatePlan(planned, writableStores, domain);
     if (currentPlaces) validateSharedPlaceOrders(resultingPlaces(currentPlaces, planned));
 
     // WRITE: one synchronous block, no await between requests.

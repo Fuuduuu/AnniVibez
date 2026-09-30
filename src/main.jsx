@@ -12,6 +12,15 @@ const attempt = read => { try { return read(); } catch { return undefined; } };
 const blockedStorage = { getItem() { throw new Error('localStorage is unavailable'); }, setItem() { throw new Error('localStorage is unavailable'); }, removeItem() { throw new Error('localStorage is unavailable'); } };
 
 function createBrowserRuntime() {
+  const initialDeviceLink = attempt(() => {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('deviceLink');
+    if (token !== null) {
+      url.searchParams.delete('deviceLink');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+    return token;
+  });
   const storage = attempt(() => window.localStorage) ?? blockedStorage;
   const channel = attempt(() => (typeof BroadcastChannel === 'function' ? new BroadcastChannel('majandus:replica') : null)) ?? null;
   const newId = () => crypto.randomUUID();
@@ -32,6 +41,7 @@ function createBrowserRuntime() {
   return createStorageRuntime({
     controller, storage, windowTarget: window, documentTarget: document, channel, newId, clock,
     fetchImpl: window.fetch.bind(window),
+    initialDeviceLink,
     reload: () => window.location.reload(),
   });
 }

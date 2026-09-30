@@ -10,6 +10,8 @@ import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
 import { waitForBrowserEndpoint } from '../bus/browser-lifecycle.mjs';
 import * as createHousehold from '../../functions/api/auth/create-household.js';
+import * as deviceLink from '../../functions/api/auth/device-link.js';
+import * as claimDevice from '../../functions/api/auth/claim-device.js';
 import * as bootstrap from '../../functions/api/sync/bootstrap.js';
 import * as pull from '../../functions/api/sync/pull.js';
 import * as push from '../../functions/api/sync/push.js';
@@ -67,6 +69,11 @@ const fetchImpl = async (url, options = {}) => {
   }
   const response = await nativeFetch(url, options);
   if (controls.loseCreateReply && path === '/api/auth/create-household') throw new TypeError('Lost create reply');
+  if (controls.loseClaimReply && path === '/api/auth/claim-device') throw new TypeError('Lost claim reply');
+  if (controls.holdClaimReply && path === '/api/auth/claim-device') {
+    controls.claimReplyHeld = true;
+    await new Promise(() => {});
+  }
   if (controls.losePushReply && path === '/api/sync/push') throw new TypeError('Lost push reply');
   if (controls.holdPull && path.startsWith('/api/sync/pull')) {
     controls.holdPull = false;
@@ -97,6 +104,7 @@ async function mount() {
   });
   repositories = createReplicaRepositories({ replica: controller.replica, authority, newId, clock });
   sync = createCalendarSync({ replica: controller.replica, authority, newId, clock, fetchImpl,
+    initialDeviceLink: new URL(location.href).searchParams.get('deviceLink'),
     isReady: () => controller.getState() === 'READY' });
   window.client = { controller, sync, repositories, replica: controller.replica,
     enable: () => sync.enable({ userName: 'Client owner', householdName: 'Client household', householdAddress: '', deviceName: 'Client test device' }),
@@ -127,7 +135,9 @@ async function mount() {
   };
 }
 if (!localStorage.getItem('client-fixture-seeded')) {
-  const event = createEvent({ title: 'Existing owner event', category: 'general', date: '2026-10-05' }, 'existing-owner-event');
+  const unrelated = new URL(location.href).searchParams.has('unrelatedLocal');
+  const event = createEvent({ title: unrelated ? 'Unrelated Device B event' : 'Existing owner event', category: 'general', date: '2026-10-05' },
+    unrelated ? 'unrelated-device-b-event' : 'existing-owner-event');
   localStorage.setItem(EVENT_STORAGE_KEY, JSON.stringify({version:1,events:[event]}));
   localStorage.setItem('client-fixture-seeded', 'yes');
 }
@@ -135,7 +145,7 @@ await mount();
 window.clientReady = true;
 `;
 
-async function harness({ ui = false } = {}) {
+async function harness({ ui = false, sharedBackend = null, query = '' } = {}) {
   assert.ok(browser, 'Chromium is required; client sync must not silently skip');
   const contents = ui ? fixture.replace('await mount();\nwindow.clientReady = true;', `
     window.fetch = fetchImpl;
@@ -162,17 +172,19 @@ async function harness({ ui = false } = {}) {
     platform: 'browser', target: 'es2022', stdin: { contents, resolveDir: root } });
   const js = bundle.outputFiles.find(file => file.path.endsWith('.js')).text;
   const css = bundle.outputFiles.find(file => file.path.endsWith('.css'))?.text ?? '';
-  const miniflare = new Miniflare({ modules: true,
+  const miniflare = sharedBackend ? null : new Miniflare({ modules: true,
     script: "export default {fetch(){return new Response('ok')}}", d1Databases: ['DB'] });
-  const db = await miniflare.getD1Database('DB');
-  for (const sql of migrationStatements(readFileSync(resolve(root, 'migrations/0001_majandus_backend.sql'), 'utf8'))) await db.exec(sql);
+  const db = sharedBackend?.db ?? await miniflare.getD1Database('DB');
+  if (!sharedBackend) for (const sql of migrationStatements(readFileSync(resolve(root, 'migrations/0001_majandus_backend.sql'), 'utf8'))) await db.exec(sql);
   const routes = new Map([
     ['/api/auth/create-household', createHousehold.onRequestPost],
+    ['/api/auth/device-link', deviceLink.onRequestPost],
+    ['/api/auth/claim-device', claimDevice.onRequestPost],
     ['/api/sync/bootstrap', bootstrap.onRequestGet],
     ['/api/sync/pull', pull.onRequestGet],
     ['/api/sync/push', push.onRequestPost],
   ]);
-  const server = createServer(async (req, res) => {
+  const server = sharedBackend?.server ?? createServer(async (req, res) => {
     try {
       if (req.url === '/fixture.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(js); return; }
       const path = new URL(req.url, 'http://127.0.0.1').pathname;
@@ -191,7 +203,7 @@ async function harness({ ui = false } = {}) {
       res.end(`<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style><div id="root"></div><script type="module" src="/fixture.js"></script>`);
     } catch { res.writeHead(500); res.end('Local test bridge failed'); }
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  if (!sharedBackend) await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const profile = mkdtempSync(join(tmpdir(), 'annivibe-client-sync-'));
   const child = spawn(browser, ['--headless=new', '--no-first-run', '--disable-background-networking',
     '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'],
@@ -227,9 +239,9 @@ async function harness({ ui = false } = {}) {
     assert.fail('Client fixture failed to mount');
   }
   await send('Page.enable'); await send('Runtime.enable');
-  await send('Page.navigate', {url:`http://127.0.0.1:${server.address().port}`});
+  await send('Page.navigate', {url:`http://127.0.0.1:${server.address().port}/${query}`});
   await ready();
-  return { db, evaluate,
+  return { db, server, evaluate,
     async waitFor(expression) {
       for (let index=0; index<200; index++) { if (await evaluate(expression)) return; await pause(25); }
       assert.fail('Timed out waiting for: ' + expression);
@@ -240,8 +252,10 @@ async function harness({ ui = false } = {}) {
       for (let index = 0; child.exitCode === null && index < 50; index++) await pause(20);
       if (child.exitCode === null) child.kill();
       socket.close();
-      await new Promise(resolve => server.close(resolve));
-      await miniflare.dispose();
+      if (!sharedBackend) {
+        await new Promise(resolve => server.close(resolve));
+        await miniflare.dispose();
+      }
       assert.equal(dirname(resolve(profile)), resolve(tmpdir()));
       rmSync(profile, {recursive:true,force:true,maxRetries:20,retryDelay:100});
     },
@@ -560,4 +574,150 @@ test('the real Settings flow enables calendar sync, keeps credentials private, a
     assert.equal(await h.evaluate('window.uiRuntime.getSnapshot().session.sync.getSnapshot().recoveryCode'), null);
     assert.ok(await h.evaluate("window.controls.calls.some(path => path.startsWith('/api/sync/pull'))"), 'authenticated startup triggers sync');
   } finally { await h.close(); }
+});
+
+test('two isolated devices join the same user, bootstrap only the server calendar, and sync A CREATE / B UPDATE in both directions', {timeout:90000}, async () => {
+  const a = await harness();
+  let b;
+  try {
+    await a.evaluate('window.client.enable()');
+    const link = await a.evaluate('window.client.sync.createDeviceLink()');
+    assert.equal(typeof link, 'string');
+    b = await harness({sharedBackend:a,query:'?unrelatedLocal=1'});
+    const joined = await b.evaluate(`window.client.sync.claimDevice({link:${JSON.stringify(link)},deviceName:'Device B'})`);
+    assert.equal(joined, true);
+    const owner = await a.evaluate('window.client.snapshot()');
+    const joinedState = await b.evaluate('window.client.snapshot()');
+    assert.equal(joinedState.householdId, owner.householdId);
+    assert.deepEqual(joinedState.view.events.map(event => event.title), ['Existing owner event']);
+    assert.deepEqual(joinedState.outbox, []);
+    assert.equal(joinedState.state.bootstrapCompleted, true);
+    assert.equal(await b.evaluate("window.controls.calls.includes('/api/auth/create-household')"), false);
+    assert.equal(await b.evaluate("window.controls.calls.includes('/api/sync/push')"), false);
+    const archive = await b.evaluate("window.client.replica.getMeta('calendarBeforeDeviceLinkV1')");
+    assert.equal(archive.calendarEvents[0].payload.title, 'Unrelated Device B event');
+    assert.equal((await a.db.prepare("SELECT count(*) AS n FROM calendar_events WHERE id = 'unrelated-device-b-event'").first()).n, 0);
+    const ids = await a.db.prepare('SELECT user_id, token_hash FROM device_sessions').all();
+    assert.equal(ids.results.length, 2);
+    assert.equal(ids.results[0].user_id, ids.results[1].user_id);
+    assert.equal(ids.results[0].token_hash === ids.results[1].token_hash, false);
+    const created = await a.evaluate(`(async () => {
+      await window.client.repositories.calendar.create({title:'A to B',category:'general',date:'2026-10-06'});
+      await window.client.sync.run(); return window.client.snapshot();
+    })()`);
+    const eventId = created.calendar.find(record => record.payload.title === 'A to B').id;
+    await b.evaluate('window.client.sync.run()');
+    assert.ok((await b.evaluate('window.client.snapshot()')).view.events.some(event => event.title === 'A to B'));
+    await b.evaluate(`(async () => {
+      await window.client.repositories.calendar.update(${JSON.stringify(eventId)},{title:'B to A'});
+      await window.client.sync.run();
+    })()`);
+    await a.evaluate('window.client.sync.run()');
+    assert.ok((await a.evaluate('window.client.snapshot()')).view.events.some(event => event.title === 'B to A'));
+    for (const device of [a,b]) {
+      assert.equal(await device.evaluate(`(async () => {
+        const auth = await window.client.replica.getAuth();
+        const data = JSON.stringify({calendar:await window.client.replica.listCalendarEvents(),
+          outbox:await window.client.replica.listOutboxBySequence(),pushes:window.controls.pushes});
+        return data.includes(auth.deviceToken) || data.includes(new URL(${JSON.stringify(link)}).searchParams.get('deviceLink'));
+      })()`), false);
+    }
+    for (const [table, expected] of [['households',1],['users',1],['device_sessions',2]]) {
+      assert.equal((await a.db.prepare(`SELECT count(*) AS n FROM ${table}`).first()).n, expected);
+    }
+    await b.reload();
+    await b.evaluate('window.client.sync.run()');
+    assert.equal((await b.evaluate('window.client.snapshot()')).hasAuth, true);
+    assert.ok((await b.evaluate('window.client.snapshot()')).view.events.some(event => event.title === 'B to A'));
+    assert.equal((await b.evaluate("window.client.replica.getMeta('calendarBeforeDeviceLinkV1')")).calendarEvents[0].payload.title, 'Unrelated Device B event');
+  } finally { if (b) await b.close(); await a.close(); }
+});
+
+test('the visible Settings flow issues a copyable link and opening it on B asks only device name, claims and shows A calendar', {timeout:90000}, async () => {
+  const a = await harness({ui:true});
+  let b;
+  try {
+    await a.evaluate(`window.uiRuntime.getSnapshot().session.sync.enable({userName:'Owner A',householdName:'Same home',deviceName:'A'})`);
+    await a.evaluate("[...document.querySelectorAll('nav button')].find(button => button.textContent.trim() === 'Seaded').click()");
+    await a.waitFor("[...document.querySelectorAll('button')].some(button => button.textContent === 'Lisa teine seade')");
+    await a.evaluate("[...document.querySelectorAll('button')].find(button => button.textContent === 'Lisa teine seade').click()");
+    await a.waitFor("Boolean(document.getElementById('device-link-created')?.value)");
+    const link = await a.evaluate("document.getElementById('device-link-created').value");
+    const token = new URL(link).searchParams.get('deviceLink');
+    b = await harness({ui:true,sharedBackend:a,query:`?unrelatedLocal=1&deviceLink=${encodeURIComponent(token)}`});
+    await b.waitFor("!!document.getElementById('device-link-name')");
+    assert.equal(await b.evaluate("document.querySelector('h1')?.textContent"), 'Seaded');
+    assert.equal(await b.evaluate("document.getElementById('calendar-sync-user') === null && document.getElementById('calendar-sync-household') === null"), true);
+    assert.equal(await b.evaluate("new URL(location.href).searchParams.has('deviceLink')"), false);
+    await b.evaluate(`(() => {
+      const input = document.getElementById('device-link-name');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'B phone');
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    })()`);
+    await b.evaluate("[...document.querySelectorAll('button')].find(button => button.textContent === 'Ühenda seade').click()");
+    await b.waitFor("window.uiRuntime.getSnapshot().session.sync.getSnapshot().status === 'synced'");
+    assert.equal(await b.evaluate("window.controls.calls.includes('/api/auth/create-household')"), false);
+    assert.equal(await b.evaluate("window.controls.calls.includes('/api/sync/push')"), false);
+    await b.evaluate("[...document.querySelectorAll('nav button')].find(button => button.textContent.trim() === 'Kalender').click()");
+    await b.waitFor("document.body.textContent.includes('Existing owner event')");
+    assert.equal(await b.evaluate("document.body.textContent.includes('Unrelated Device B event')"), false);
+    assert.equal(await b.evaluate(`(async () => {
+      const auth = await window.uiReplica.getAuth();
+      return document.body.textContent.includes(auth.deviceToken) || JSON.stringify(await window.uiReplica.getSyncState()).includes(${JSON.stringify(token)});
+    })()`), false);
+  } finally { if (b) await b.close(); await a.close(); }
+});
+
+test('a lost claim reply is not retried automatically or converted into household creation; a fresh manually pasted code can join safely', {timeout:90000}, async () => {
+  const a = await harness();
+  let b;
+  try {
+    await a.evaluate('window.client.enable()');
+    const link = await a.evaluate('window.client.sync.createDeviceLink()');
+    b = await harness({sharedBackend:a,query:'?unrelatedLocal=1'});
+    assert.equal(await b.evaluate(`(async () => {
+      window.controls.loseClaimReply=true;
+      return window.client.sync.claimDevice({link:${JSON.stringify(link)},deviceName:'B'});
+    })()`), false);
+    assert.equal((await b.evaluate('window.client.snapshot()')).state.setupStatus, 'claim-unknown');
+    assert.equal((await b.evaluate('window.client.snapshot()')).calendar[0].payload.title, 'Unrelated Device B event');
+    await b.reload();
+    await b.evaluate('window.client.sync.run()');
+    assert.equal(await b.evaluate("window.controls.calls.includes('/api/auth/claim-device') || window.controls.calls.includes('/api/auth/create-household')"), false);
+    const freshLink = await a.evaluate('window.client.sync.createDeviceLink()');
+    const code = new URL(freshLink).searchParams.get('deviceLink');
+    assert.equal(await b.evaluate(`window.client.sync.claimDevice({link:${JSON.stringify(code)},deviceName:'B retry'})`), true);
+    assert.deepEqual((await b.evaluate('window.client.snapshot()')).view.events.map(event => event.title), ['Existing owner event']);
+    assert.equal((await a.db.prepare('SELECT count(*) AS n FROM households').first()).n, 1);
+    assert.equal((await a.db.prepare('SELECT count(*) AS n FROM users').first()).n, 1);
+  } finally { if (b) await b.close(); await a.close(); }
+});
+
+test('an invalid incoming link never starts OWNER setup; interrupted claiming after reload permits only an explicit fresh-link retry', {timeout:90000}, async () => {
+  const a = await harness();
+  let b;
+  try {
+    await a.evaluate('window.client.enable()');
+    b = await harness({sharedBackend:a,query:'?unrelatedLocal=1&deviceLink=invalid-code'});
+    assert.equal(await b.evaluate('window.client.sync.getSnapshot().hasIncomingLink'), true);
+    assert.equal(await b.evaluate('window.client.enable()'), false);
+    assert.equal(await b.evaluate("window.controls.calls.includes('/api/auth/create-household')"), false);
+    await b.evaluate('window.client.sync.dismissIncomingLink()');
+    const link = await a.evaluate('window.client.sync.createDeviceLink()');
+    await b.evaluate(`(() => {
+      window.controls.holdClaimReply=true;
+      window.claimPending=window.client.sync.claimDevice({link:${JSON.stringify(link)},deviceName:'B interrupted'});
+    })()`);
+    await b.waitFor('window.controls.claimReplyHeld === true');
+    assert.equal((await b.evaluate('window.client.snapshot()')).state.setupStatus, 'claiming');
+    await b.reload();
+    await b.evaluate('window.client.sync.run()');
+    assert.equal((await b.evaluate('window.client.snapshot()')).state.setupStatus, 'claim-unknown');
+    assert.equal(await b.evaluate("window.controls.calls.includes('/api/auth/claim-device') || window.controls.calls.includes('/api/auth/create-household')"), false);
+    const fresh = await a.evaluate('window.client.sync.createDeviceLink()');
+    assert.equal(await b.evaluate(`window.client.sync.claimDevice({link:${JSON.stringify(fresh)},deviceName:'B recovered'})`), true);
+    assert.deepEqual((await b.evaluate('window.client.snapshot()')).view.events.map(event => event.title), ['Existing owner event']);
+    assert.equal((await a.db.prepare('SELECT count(*) AS n FROM households').first()).n, 1);
+    assert.equal((await a.db.prepare('SELECT count(*) AS n FROM users').first()).n, 1);
+  } finally { if (b) await b.close(); await a.close(); }
 });

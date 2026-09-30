@@ -1,11 +1,14 @@
 import { createCalendarSyncStore } from './calendarSyncStore.js';
+import { readDeviceLink, deviceLinkUrl } from './deviceLink.js';
 
 // Device credentials are private to this closure and IndexedDB auth, never part of the UI snapshot.
-export function createCalendarSync({ replica, authority, fetchImpl, newId, clock, isReady = () => true, onCommitted = () => {} }) {
+export function createCalendarSync({ replica, authority, fetchImpl, newId, clock, initialDeviceLink = null, isReady = () => true, onCommitted = () => {} }) {
   const store = createCalendarSyncStore({ replica, authority, newId, clock, isReady: () => !disposed && isReady() });
   const listeners = new Set();
+  let incomingLink = readDeviceLink(initialDeviceLink);
   let view = { status: 'unset', active: false, ready: isReady(), loaded: false,
-    setupBlocked: false, setupPending: false, error: null, recoveryCode: null };
+    setupBlocked: false, setupPending: false, error: null, recoveryCode: null,
+    hasIncomingLink: typeof initialDeviceLink === 'string', deviceLinkUrl: null, deviceLinkExpiresAt: null, linkPending: false };
   let running;
   let enabling = false;
   let disposed = false;
@@ -37,14 +40,22 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
   }
   async function runOnce() {
     if (disposed || !isReady()) return;
-    const current = await store.snapshot();
+    let current = await store.snapshot();
+    if (!current.auth && !enabling && current.state.setupStatus === 'claiming') {
+      await store.recoverInterruptedClaim();
+      current = await store.snapshot();
+    }
     if (!current.auth) {
+      if (enabling) return;
+      const claimUnknown = ['claiming', 'claim-unknown'].includes(current.state.setupStatus);
       publish({ status: current.state.setupStatus ? 'attention' : 'unset', active: false,
         loaded: true, setupBlocked: !!current.state.setupStatus,
-        error: current.state.setupStatus ? 'Majapidamise loomise tulemust ei saanud kinnitada. Uut majapidamist automaatselt ei looda.' : null });
+        error: current.state.setupStatus ? claimUnknown
+          ? 'Seadme ühendamise tulemust ei saanud kinnitada. Küsi esimesest seadmest uus link.'
+          : 'Majapidamise loomise tulemust ei saanud kinnitada. Uut majapidamist automaatselt ei looda.' : null });
       return;
     }
-    publish({ status: 'syncing', active: true, loaded: true, setupBlocked: false, error: null });
+    publish({ status: 'syncing', active: true, loaded: true, setupBlocked: false, hasIncomingLink: false, error: null });
     try {
       await store.beginAttempt();
       while (true) {
@@ -100,7 +111,7 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
     return running;
   }
   async function enable(input) {
-    if (disposed || !isReady() || enabling) return false;
+    if (disposed || !isReady() || enabling || view.hasIncomingLink) return false;
     enabling = true;
     publish({ status: 'syncing', setupPending: true, error: null });
     let requested = false;
@@ -133,9 +144,61 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
       return false;
     } finally { enabling = false; publish({ setupPending: false }); }
   }
-  return { enable, run, getSnapshot: () => view,
+  async function createDeviceLink() {
+    if (disposed || !isReady() || view.linkPending) return null;
+    publish({ linkPending: true, error: null, deviceLinkUrl: null, deviceLinkExpiresAt: null });
+    try {
+      const current = await store.snapshot();
+      if (!current.auth) throw new Error('Sync is not configured');
+      const result = await api('/api/auth/device-link', current.auth, {});
+      const link = deviceLinkUrl(result.linkToken);
+      if (!Number.isFinite(Date.parse(result.expiresAt))) throw new TypeError('Invalid link expiry');
+      publish({ deviceLinkUrl: link, deviceLinkExpiresAt: result.expiresAt });
+      return link;
+    } catch {
+      publish({ error: 'Seadme linki ei saanud luua. Proovi uuesti.' });
+      return null;
+    } finally { publish({ linkPending: false }); }
+  }
+  async function claimDevice({ link, deviceName } = {}) {
+    if (disposed || !isReady() || enabling) return false;
+    const linkToken = readDeviceLink(link ?? incomingLink);
+    const name = typeof deviceName === 'string' ? deviceName.trim() : '';
+    if (!linkToken || !name || Array.from(name).length > 120) {
+      publish({ error: 'Sisesta kehtiv seadme link või kood ja seadme nimi.' });
+      return false;
+    }
+    enabling = true;
+    publish({ status: 'syncing', setupPending: true, error: null });
+    let requested = false;
+    let knownRejection = false;
+    let previousStatus;
+    try {
+      previousStatus = (await store.snapshot()).state.setupStatus;
+      await store.setupStatus('claiming');
+      requested = true;
+      let result;
+      try { result = await api('/api/auth/claim-device', null, { linkToken, deviceName: name }); }
+      catch (error) { knownRejection = error.status === 400 || error.status === 413; throw error; }
+      await store.installJoined({ key: 'device', deviceToken: result.deviceSession.token, householdId: result.household.id,
+        userId: result.account.userId, sessionId: result.deviceSession.id });
+      incomingLink = null;
+      publish({ active: true, hasIncomingLink: false, setupBlocked: false });
+      onCommitted();
+      await run();
+      return true;
+    } catch {
+      if (requested) await store.setupStatus(knownRejection ? previousStatus : 'claim-unknown').catch(() => {});
+      publish({ status: 'attention', loaded: true, setupBlocked: !knownRejection || !!previousStatus,
+        error: knownRejection ? 'Link on kasutatud, aegunud või vigane. Küsi esimesest seadmest uus link.'
+          : 'Seadme ühendamise tulemust ei saanud kinnitada. Küsi esimesest seadmest uus link.' });
+      return false;
+    } finally { enabling = false; publish({ setupPending: false }); }
+  }
+  return { enable, run, createDeviceLink, claimDevice, getSnapshot: () => view,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     dismissRecovery: () => publish({ recoveryCode: null }),
+    dismissIncomingLink: () => { incomingLink = null; publish({ hasIncomingLink: false }); },
     refreshAvailability: () => publish({}),
     dispose: () => { disposed = true; listeners.clear(); },
   };
