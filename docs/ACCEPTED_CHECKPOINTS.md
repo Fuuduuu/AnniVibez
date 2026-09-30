@@ -2,6 +2,24 @@
 
 ## Accepted checkpointid
 
+### CALENDAR_SYNC_CLIENT_MVP_V1 — LIVE BETA / HUMAN VERIFIED
+
+- status: **CALENDAR_SYNC_CLIENT_MVP_V1 = LIVE BETA / HUMAN VERIFIED**, explicitly confirmed by the human. Client MVP implementation: `1d9ac9b054ddba8bc1e6d4ff701d5f109c9d8ab1` (`feat: add calendar sync client MVP`); same-user device linking: `f3c457f47be7e24b7a7d96b93418354bd58012a6` (`feat: add second-device calendar sync`).
+- Production: `https://annivibe.pages.dev`. Accepted deployment: `918f1131-cc60-4f13-b58c-09a917650b46`. Deployed source: `f3c457f47be7e24b7a7d96b93418354bd58012a6`.
+- Human two-device smoke: **PASS / USER-REPORTED / HUMAN-CONFIRMED**. This records the human's confirmation; Codex did not independently rerun the human smoke in this docs pass.
+- Verified:
+  - same household on both devices
+  - distinct device sessions
+  - A -> B create sync
+  - B -> A update sync
+  - offline local calendar preserved
+  - reconnect sync works
+  - no duplicate household
+  - no visible storage/sync error
+- Current supported identity flow: the first device creates the household/OWNER; an additional device links to the same user and household using a one-time device link.
+- Not yet implemented: MEMBER/family invite; QR presentation; device-management/revocation UI; recovery UI; shared places/profile/waste sync. Päevik and Tegevus remain DEVICE_LOCAL_ONLY.
+- This checkpoint is docs only: no audit, source change, test/build rerun, deployment or Cloudflare/D1 mutation. Earlier local validation and the separately authorized production deploy are recorded evidence, not actions repeated here. Future remote work requires separate human authorization; no additional implementation scope opens.
+
 ### ANNIVIBE_SYNC_PUSH_CLIENT_READINESS_HARDENING
 
 - status: `SYNC_PUSH_CLIENT_READINESS_HARDENING` COMPLETE / CHECKPOINTED at `168074b9c04e8001bf8c1ec5862339fb4797cccd` (`fix: harden calendar sync transport`). The exact four-file server hardening scope is CLOSED.
