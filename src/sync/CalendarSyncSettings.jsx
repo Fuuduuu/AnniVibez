@@ -1,4 +1,5 @@
 import { useState, useSyncExternalStore } from 'react';
+import { ShellIcon } from '../components/ShellIcon';
 
 const STATUS = {
   unset: 'Pole seadistatud', syncing: 'Sünkroonimine...', synced: 'Sünkroonitud',
@@ -15,20 +16,20 @@ export function CalendarSyncSettings({ sync, profile, household }) {
   const [link, setLink] = useState('');
   const [deviceName, setDeviceName] = useState('');
   const busy = state.status === 'syncing' || state.setupPending || state.linkPending;
-  const claimForm = <form onSubmit={event => {
+  const claimForm = <form className="mm-sync-form" onSubmit={event => {
     event.preventDefault();
     if (!busy) sync.claimDevice({ ...(state.hasIncomingLink ? {} : { link }), deviceName });
   }}>
     <p>Ühenda see seade olemasoleva majapidamisega. Selle seadme varasemat kalendrit sinna ei saadeta;
       see säilitatakse kohalikus arhiivis ja kuvatakse majapidamise kalender.</p>
-    {!state.hasIncomingLink && <div>
-      <label htmlFor="device-link-input" className="mm-settings-label">Seadme link või kood</label>
+    {!state.hasIncomingLink && <label htmlFor="device-link-input" className="mm-field">Seadme link või kood
       <input id="device-link-input" className="mm-input" value={link} required autoComplete="off"
         disabled={busy} onChange={event => setLink(event.target.value)} />
-    </div>}
-    <label htmlFor="device-link-name" className="mm-settings-label">Selle seadme nimi</label>
+    </label>}
+    <label htmlFor="device-link-name" className="mm-field">Selle seadme nimi
     <input id="device-link-name" className="mm-input" value={deviceName} required maxLength={120}
       disabled={busy} onChange={event => setDeviceName(event.target.value)} />
+    </label>
     <button type="submit" className="mm-button mm-button-primary" disabled={busy}>Ühenda seade</button>
   </form>;
   const fields = [
@@ -38,47 +39,50 @@ export function CalendarSyncSettings({ sync, profile, household }) {
     ['deviceName', 'calendar-sync-device', 'Seadme nimi', true, 120],
   ];
   return (
-    <section className="mm-settings-group" aria-labelledby="calendar-sync-heading">
+    <section className="mm-settings-group mm-sync-settings" aria-labelledby="calendar-sync-heading">
       <h2 className="mm-section-label" id="calendar-sync-heading">Pilvesünk</h2>
-      <div className="mm-settings-panel">
-        <p role="status">{STATUS[state.status]}</p>
+      <div className="mm-card mm-sync-panel">
+        <div className="mm-sync-status" data-sync-state={state.status}>
+          <span className="mm-icon-tile"><ShellIcon name="cloud" /></span>
+          <div><p role="status">{STATUS[state.status]}</p><p className="mm-sync-caption">Kalender sinu seadmetes</p></div>
+        </div>
         <p>Sünkroonitakse ainult kalendrit. Päevik ja Tegevus jäävad sellesse seadmesse.</p>
         {!state.ready && <p>Pilvesünk pole selles salvestusrežiimis saadaval. Kalender jääb kohalikuks.</p>}
         {state.error && <p className="mm-field-error" role="alert">{state.error}</p>}
         {!state.active && !state.setupBlocked && !state.hasIncomingLink && state.ready && state.loaded && (
-          <form onSubmit={event => { event.preventDefault(); if (!busy) sync.enable(input); }}>
-            {fields.map(([name, id, label, required, maxLength]) => <div key={name}>
-              <label htmlFor={id} className="mm-settings-label">{label}</label>
+          <form className="mm-sync-form" onSubmit={event => { event.preventDefault(); if (!busy) sync.enable(input); }}>
+            {fields.map(([name, id, label, required, maxLength]) => <label key={name} htmlFor={id} className="mm-field">{label}
               <input id={id} className="mm-input" value={input[name]} required={required} maxLength={maxLength}
                 disabled={busy} onChange={event => setInput(current => ({ ...current, [name]: event.target.value }))} />
-            </div>)}
+            </label>)}
             <button type="submit" className="mm-button mm-button-primary" disabled={busy}>Lülita sünk sisse</button>
           </form>
         )}
         {!state.active && state.ready && state.loaded && (state.hasIncomingLink ? <div>
           {claimForm}
-          <button className="mm-button mm-button-secondary" disabled={busy}
+          <button className="mm-button mm-button-secondary mm-settings-wide" disabled={busy}
             onClick={() => sync.dismissIncomingLink()}>Kleebi uus link</button>
         </div> : <details>
           <summary>Ühenda olemasoleva majapidamisega</summary>
           {claimForm}
         </details>)}
         {state.active && <div>
-          <button className="mm-button mm-button-secondary" disabled={busy || !state.ready}
+          <button className="mm-button mm-button-secondary mm-settings-wide" disabled={busy || !state.ready}
             onClick={() => sync.createDeviceLink()}>Lisa teine seade</button>
-          {state.deviceLinkUrl && <div>
+          {state.deviceLinkUrl && <div className="mm-sync-link-card">
             <p>Saada see link ainult oma teisele seadmele. Link kehtib 10 minutit ja seda saab kasutada ühe korra.</p>
-            <label htmlFor="device-link-created" className="mm-settings-label">Teise seadme link</label>
+            <label htmlFor="device-link-created" className="mm-field">Teise seadme link
             <input id="device-link-created" className="mm-input" readOnly value={state.deviceLinkUrl}
               onFocus={event => event.target.select()} />
+            </label>
           </div>}
         </div>}
-        {(state.active || state.setupBlocked) && <button className="mm-button mm-button-secondary"
+        {(state.active || state.setupBlocked) && <button className="mm-button mm-button-secondary mm-settings-wide"
           disabled={busy || !state.ready} onClick={() => sync.run()}>Proovi uuesti</button>}
-        {state.recoveryCode && <div>
+        {state.recoveryCode && <div className="mm-sync-recovery">
           <p>Salvesta taastamiskood turvaliselt. Seda näidatakse ainult praegu.</p>
           <p><code>{state.recoveryCode}</code></p>
-          <button className="mm-button mm-button-secondary" onClick={() => sync.dismissRecovery()}>Olen koodi salvestanud</button>
+          <button className="mm-button mm-button-secondary mm-settings-wide" onClick={() => sync.dismissRecovery()}>Olen koodi salvestanud</button>
         </div>}
       </div>
     </section>

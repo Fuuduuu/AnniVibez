@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AV, FONT, card, inp, labelStyle, shell } from '../design/tokens';
+import { AV, card, inp, labelStyle } from '../design/tokens';
 import { BUS_DATA } from '../data/busData';
 import { POI_DATA } from '../data/poiData';
 import { BusMapPicker, reachableMapCandidates } from './BusMapPicker';
@@ -21,26 +21,15 @@ function nearbyDepartureLabel(time, now) {
 
 function DepRow({ d }) {
   return (
-    <div style={{ padding: '10px 0', borderBottom: `1px solid ${AV.border}` }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ fontSize: 22, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 62, color: AV.text }}>{d.departure}</span>
-        <span
-          style={{
-            background: AV.sageL,
-            color: AV.sage,
-            fontSize: 11,
-            fontWeight: 600,
-            borderRadius: 4,
-            padding: '2px 8px',
-            marginRight: 10,
-            flexShrink: 0,
-          }}
-        >
+    <div className="mm-bus-route-row">
+      <div className="mm-bus-route-heading">
+        <span className="mm-bus-route-time">{d.departure}</span>
+        <span className="mm-line-badge">
           Liin {d.line}
         </span>
-        <span className="mm-bus-headsign" title={d.destinationName} style={{ fontSize: 13, color: AV.textSoft }}>{d.destinationName}</span>
+        <span className="mm-bus-headsign" title={d.destinationName}>{d.destinationName}</span>
       </div>
-      <div style={{ fontSize: 12, color: AV.muted, display: 'grid', gap: 2 }}>
+      <div className="mm-bus-route-detail">
         <div>
           Mine peatusesse: {BUS_DATA.by_code[d.boardStopId].name}
         </div>
@@ -510,20 +499,20 @@ export function BussTab({ savedPlaces = [] }) {
   };
 
   return (
-    <div style={shell}>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={{ fontSize: 22, lineHeight: '28px', fontWeight: 600, color: AV.text, fontFamily: FONT.display, margin: '0 0 8px' }}>Bussid</h1>
-        <div style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5 }}>Vaata järgmisi busse või leia sõit sihtkohta.</div>
-      </div>
+    <div className="mm-page mm-bus-page">
+      <header className="mm-page-header">
+        <h1>Bussid</h1>
+        <p>Vaata järgmisi busse või leia sõit sihtkohta.</p>
+      </header>
 
-      <section aria-labelledby="buss-next-heading" style={{ ...card, padding: '22px 18px', marginBottom: 20 }}>
-        <h2 id="buss-next-heading" style={{ ...labelStyle, fontSize: 13, color: AV.textSoft, margin: '0 0 16px' }}>JÄRGMISED BUSSID</h2>
+      <section aria-labelledby="buss-next-heading" className="mm-card mm-bus-panel">
+        <h2 id="buss-next-heading" className="mm-section-label">Järgmised bussid</h2>
         <div aria-live="polite">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div className="mm-bus-nearby-summary">
             {showNearbyDepartures && (
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: AV.textSoft, marginBottom: 6 }}>Sinu lähim peatus</div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: AV.text, lineHeight: 1.4 }}>
+              <div className="mm-bus-current-stop">
+                <div className="mm-bus-label">Sinu lähim peatus</div>
+                <div className="mm-bus-current-name">
                   {currentOrigin.name}
                   {currentOrigin.dist != null && (
                     <>
@@ -537,52 +526,56 @@ export function BussTab({ savedPlaces = [] }) {
             <button
               type="button"
               onClick={gpsClick}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 10,
-                padding: showNearbyDepartures ? '10px 12px' : '14px 16px',
-                width: showNearbyDepartures ? 'auto' : '100%',
-                minHeight: showNearbyDepartures ? 44 : 56,
-                flexShrink: 0,
-                background: showNearbyDepartures ? AV.bg : AV.sageL,
-                border: `1px solid ${showNearbyDepartures ? AV.border : AV.sage}`,
-                borderRadius: AV.rSm,
-                cursor: 'pointer',
-                fontSize: showNearbyDepartures ? 14 : 16,
-                fontWeight: 600,
-                lineHeight: 1.4,
-                fontFamily: 'inherit',
-                color: showNearbyDepartures ? AV.textSoft : AV.sage,
-                boxShadow: showNearbyDepartures ? 'none' : AV.shadowSm,
-              }}
+              className={`mm-button mm-button-secondary mm-bus-gps ${showNearbyDepartures ? 'mm-bus-gps-compact' : ''}`}
             >
               {!showNearbyDepartures && <ShellIcon name="pin" />}
               <span>{showNearbyDepartures ? 'Muuda' : gpsLabel}</span>
             </button>
           </div>
+          {nearbyOriginCandidates.length > 1 && (
+            <>
+              <p className="mm-bus-label">Lähedal ka</p>
+              <div className="mm-bus-alternatives">
+                {nearbyOriginCandidates
+                  .filter(choice => choice?.code !== effectiveOrigin?.code)
+                  .map(choice => {
+                  const active = effectiveOrigin?.code === choice.code;
+                  return (
+                    <button
+                      key={`near-${choice.code}`}
+                      onClick={() => setManualOriginOverride(choice)}
+                      className="mm-button mm-button-secondary mm-bus-alternative"
+                      aria-pressed={active}
+                    >
+                      {choice.name}
+                      {choice.dist != null ? ` · ${choice.dist} m` : ''}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mm-bus-note">Kui oled tee teisel pool, vali sobiv peatus.</p>
+            </>
+          )}
           {showNearbyDepartures && (
             <>
               {nearbyDepartures.length > 0 ? (
-                <ul className="mm-nearby-departures" aria-label="Järgmised väljumised" style={{ listStyle: 'none', padding: 0, margin: '18px 0 8px' }}>
+                <ul className="mm-nearby-departures" aria-label="Järgmised väljumised">
                   {nearbyDepartures.map(d => (
                     <li
                       key={`${d.line}|${d.v}|${d.time}|${d.originStopId}`}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, minHeight: 76, padding: '14px 0' }}
                     >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 22, fontWeight: 600, color: AV.text, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
+                      <div className="mm-bus-departure-copy">
+                        <div className="mm-bus-departure-eta">
                           {nearbyDepartureLabel(d.time, nearbyNow)}
                         </div>
-                        <div className="mm-bus-headsign" title={d.dir} style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, marginTop: 5 }}>
+                        <div className="mm-bus-headsign" title={d.dir}>
                           <time dateTime={d.time}>{d.time}</time> · {d.dir}
                         </div>
                       </div>
                       <span
                         role="img"
                         aria-label={`Liin ${d.line}${d.v ? `, variant ${d.v}` : ''}`}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 42, height: 42, padding: '0 10px', flexShrink: 0, borderRadius: AV.rSm, background: AV.sageL, color: AV.sage, fontSize: 20, fontWeight: 600 }}
+                        className="mm-bus-line-number"
                       >
                         {d.line}{d.v ? `·${d.v}` : ''}
                       </span>
@@ -590,23 +583,23 @@ export function BussTab({ savedPlaces = [] }) {
                   ))}
                 </ul>
               ) : (
-                <p style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, margin: '20px 0 12px' }}>
+                <p className="mm-bus-no-departures">
                   Täna sellest peatusest rohkem busse ei tule.
                 </p>
               )}
-              <div style={{ fontSize: 12, color: AV.textSoft, lineHeight: 1.5 }}>Ajad on sõiduplaani järgi</div>
+              <p className="mm-bus-note">Ajad on sõiduplaani järgi</p>
             </>
           )}
           {gpsState === 'error' && (
-            <p style={{ fontSize: 14, color: AV.textSoft, lineHeight: 1.5, margin: '12px 0 0' }}>
+            <p className="mm-bus-no-departures">
               Saad peatuse ise valida — kõik töötab edasi.
             </p>
           )}
         </div>
       </section>
 
-      <section aria-labelledby="buss-destination-heading" style={{ ...card, padding: '22px 18px', marginBottom: 20 }}>
-        <h2 id="buss-destination-heading" style={{ ...labelStyle, fontSize: 13, color: AV.textSoft, margin: '0 0 16px' }}>KUHU TAHAD MINNA?</h2>
+      <section aria-labelledby="buss-destination-heading" className="mm-card mm-bus-panel">
+        <h2 id="buss-destination-heading" className="mm-section-label">Kuhu tahad minna?</h2>
         <button
           type="button"
           onClick={() => {
@@ -616,24 +609,7 @@ export function BussTab({ savedPlaces = [] }) {
             }
             setMapPickerOpen(true);
           }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 10,
-            width: '100%',
-            minHeight: 56,
-            padding: '14px 16px',
-            borderRadius: AV.rSm,
-            fontSize: 16,
-            fontWeight: 600,
-            lineHeight: 1.4,
-            fontFamily: 'inherit',
-            border: `1px solid ${AV.primary}`,
-            background: AV.primaryTint,
-            color: AV.primary,
-            cursor: 'pointer',
-          }}
+          className="mm-button mm-button-secondary mm-bus-map-button"
         >
           <ShellIcon name="map" />
           <span>Vali sihtkoht kaardilt</span>
@@ -644,7 +620,7 @@ export function BussTab({ savedPlaces = [] }) {
               position: 'fixed',
               inset: 0,
               zIndex: 1200,
-              background: 'rgba(12, 18, 29, 0.52)',
+              background: 'rgba(20, 40, 70, 0.52)',
               display: 'flex',
               alignItems: 'stretch',
               justifyContent: 'center',
@@ -675,21 +651,12 @@ export function BussTab({ savedPlaces = [] }) {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: AV.text, marginBottom: 4 }}>Vali sihtkoht kaardilt</div>
-                  <div style={{ fontSize: 12, color: AV.muted }}>Puuduta kaardil kohta, kuhu soovid jõuda.</div>
+                  <div style={{ fontSize: '1.125rem', fontWeight: 700, color: AV.text, marginBottom: 4 }}>Vali sihtkoht kaardilt</div>
+                  <div style={{ fontSize: '0.75rem', color: AV.muted }}>Puuduta kaardil kohta, kuhu soovid jõuda.</div>
                 </div>
                 <button
                   onClick={closeMapPicker}
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: 10,
-                    border: `1px solid ${AV.border}`,
-                    background: AV.bg,
-                    color: AV.textSoft,
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    flexShrink: 0,
-                  }}
+                  className="mm-button mm-button-secondary"
                 >
                   Sulge
                 </button>
@@ -718,16 +685,16 @@ export function BussTab({ savedPlaces = [] }) {
                   background: '#fff',
                   borderTopLeftRadius: 20,
                   borderTopRightRadius: 20,
-                  boxShadow: '0 -8px 24px rgba(15, 23, 42, 0.06)',
+                  boxShadow: '0 -8px 24px rgba(20, 40, 70, 0.06)',
                 }}
               >
                 {!mapPickedPoint ? (
-                  <div style={{ fontSize: 12, color: AV.muted }}>
+                  <div style={{ fontSize: '0.75rem', color: AV.muted }}>
                     Puuduta kaardil kohta, kuhu soovid jõuda.
                   </div>
                 ) : visibleMapCandidates.length > 0 ? (
                   <>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: AV.text, marginBottom: 8 }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: AV.text, marginBottom: 8 }}>
                       {visibleMapCandidates[0].walkingFallback
                         ? 'Jalutuskäigu kaugusel'
                         : visibleMapCandidates.length === 1
@@ -746,11 +713,11 @@ export function BussTab({ savedPlaces = [] }) {
                               padding: '7px 11px',
                               minHeight: 44,
                               borderRadius: 100,
-                              fontSize: 12,
+                              fontSize: '0.75rem',
                               cursor: 'pointer',
-                              border: `1.5px solid ${active ? AV.purple : AV.border}`,
-                              background: active ? AV.purpleL : AV.bg,
-                              color: active ? AV.purple : AV.muted,
+                              border: `1.5px solid ${active ? AV.bus : AV.border}`,
+                              background: active ? AV.sageL : AV.bg,
+                              color: active ? AV.textSoft : AV.muted,
                             }}
                           >
                             {candidate.groupName}
@@ -767,10 +734,10 @@ export function BussTab({ savedPlaces = [] }) {
                         minHeight: 52,
                         padding: '10px 12px',
                         borderRadius: 12,
-                        fontSize: 13,
+                        fontSize: '0.8125rem',
                         cursor: selectedMapCandidate ? 'pointer' : 'not-allowed',
                         border: `1px solid ${AV.border}`,
-                        background: selectedMapCandidate ? AV.primary : AV.bgSoft,
+                        background: selectedMapCandidate ? AV.bus : AV.bgSoft,
                         color: selectedMapCandidate ? AV.card : AV.textSoft,
                       }}
                     >
@@ -778,7 +745,7 @@ export function BussTab({ savedPlaces = [] }) {
                     </button>
                   </>
                 ) : (
-                  <div style={{ fontSize: 12, color: AV.muted }}>
+                  <div style={{ fontSize: '0.75rem', color: AV.muted }}>
                     {visibleMapError || 'Valitud kohale ei leitud sobivat peatust. Proovi kaardil teist kohta.'}
                   </div>
                 )}
@@ -786,7 +753,7 @@ export function BussTab({ savedPlaces = [] }) {
             </div>
           </div>
         )}
-        <label htmlFor="buss-destination" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: AV.textSoft, margin: '20px 0 12px' }}>
+        <label htmlFor="buss-destination" style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.8125rem', color: AV.textSoft, margin: '14px 0 10px' }}>
           <span aria-hidden="true" style={{ flex: 1, borderTop: `1px solid ${AV.border}` }} />
           või vali peatus
           <span aria-hidden="true" style={{ flex: 1, borderTop: `1px solid ${AV.border}` }} />
@@ -806,7 +773,7 @@ export function BussTab({ savedPlaces = [] }) {
             setMapPickerOpen(false);
             clearMapPickState();
           }}
-          style={{ ...inp, minHeight: 52, fontSize: 16, marginTop: 0 }}
+          style={{ ...inp, minHeight: 52, fontSize: '1rem', marginTop: 0 }}
           value={destinationInDropdown ? destination : ''}
         >
           <option value="">— vali sihtkoht —</option>
@@ -816,63 +783,33 @@ export function BussTab({ savedPlaces = [] }) {
             </option>
           ))}
         </select>
-        <div style={{ fontSize: 12, color: AV.muted, marginTop: 8 }}>
+        <div style={{ fontSize: '0.75rem', color: AV.muted, marginTop: 6 }}>
           {destination ? `Valitud sihtkoht: ${visibleDestinationLabel}` : 'Vali sihtkoht, et näha marsruute'}
           {selectedDestinationSource === 'map' && activeMapDestinationCandidates[0]?.walkingFallback && (
             <div>Jaluta peatusest valitud punkti · ~{Math.round(activeMapDestinationCandidates[0].distanceMeters)} m linnulennult</div>
           )}
         </div>
 
-        <div style={{ marginTop: 22, paddingTop: 18, borderTop: `1px solid ${AV.border}`, marginBottom: 14 }}>
-          <div style={{ fontSize: 10, ...labelStyle, marginBottom: 6 }}>Lähtekoht</div>
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${AV.border}`, marginBottom: 12 }}>
+          <div style={{ fontSize: '0.625rem', ...labelStyle, marginBottom: 6 }}>Lähtekoht</div>
           {effectiveOrigin ? (
             <>
-              <div style={{ fontSize: 17, fontWeight: 600, color: AV.text, marginBottom: 3 }}>
+              <div style={{ fontSize: '1.0625rem', fontWeight: 600, color: AV.text, marginBottom: 3 }}>
                 Lähtepeatus: {effectiveOrigin.name}
                 {effectiveOrigin.dist != null ? ` · ${effectiveOrigin.dist} m` : ''}
               </div>
-              <div style={{ fontSize: 12, color: AV.muted, marginBottom: 10 }}>
+              <div style={{ fontSize: '0.75rem', color: AV.muted, marginBottom: 8 }}>
                 {manualOriginOverride ? 'Kasutad käsitsi valitud lähtekohta' : 'Kasutan sinu lähimat peatust'}
               </div>
             </>
           ) : (
-            <div style={{ fontSize: 12, color: AV.muted, marginBottom: 10 }}>Vali lähtekoht, et näha marsruute</div>
-          )}
-          {nearbyOriginCandidates.length > 1 && (
-            <>
-              <div style={{ fontSize: 10, ...labelStyle, marginBottom: 6 }}>Lähedal ka</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                {nearbyOriginCandidates
-                  .filter(choice => choice?.code !== effectiveOrigin?.code)
-                  .map(choice => {
-                  const active = effectiveOrigin?.code === choice.code;
-                  return (
-                    <button
-                      key={`near-${choice.code}`}
-                      onClick={() => setManualOriginOverride(choice)}
-                      style={{
-                        padding: '6px 12px',
-                        minHeight: 44,
-                        borderRadius: 100,
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        border: `1.5px solid ${active ? AV.purple : AV.border}`,
-                        background: active ? AV.purpleL : 'none',
-                        color: active ? AV.purple : AV.muted,
-                      }}
-                    >
-                      {choice.name}
-                      {choice.dist != null ? ` · ${choice.dist} m` : ''}
-                    </button>
-                  );
-                })}
-              </div>
-              <div style={{ fontSize: 11, color: AV.muted, marginBottom: 10 }}>Kui oled tee teisel pool, vali sobiv peatus.</div>
-            </>
+            <div style={{ fontSize: '0.75rem', color: AV.muted, marginBottom: 8 }}>Vali lähtekoht, et näha marsruute</div>
           )}
           <button
             onClick={() => setOriginOverrideOpen(open => !open)}
+            aria-expanded={originOverrideOpen}
             style={{
+              minHeight: 48,
               width: '100%',
               border: `1px solid ${AV.border}`,
               background: AV.bg,
@@ -880,7 +817,7 @@ export function BussTab({ savedPlaces = [] }) {
               borderRadius: 12,
               cursor: 'pointer',
               padding: '10px 12px',
-              fontSize: 13,
+              fontSize: '0.8125rem',
               marginBottom: originOverrideOpen ? 10 : 0,
             }}
           >
@@ -890,6 +827,7 @@ export function BussTab({ savedPlaces = [] }) {
           {originOverrideOpen && (
             <>
               <select
+                aria-label="Lähtepeatus"
                 onChange={e => {
                   const value = e.target.value;
                   if (!value) {
@@ -913,6 +851,7 @@ export function BussTab({ savedPlaces = [] }) {
                 <button
                   onClick={() => setManualOriginOverride(null)}
                   style={{
+                    minHeight: 48,
                     width: '100%',
                     border: `1px solid ${AV.border}`,
                     background: AV.bg,
@@ -920,7 +859,7 @@ export function BussTab({ savedPlaces = [] }) {
                     borderRadius: 10,
                     cursor: 'pointer',
                     padding: '8px 12px',
-                    fontSize: 12,
+                    fontSize: '0.75rem',
                     marginTop: 8,
                   }}
                 >
@@ -931,22 +870,22 @@ export function BussTab({ savedPlaces = [] }) {
           )}
         </div>
 
-        <div style={card}>
-          <div style={{ fontSize: 10, ...labelStyle, marginBottom: 2 }}>Marsruut</div>
+        <div style={{ ...card, padding: '12px 14px', marginBottom: 0 }}>
+          <div style={{ fontSize: '0.625rem', ...labelStyle, marginBottom: 2 }}>Marsruut</div>
           {!destination ? (
-            <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>
+            <div style={{ fontSize: '0.8125rem', color: AV.muted, textAlign: 'center', padding: '10px 0' }}>
               {destinationResolutionError || 'Vali sihtkoht, et näha marsruute'}
             </div>
           ) : !effectiveOrigin ? (
-            <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>Vali lähtekoht, et näha marsruute</div>
+            <div style={{ fontSize: '0.8125rem', color: AV.muted, textAlign: 'center', padding: '10px 0' }}>Vali lähtekoht, et näha marsruute</div>
           ) : routeOptions.length === 0 ? (
-            <div style={{ fontSize: 13, color: AV.muted, textAlign: 'center', padding: '16px 0' }}>{emptyReason || `Täna enam busse pole · ${wd()}`}</div>
+            <div style={{ fontSize: '0.8125rem', color: AV.muted, textAlign: 'center', padding: '10px 0' }}>{emptyReason || `Täna enam busse pole · ${wd()}`}</div>
           ) : (
             <>
               {routeOptions.map(d => (
                 <DepRow key={JSON.stringify([d.line, d.patternId, d.tripId])} d={d} />
               ))}
-              <div style={{ fontSize: 11, color: AV.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${AV.border}` }}>
+              <div style={{ fontSize: '0.6875rem', color: AV.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${AV.border}` }}>
                 Ajad on sõiduplaani järgi
               </div>
             </>

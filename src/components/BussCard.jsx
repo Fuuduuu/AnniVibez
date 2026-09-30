@@ -55,10 +55,10 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
     : [];
 
   return (
-    <div className="mm-card mm-card-primary mm-bus-card">
+    <div className="mm-card mm-bus-card">
       <div className="mm-bus-stop">
         <span className="mm-bus-dot" data-state={gpsState} aria-hidden="true" />
-        <span className="mm-bus-stop-name">{stop ? stop.name : 'Otsin lähimat peatust…'}</span>
+        <span className="mm-bus-stop-name">{stop ? stop.name : ['idle', 'searching'].includes(gpsState) ? 'Otsin lähimat peatust…' : 'Vali bussivaates lähtepeatus'}</span>
         {stop?.dist != null && <span className="mm-bus-distance">{stop.dist} m</span>}
       </div>
       {alternateStops.length > 0 && (
@@ -80,7 +80,7 @@ export function BussCard({ savedPlaces = [], onOpenBuss }) {
             </div>
           ))
         ) : (
-          <p className="mm-bus-empty">{stop ? 'Täna enam busse pole' : 'Laen väljumisi…'}</p>
+          <p className="mm-bus-empty">{stop ? 'Täna enam busse pole' : ['idle', 'searching'].includes(gpsState) ? 'Laen väljumisi…' : 'Asukoht pole saadaval. Saad peatuse ise valida.'}</p>
         )}
       </div>
 

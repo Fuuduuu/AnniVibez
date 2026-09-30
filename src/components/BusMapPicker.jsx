@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AV } from '../design/tokens';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { BUS_DATA } from '../data/busData';
@@ -144,64 +145,64 @@ function formatPatternLabel(patternName) {
 const STOP_STYLE_IDLE = {
   radius: 3.1,
   weight: 1,
-  color: '#6D757A',
-  fillColor: '#EDEAE4',
+  color: AV.muted,
+  fillColor: AV.bgSoft,
   fillOpacity: 0.56,
 };
 
 const STOP_STYLE_FADED = {
   radius: 2.7,
   weight: 0.9,
-  color: '#CFCAC0',
-  fillColor: '#EDEAE4',
+  color: AV.borderStrong,
+  fillColor: AV.bgSoft,
   fillOpacity: 0.34,
 };
 
 const STOP_STYLE_NEAREST = {
   radius: 4.2,
   weight: 1.6,
-  color: '#2F5D4B',
-  fillColor: '#E5EEE9',
+  color: AV.bus,
+  fillColor: AV.sageL,
   fillOpacity: 0.92,
 };
 
 const STOP_STYLE_SELECTED = {
   radius: 5.5,
   weight: 2.2,
-  color: '#123F49',
-  fillColor: '#1A5B69',
+  color: AV.textSoft,
+  fillColor: AV.bus,
   fillOpacity: 1,
 };
 
 const ORIGIN_STOP_STYLE = {
   radius: 7.2,
   weight: 2,
-  color: '#2F5D4B',
-  fillColor: '#E5EEE9',
+  color: AV.bus,
+  fillColor: AV.sageL,
   fillOpacity: 0.82,
 };
 
 const ORIGIN_STOP_INNER_STYLE = {
   radius: 3.4,
   weight: 1.4,
-  color: '#2F5D4B',
-  fillColor: '#2F5D4B',
+  color: AV.bus,
+  fillColor: AV.bus,
   fillOpacity: 0.95,
 };
 
 const CURRENT_POSITION_STYLE = {
   radius: 7.8,
   weight: 2,
-  color: '#1A5B69',
-  fillColor: '#FFFFFF',
+  color: AV.bus,
+  fillColor: AV.card,
   fillOpacity: 1,
 };
 
 const CURRENT_POSITION_INNER_STYLE = {
   radius: 3.6,
   weight: 1.5,
-  color: '#1A5B69',
-  fillColor: '#1A5B69',
+  color: AV.bus,
+  fillColor: AV.bus,
   fillOpacity: 0.96,
 };
 
@@ -491,16 +492,16 @@ export function BusMapPicker({
       L.circleMarker([lat, lon], {
         radius: 12,
         weight: 2,
-        color: '#1A5B69',
-        fillColor: '#E4EEF0',
+        color: AV.bus,
+        fillColor: AV.sageL,
         fillOpacity: 0.34,
         renderer,
       }).addTo(pinLayer);
       L.circleMarker([lat, lon], {
         radius: 6.8,
         weight: 2.2,
-        color: '#1A5B69',
-        fillColor: '#1A5B69',
+        color: AV.bus,
+        fillColor: AV.bus,
         fillOpacity: 0.96,
         renderer,
       }).addTo(pinLayer);

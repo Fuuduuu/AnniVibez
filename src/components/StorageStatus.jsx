@@ -1,11 +1,11 @@
 // Runtime cutover C6: the single place that turns a storage-controller state into UI copy and actions.
 // It renders what the C4 controller reports; it never decides authority, switches or repairs anything.
 
-export const RELOAD_COPY = 'Majandus uuenes teises aknas. Laadi leht uuesti.';
+export const RELOAD_COPY = 'Majamajandus uuenes teises aknas. Laadi leht uuesti.';
 export const LEGACY_DIVERGED_COPY = 'Vana kohalik salvestus on muutunud. Kasutusel on selle seadme andmebaas; vanu andmeid ei ühendata ega muudeta.';
 
 const HINT_PENDING_COPY = 'Seadme salvestusruum ei võtnud muudatust vastu. Proovi uuesti.';
-const BLOCKED_COPY = 'Sulge Majanduse teised aknad ja proovi uuesti.';
+const BLOCKED_COPY = 'Sulge Majamajanduse teised aknad ja proovi uuesti.';
 const UNAVAILABLE_COPY = 'Seadme salvestusruumi ei saanud lugeda. Proovi uuesti.';
 const MALFORMED_COPY = 'Seadme salvestuse andmeid ei saanud lugeda. Andmeid ei muudeta.';
 const REVERT_FAILED_COPY = 'Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti.';

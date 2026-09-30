@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Majandus">
-  <rect width="64" height="64" rx="12" fill="#1A5B69"/>
-  <path d="M24 42V22h4l4 8 4-8h4v20h-4V30l-4 8-4-8v12z" fill="#FFFFFF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Majamajandus">
+  <rect width="64" height="64" rx="12" fill="#FFD23F"/>
+  <path d="M13 43V21h4l5 9 5-9h4v22h-4V31l-5 8-5-8v12z M34 43V21h4l5 9 5-9h4v22h-4V31l-5 8-5-8v12z" fill="#2A2000"/>
 </svg>

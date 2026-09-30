@@ -1,4 +1,5 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 import { AV, FONT } from './design/tokens';
 import { BussTab } from './components/BussTab';
 import LooTab from './components/LooTab';
@@ -308,6 +309,8 @@ function ShellFrame({ tab, active, onNavigate, banner, overlay, children }) {
       {overlay}
       <nav className="mm-nav" aria-label="Põhinavigatsioon">
         <div className="mm-nav-inner">
+          <span className="mm-nav-indicator" aria-hidden="true"
+            style={{ '--mm-nav-index': Math.max(0, TABS.findIndex(t => t.id === active)) }} />
           {TABS.map(t => <button key={t.id} type="button" aria-current={active === t.id ? 'page' : undefined}
             onClick={() => onNavigate(t.id)}>
             <span className="mm-nav-icon"><ShellIcon name={t.id} /></span>
@@ -331,11 +334,36 @@ function deviceTab(tab, savedPlaces, onNavigate) {
 function useTabNavigation(onLeave, initialTab = 'kodu') {
   const [tab, setTab] = useState(initialTab);
   const [settingsSection, setSettingsSection] = useState(null);
+  const pageTransition = useRef(null);
   const navigate = (next, section = null) => {
-    onLeave?.();
-    setSettingsSection(section);
-    setTab(next);
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    const from = TABS.findIndex(t => t.id === tab);
+    const to = TABS.findIndex(t => t.id === next);
+    const update = () => {
+      if (next !== tab) document.documentElement.dataset.mmNavigation = to < 0 ? 'push' : from < 0 ? 'back'
+        : to > from ? 'forward' : 'backward';
+      onLeave?.();
+      setSettingsSection(section);
+      setTab(next);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+    if (next === tab) {
+      pageTransition.current?.skipTransition();
+      update();
+      return;
+    }
+    const animate = next !== tab && typeof document.startViewTransition === 'function'
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    pageTransition.current?.skipTransition();
+    if (animate) {
+      // Capture only the outgoing page. The next page stays live and interactive during its CSS entrance.
+      document.querySelector('.mm-main').style.viewTransitionName = 'mm-outgoing';
+      const transition = document.startViewTransition(() => flushSync(update));
+      pageTransition.current = transition;
+      transition.ready.catch(() => {}); // A superseded animation still applies its navigation update.
+      transition.finished.then(() => {
+        if (pageTransition.current === transition) pageTransition.current = null;
+      });
+    } else update();
   };
   return { tab, settingsSection, navigate };
 }

@@ -381,7 +381,7 @@ export function SeadedTab(props = {}) {
       <section className="mm-settings-group" aria-labelledby="application-heading">
         <h2 className="mm-section-label" id="application-heading">Rakendus</h2>
         <div className="mm-card">
-          <p>Majandus</p>
+          <div className="mm-app-identity"><span className="mm-mark" aria-hidden="true">MM</span><strong>Majamajandus</strong></div>
           <details>
             <summary>Päeviku PIN ja andmed</summary>
             <PinSection />

@@ -1,7 +1,9 @@
 import { BussCard } from './BussCard';
 import { ShellIcon } from './ShellIcon';
+import { calendarEventColors } from '../design/tokens';
 import { EventRows, CalendarError } from './CalendarEvents';
 import { homeOccurrences } from '../reminders/due';
+import { expandOccurrences } from '../calendar/recurrence';
 import { localDate } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
 
@@ -15,13 +17,29 @@ export function PageHeader({ title, subtitle }) {
 export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
   const now = useCalendarNow();
   const today = localDate(now);
+  const todayItems = expandOccurrences(calendar.events, today, today);
   const upcoming = homeOccurrences(calendar.events, now);
   const date = now.toLocaleDateString('et-EE', { weekday: 'long', day: 'numeric', month: 'long' });
   return <div className="mm-page">
     <header className="mm-home-header">
-      <span className="mm-mark" aria-hidden="true">M</span>
-      <div><h1>Majandus</h1><p className="mm-date">{date}</p></div>
+      <span className="mm-mark" aria-hidden="true">MM</span>
+      <div><h1>Majamajandus</h1><p className="mm-date">{date}</p></div>
     </header>
+    <section className="mm-card mm-today" aria-labelledby="today-heading">
+      <h2 id="today-heading" className="mm-section-label">Täna kodus</h2>
+      {calendar.error ? <p>Kalendri ülevaade pole praegu saadaval.</p> : <>
+        <p className="mm-today-total"><strong>{todayItems.length}</strong><span>{todayItems.length === 1 ? 'sündmus täna' : 'sündmust täna'}</span></p>
+        <p className="mm-today-summary">{todayItems.length
+          ? todayItems.slice(0, 2).map(item => `${item.title}${item.time ? ` kell ${item.time}` : ''}`).join(' · ')
+          : 'Täna pole midagi plaanis. Hea hetk järgmised koduasjad paika panna.'}</p>
+        {todayItems.length > 0 && <div className="mm-today-events">
+          {todayItems.slice(0, 3).map(item => <button key={item.occurrenceId} className="mm-today-chip" style={{'--event-color':calendarEventColors(item).color}} onClick={() => onOpen(item)}>
+            <ShellIcon name={item.category} /><span>{item.time && <time dateTime={item.time}>{item.time} </time>}{item.title}</span>
+          </button>)}
+          {todayItems.length > 3 && <button className="mm-text-button" onClick={() => onNavigate('kalender')}>Veel {todayItems.length - 3} kalendris</button>}
+        </div>}
+      </>}
+    </section>
     <section className="mm-section mm-section-primary" aria-labelledby="upcoming-heading">
       <div className="mm-section-heading">
         <h2 id="upcoming-heading">Tulemas</h2>
@@ -33,6 +51,11 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
         <span className="mm-icon-tile"><ShellIcon name="kodu" /></span>
         <h3>Paneme sinu kodu asjad ritta</h3>
         <p>Lähenevaid sündmusi pole. Lisa kalendrisse hooldus, makse või prügipäev.</p>
+        <div className="mm-welcome-actions">
+          <button className="mm-button mm-button-primary" onClick={() => onNavigate('seaded', 'prugivedu')}>Leia prügipäevad</button>
+          <button className="mm-button mm-button-secondary" disabled={!calendar.writable} onClick={() => onAdd(today)}>Lisa esimene sündmus</button>
+        </div>
+        <p className="mm-footnote">Kalender töötab ka kohalikult. Pilvesüngi saad soovi korral Seadetes sisse lülitada.</p>
       </div>}
     </section>
     <section className="mm-section" aria-labelledby="home-bus-heading">
@@ -42,7 +65,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen }) {
     <section className="mm-section" aria-labelledby="quick-heading">
       <h2 className="mm-section-label" id="quick-heading">Kiirtoimingud</h2>
       <div className="mm-quick-grid">
-        <button className="mm-button mm-button-primary mm-wide" disabled={!calendar.writable} onClick={() => onAdd(today)}>
+        <button className="mm-button mm-button-primary" disabled={!calendar.writable} onClick={() => onAdd(today)}>
           <ShellIcon name="add" />Lisa sündmus
         </button>
         <button className="mm-button mm-button-secondary" onClick={() => onNavigate('kalender')}>

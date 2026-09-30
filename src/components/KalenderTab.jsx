@@ -3,6 +3,7 @@ import { PageHeader } from './ShellViews';
 import { ShellIcon } from './ShellIcon';
 import { EventRows, CalendarError } from './CalendarEvents';
 import { CATEGORIES } from '../calendar/eventModel';
+import { AV, CALENDAR_COLORS, calendarEventColors } from '../design/tokens';
 import { expandOccurrences } from '../calendar/recurrence';
 import { addDays, addMonths, agendaGroup, formatDate, localDate, monthDays } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
@@ -42,7 +43,7 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
           return <button key={day} type="button" data-date={day} aria-pressed={selected === day}
             aria-current={day === today ? 'date' : undefined} aria-label={formatDate(day,{weekday:'long',day:'numeric',month:'long',year:'numeric'})+description}
             className={`mm-day ${day.slice(0,7) !== selected.slice(0,7) ? 'mm-other-month' : ''}`}
-            style={categories.length ? {'--day-tint':CATEGORIES[categories[0]].tint,'--day-color':CATEGORIES[categories[0]].color} : undefined}
+            style={categories.length ? {'--day-tint':calendarEventColors(events[0]).tint,'--day-color':calendarEventColors(events[0]).color} : undefined}
             onClick={()=>setSelected(day)}>
             <span>{Number(day.slice(8))}</span>
             <span className="mm-day-markers" aria-hidden="true">{categories.length > 0 && <ShellIcon name={categories[0]} />}{events.length > 1 && <small>{events.length}</small>}</span>
@@ -59,7 +60,7 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
         <button className="mm-button mm-button-secondary" disabled={!calendar.writable} onClick={()=>onAdd(selected,setSelected)}>{calendar.events.length ? 'Lisa sündmus siia' : 'Lisa esimene sündmus'}</button>
       </div>}
     </section>
-    <div className="mm-calendar-legend">{Object.entries(CATEGORIES).map(([key,c])=><span key={key} style={{color:c.color,background:c.tint}}>{c.label}</span>)}</div>
+    <div className="mm-calendar-legend" aria-label="Kalendri kategooriad">{Object.entries(CATEGORIES).map(([key,c])=><span key={key} style={{color:AV.textSoft,background:CALENDAR_COLORS[key].tint,'--event-color':CALENDAR_COLORS[key].color}}><ShellIcon name={key} />{c.label}</span>)}</div>
     {agenda.length > 0 && <p className="mm-footnote">Järgmised kolm kuud</p>}
     {['Sel nädalal','Järgmisel nädalal','Hiljem'].map(group=>{
       const items=agenda.filter(e=>agendaGroup(e.date,today) === group);

@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send}) {
   const select = (id,value) => evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+  const settled = () => evaluate(`Promise.all(document.getAnimations().filter(a=>Number.isFinite(a.effect.getTiming().iterations))
+    .map(a=>a.finished.catch(()=>{}))).then(()=>true)`);
   const screenshot = async name => {
     if (!process.env.MJM_SCREENSHOTS) return;
     const shot=await send('Page.captureScreenshot',{format:'png'});
@@ -23,20 +25,37 @@ export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send})
     await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
     await t.test(`MM-VIS01 compact Home and agenda, category grid at ${width}px`,async()=>{
       await nav('Kodu');
+      const polish=await evaluate(`(() => {const css=e=>{const s=getComputedStyle(e);return {color:s.color,bg:s.backgroundColor,image:s.backgroundImage,shadow:s.boxShadow,radius:s.borderRadius,minHeight:s.minHeight,border:s.borderTopWidth};};
+        const shell=document.querySelector('[data-app-shell]'),hero=document.querySelector('.mm-today'),nav=document.querySelector('nav'),r=nav.getBoundingClientRect();
+        return {shell:css(shell),hero:css(hero),warm:getComputedStyle(hero,'::before').backgroundImage,cool:getComputedStyle(hero,'::after').backgroundImage,
+          card:css(document.querySelector('.mm-event-row')),primary:css(document.querySelector('.mm-quick-grid .mm-button-primary')),
+          secondary:css(document.querySelector('.mm-quick-grid .mm-button-secondary')),nav:css(nav),inset:r.x,bottom:innerHeight-r.bottom,
+          blur:getComputedStyle(nav).backdropFilter,pills:nav.querySelectorAll('.mm-nav-indicator').length};})()`);
+      assert.equal((polish.shell.image.match(/radial-gradient/g)||[]).length,3);
+      assert.equal(polish.hero.bg,'rgb(255, 255, 255)');assert.equal(polish.hero.radius,'30px');
+      assert.match(polish.warm,/255, 210, 63/);assert.match(polish.cool,/140, 175, 225/);
+      assert.match(polish.card.image,/linear-gradient/);assert.match(polish.card.shadow,/inset/);
+      assert.match(polish.hero.shadow,/24px 40px/);
+      assert.equal(polish.primary.image,'linear-gradient(rgb(255, 229, 138) 0%, rgb(255, 210, 63) 55%, rgb(245, 190, 26) 100%)');
+      assert.equal(polish.primary.color,'rgb(42, 32, 0)');assert.equal(polish.primary.border,'0px');assert.equal(polish.primary.radius,'16px');
+      assert.match(polish.primary.shadow,/inset/);assert.ok(parseFloat(polish.primary.minHeight)>=52);
+      assert.equal(polish.secondary.image,'linear-gradient(rgb(255, 255, 255) 0%, rgb(246, 248, 251) 100%)');
+      assert.equal(polish.secondary.radius,'16px');assert.notEqual(polish.secondary.shadow,'none');
+      assert.equal(polish.inset,10);assert.equal(polish.bottom,16);assert.match(polish.blur,/blur\(18px\)/);assert.equal(polish.pills,1);
       const home=await evaluate(`(()=>{const rows=[...document.querySelectorAll('[aria-labelledby=upcoming-heading] [data-occurrence]')];
         return rows.map(row=>({height:row.getBoundingClientRect().height,icon:!!row.querySelector('.mm-event-icon svg'),
           stripe:getComputedStyle(row).borderLeftWidth,chip:row.querySelector('.mm-event-when') && getComputedStyle(row.querySelector('.mm-event-when')).whiteSpace,
           dateTiles:row.querySelectorAll('.mm-event-day').length}));})()`);
       assert.equal(home.length,3);for(const row of home) {assert.equal(row.icon,true);assert.equal(row.stripe,'1px');assert.equal(row.chip,'nowrap');assert.equal(row.dateTiles,0);assert.ok(row.height<=90);}
       const chipColors=await evaluate("[...document.querySelectorAll('.mm-events-home .mm-event-when')].map(e=>[getComputedStyle(e).color,getComputedStyle(e).backgroundColor])");
-      assert.deepEqual(chipColors,[['rgb(158, 59, 47)','rgb(247, 231, 227)'],['rgb(128, 83, 21)','rgb(248, 238, 221)'],['rgb(75, 83, 88)','rgb(237, 234, 228)']]);
+      assert.deepEqual(chipColors,[['rgb(21, 32, 46)','rgb(255, 220, 216)'],['rgb(21, 32, 46)','rgb(255, 230, 207)'],['rgb(57, 70, 86)','rgb(227, 233, 240)']]);
       const luminance=rgb=>rgb.match(/\d+/g).map(Number).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
       for(const pair of chipColors) {const [dark,light]=pair.map(luminance).sort((a,b)=>a-b);assert.ok((light+.05)/(dark+.05)>=4.5);}
       assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'));
       await screenshot(`MM-VIS01-Home-${width}`);
       await nav('Kalender');
-      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-date=\"2026-09-14\"]')).backgroundColor"),'rgb(26, 91, 105)');
-      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-date=\"2026-09-14\"]')).color"),'rgb(255, 255, 255)');
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-date=\"2026-09-14\"]')).backgroundColor"),'rgb(255, 210, 63)');
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-date=\"2026-09-14\"]')).color"),'rgb(42, 32, 0)');
       assert.equal(await evaluate("!!document.querySelector('[data-date=\"2026-09-15\"] .mm-day-markers svg')"),true);
       assert.equal(await evaluate("document.querySelectorAll('#selected-events .mm-event-when, #selected-events .mm-event-day').length"),0);
       assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/10:30/);
@@ -50,6 +69,7 @@ export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send})
     });
     await t.test(`MM-VIS01 sticky native event form actions at ${width}px`,async()=>{
       await nav('Kalender');await click('Lisa sündmus');await waitFor("!!document.querySelector('#event-title')");
+      await settled();
       const check=async()=>assert.equal(await evaluate(`(()=>{const b=document.querySelector('.mm-save-event'),r=b.getBoundingClientRect();
         return r.top>=0 && r.bottom<=innerHeight && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===b;})()`),true);
       try {
@@ -70,6 +90,7 @@ export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send})
       assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'));
       assert.equal(await evaluate("/\\p{Extended_Pictographic}/u.test(document.querySelector('main').innerText)"),false);
       await screenshot(`MM-VIS01-Buss-${width}`);
+      await settled();
       const opener=await evaluate("(()=>{const b=[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Vali sihtkoht kaardilt');b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
       await send('Input.dispatchMouseEvent',{type:'mousePressed',...opener,button:'left',clickCount:1});
       await send('Input.dispatchMouseEvent',{type:'mouseReleased',...opener,button:'left',clickCount:1});
@@ -94,13 +115,14 @@ export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send})
     assert.doesNotMatch(families,/Archivo|Instrument/);
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
-    assert.equal(await evaluate("getComputedStyle(document.activeElement).outlineColor"),'rgb(26, 91, 105)');
+    assert.equal(await evaluate("getComputedStyle(document.activeElement).outlineColor"),'rgb(122, 88, 0)');
     await screenshot('MM-VIS01-Settings');
     await evaluate("document.querySelector('.mm-notification-settings').scrollIntoView({block:'start'})");
     await screenshot('MM-VIS01-Notifications');
   });
   await t.test('MM-VIS01 pointer navigation avoids programmatic focus outlines',async()=>{
     await nav('Kodu');
+    await settled();
     const point=await evaluate("(()=>{const b=[...document.querySelectorAll('main button')].find(b=>b.textContent.trim()==='Prügivedu');b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
     await send('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1});
     await send('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1});
@@ -114,6 +136,6 @@ export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send})
     await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
     await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
     const focus=await evaluate("(()=>{const e=document.activeElement,s=getComputedStyle(e);return {date:e.dataset.date,selected:e.getAttribute('aria-pressed'),visible:e.matches(':focus-visible'),color:s.outlineColor,width:s.outlineWidth,offset:s.outlineOffset};})()");
-    assert.deepEqual(focus,{date:'2026-09-14',selected:'false',visible:true,color:'rgb(26, 91, 105)',width:'2px',offset:'3px'});
+    assert.deepEqual(focus,{date:'2026-09-14',selected:'false',visible:true,color:'rgb(122, 88, 0)',width:'2px',offset:'3px'});
   });
 }

@@ -230,7 +230,10 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       await evaluate(`[...${within}.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)} || b.getAttribute('aria-label') === ${JSON.stringify(text)}).click()`);
       await pause(80);
     };
-    const nav = text => click(text, "document.querySelector('nav')");
+    const nav = async text => {
+      await click(text, "document.querySelector('nav')");
+      await waitFor(`document.querySelector('nav [aria-current=page]').textContent.trim()===${JSON.stringify(text)}`);
+    };
     const input = async (selector, value) => {
       await evaluate(`(() => { const el=document.querySelector(${JSON.stringify(selector)});
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});
@@ -323,8 +326,13 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       assert.deepEqual(await evaluate("[...document.querySelectorAll('nav button')].map(b=>b.textContent.trim())"),
         ['Kodu','Kalender','Buss','Veel','Seaded']);
       const text = await body();
-      for (const label of ['Majandus','Tulemas','Buss praegu','Kiirtoimingud']) assert.ok(text.toLocaleLowerCase('et').includes(label.toLocaleLowerCase('et')), label);
-      assert.equal(await evaluate("document.querySelector('.mm-mark').textContent"), 'M');
+      for (const label of ['Majamajandus','Täna kodus','Tulemas','Buss praegu','Kiirtoimingud']) assert.ok(text.toLocaleLowerCase('et').includes(label.toLocaleLowerCase('et')), label);
+      assert.equal(await evaluate("document.querySelector('.mm-mark').textContent"), 'MM');
+      assert.equal(await evaluate("document.querySelector('.mm-today-total strong').textContent"), '0');
+      assert.ok(await evaluate("document.querySelector('.mm-today').getBoundingClientRect().top < document.querySelector('[aria-labelledby=upcoming-heading]').getBoundingClientRect().top"));
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-quick-grid')).gridTemplateColumns.split(' ').length"), 2);
+      assert.match(text, /Leia prügipäevad/);
+      assert.match(text, /Lisa esimene sündmus/);
       assert.doesNotMatch(text, /AnniVibe|Tugi|Loo täna|Täna sulle/);
       assert.ok(await evaluate("document.querySelector('nav [aria-current=page]').textContent.includes('Kodu')"));
     });
@@ -413,11 +421,11 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
         for (const label of ['Kodu','Kalender','Veel','Seaded','Buss']) {
           await nav(label);
           assert.ok(await evaluate('document.documentElement.scrollWidth <= innerWidth'), `${label} overflows ${width}px`);
-          assert.doesNotMatch(await body(), /Majamajandus|\bMM\b/i, `${label} has stale visible branding`);
+          assert.doesNotMatch(await body(), /AnniVibe|\bMajandus\b/i, `${label} has stale visible branding`);
         }
       }
       await nav('Kodu');
-      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-app-shell]')).backgroundColor"), 'rgb(244, 242, 238)');
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-app-shell]')).backgroundColor"), 'rgb(245, 247, 250)');
       await evaluate("document.querySelector('nav button').focus()");
       await send('Input.dispatchKeyEvent', {type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
       await send('Input.dispatchKeyEvent', {type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
@@ -452,16 +460,17 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       const animation=el.getAnimations().find(a=>a.effect.target===el);
       if(!animation) return null;
       animation.pause(); animation.currentTime=0;
-      const start={opacity:getComputedStyle(el).opacity,transform:getComputedStyle(el).transform};
+      const frames=animation.effect.getKeyframes();
+      const start={opacity:frames[0].opacity,transform:frames[0].transform};
       const timing=animation.effect.getTiming(); animation.currentTime=timing.delay+timing.duration;
-      const end={opacity:getComputedStyle(el).opacity,transform:getComputedStyle(el).transform};
+      const end={opacity:frames.at(-1).opacity,transform:frames.at(-1).transform};
       animation.finish(); return {start,end,duration:timing.duration,iterations:timing.iterations};
     })()`);
     const assertEntrance = (motion, min, max) => {
       assert.ok(motion, 'a finite entrance animation must exist');
       assert.notEqual(motion.start.transform, motion.end.transform, 'entrance must move, not only fade');
       assert.ok(Number(motion.start.opacity) < Number(motion.end.opacity), 'entrance must fade in');
-      assert.ok(motion.duration >= min && motion.duration <= max, 'entrance stays brief');
+      assert.ok(motion.duration >= min && motion.duration <= max, 'entrance follows the accepted timing');
       assert.equal(motion.iterations, 1, 'entrance must not loop');
     };
     const assertPress = async selector => {
@@ -472,16 +481,20 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       assert.ok(nodeId, `rendered control required: ${selector}`);
       const style = () => evaluate(`(() => {const el=document.querySelector(${JSON.stringify(selector)});
         const s=getComputedStyle(el); return {transform:s.transform,properties:s.transitionProperty,
-          duration:s.transitionDuration,scale:new DOMMatrixReadOnly(s.transform).a};})()`);
-      assert.match((await style()).properties, /transform/, selector+' must transition its press state');
+          shadow:s.boxShadow,primary:el.classList.contains('mm-button-primary'),
+          duration:s.transitionDuration,scale:new DOMMatrixReadOnly(s.transform).a,y:new DOMMatrixReadOnly(s.transform).f};})()`);
+      const resting=await style();
+      assert.match(resting.properties, /transform/, selector+' must transition its press state');
       try {
         await send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:['active']});
         await finishMotion();
         const pressed=await style();
-        assert.ok(pressed.scale >= .96 && pressed.scale < 1, selector+' must have subtle press feedback');
+        assert.equal(pressed.scale,1, selector+' uses a physical press without shrinking its label');
+        assert.equal(pressed.y,resting.primary ? 2 : 1, selector+' presses down by the reference distance');
+        if(resting.shadow!=='none') assert.notEqual(pressed.shadow,resting.shadow, 'raised controls compress their depth');
         await evaluate(`document.querySelector(${JSON.stringify(selector)}).disabled=true`);
         await finishMotion();
-        assert.equal((await style()).transform,'none', 'disabled controls must not shrink');
+        assert.equal((await style()).transform,'none', 'disabled controls must not travel');
       } finally {
         await evaluate(`document.querySelector(${JSON.stringify(selector)}).disabled=false`);
         await send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});
@@ -489,7 +502,11 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
     };
     await t.test('native motion: page and Home entrances are brief, spatial and finite', async () => {
       await nav('Veel'); await nav('Kodu');
-      assertEntrance(await entrance('.mm-main'),200,240);
+      const outgoing=await evaluate(`document.getAnimations().find(a=>a.effect.pseudoElement==='::view-transition-old(mm-outgoing)')?.effect.getTiming().duration`);
+      if(await evaluate("typeof document.startViewTransition==='function'")) assert.equal(outgoing,170);
+      const page=await entrance('.mm-main');
+      assertEntrance(page,490,510);
+      assert.equal(page.start.transform,'translateX(-30px)', 'backward tabs enter from the left');
       assertEntrance(await entrance('.mm-mark'),120,240);
       const delays=await evaluate("[...document.querySelectorAll('.mm-page > .mm-section')].map(e=>parseFloat(getComputedStyle(e).animationDelay)*1000)");
       assert.equal(delays.length,3);
@@ -497,19 +514,40 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       await finishMotion();
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-main')).transform"),'none',
         'finished entrance must not retain a containing block for fixed map overlays');
+      await evaluate("window.__nativeViewTransition=document.startViewTransition; document.startViewTransition=undefined");
+      try {
+        await nav('Kalender');
+        const fallback=await entrance('.mm-main');
+        assertEntrance(fallback,490,510);
+        assert.equal(fallback.start.transform,'translateX(30px)', 'forward tabs also work without native snapshots');
+        await finishMotion();
+      } finally { await evaluate("document.startViewTransition=window.__nativeViewTransition"); }
     });
     await t.test('native motion: selected navigation icon moves without moving labels', async () => {
       await nav('Kodu'); await finishMotion();
+      await evaluate("window.__navPill=document.querySelector('.mm-nav-indicator'); true");
       const labelTop=await evaluate("document.querySelectorAll('nav button')[1].lastElementChild.getBoundingClientRect().top");
-      await nav('Kalender'); await finishMotion();
+      await nav('Kalender');
+      const sliding=await evaluate(`(() => {const pill=document.querySelector('.mm-nav-indicator'),a=pill.getAnimations()[0];
+        if(!a) return null; a.pause();a.currentTime=0;const start=new DOMMatrixReadOnly(getComputedStyle(pill).transform).e;
+        const timing=a.effect.getTiming();a.currentTime=timing.duration/2;const midway=new DOMMatrixReadOnly(getComputedStyle(pill).transform).e;
+        a.currentTime=timing.duration;const end=new DOMMatrixReadOnly(getComputedStyle(pill).transform).e;
+        a.finish();return {same:pill===window.__navPill,duration:timing.duration,ease:timing.easing,start,midway,end};})()`);
+      assert.ok(sliding?.same, 'one indicator persists across destinations');
+      assert.equal(sliding.duration,450);
+      assert.equal(sliding.ease,'cubic-bezier(0.3, 1.35, 0.5, 1)');
+      assert.ok(sliding.end>sliding.start && sliding.midway>sliding.start, 'the indicator moves across the bar');
+      await finishMotion();
       const selected=await evaluate(`(() => {const el=document.querySelector('nav [aria-current=page] .mm-nav-icon');
         const s=getComputedStyle(el),m=new DOMMatrixReadOnly(s.transform);
         return {scale:m.a,y:m.f,transition:s.transitionProperty,
           labelTop:el.nextElementSibling.getBoundingClientRect().top};})()`);
-      assert.ok(selected.scale>=1.05 && selected.scale<=1.08, 'active icon has restrained emphasis');
+      assert.ok(selected.scale>=1.08 && selected.scale<=1.1, 'active icon has reference emphasis');
       assert.ok(selected.y<0 && selected.y>=-2);
       assert.match(selected.transition,/transform/);
       assert.equal(selected.labelTop,labelTop);
+      assert.ok(await evaluate(`(() => {const p=document.querySelector('.mm-nav-indicator').getBoundingClientRect(),b=document.querySelector('nav [aria-current=page]').getBoundingClientRect();
+        return Math.abs(p.x+p.width/2-b.x-b.width/2)<1;})()`), 'the pill finishes under the selected destination');
     });
     await t.test('native motion: one pointer or touch activation navigates without moving the nav layout', async () => {
       try {
@@ -533,7 +571,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
             await finishMotion();
             assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth &&
               [...document.querySelectorAll('nav button')].every(e=>{const r=e.getBoundingClientRect();
-                return r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight+1;})`));
+                return r.width>=56 && r.height>=56 && r.left>=0 && r.right<=innerWidth+1 && r.top>=0 && r.bottom<=innerHeight+1;})`));
           }
         }
       } finally { await send('Emulation.setTouchEmulationEnabled',{enabled:false}); }
@@ -548,13 +586,17 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
     await t.test('native motion: calendar selection and dialog entrance preserve usable controls', async () => {
       await nav('Kalender'); await finishMotion();
       const scale=await evaluate("new DOMMatrixReadOnly(getComputedStyle(document.querySelector('.mm-day[aria-pressed=true]')).transform).a");
-      assert.ok(scale>1 && scale<=1.03, 'selected day has subtle emphasis');
+      assert.ok(scale>=1.05 && scale<=1.1, 'selected day has reference emphasis');
       for(const width of [375,1280]) {
         await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:false});
         await click('Lisa sündmus');
         try {
-          assertEntrance(await entrance('.mm-event-dialog'),200,240);
+          const sheet=await entrance('.mm-event-dialog');
+          assertEntrance(sheet,490,510);
+          assert.equal(sheet.start.transform,width<700?'translateY(100%)':'translateY(8px)');
           assert.notEqual(await evaluate("getComputedStyle(document.querySelector('.mm-event-dialog'),'::backdrop').animationName"),'none');
+          assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-event-dialog'),'::backdrop').animationDuration"),'0.3s');
+          assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-event-dialog'),'::backdrop').backdropFilter"),'blur(3px)');
           await finishMotion();
           assert.ok(await evaluate(`(() => {const r=document.querySelector('.mm-save-event').getBoundingClientRect();
             return r.top>=0 && r.bottom<=innerHeight && document.documentElement.scrollWidth<=innerWidth;})()`));
@@ -1015,7 +1057,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
             r.onblocked=()=>{blocked=true;};r.onupgradeneeded=()=>{};r.onsuccess=()=>{r.result.close();resolve({blocked});};r.onerror=()=>reject(r.error);})`);
           assert.equal(result.blocked, false, 'the mounted connection closes on versionchange, so the upgrade is not blocked');
           await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");
-          assert.match(await body(), /Majandus uuenes teises aknas\. Laadi leht uuesti\./);
+          assert.match(await body(), /Majamajandus uuenes teises aknas\. Laadi leht uuesti\./);
           assert.equal(await evaluate("document.querySelector('.mm-save-event').disabled"), true, 'the open event form cannot save');
           assert.equal(await evaluate("document.querySelector('#event-title').value"), 'Jääb vormi');
           await click('Tühista');
@@ -1062,7 +1104,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
         await t.test('C6 cutover: a blocked open shows BLOCKED with Buss usable, never LEGACY, and retries automatically on focus', async () => {
           await resetProfile({ legacy: seededKeys, flags: ['c6Blocked'] });
           await waitFor("!!document.querySelector('[data-storage-state=BLOCKED]')");
-          assert.match(await body(), /Sulge Majanduse teised aknad ja proovi uuesti./);
+          assert.match(await body(), /Sulge Majamajanduse teised aknad ja proovi uuesti./);
           assert.equal(await evaluate("!!document.querySelector('[data-storage-state=BLOCKED] button')"), true, 'a retry button is offered');
           await nav('Kalender'); assert.equal(await noSharedControls(), true, 'no shared domain is mounted, and never LEGACY');
           await nav('Buss'); await waitFor("!!document.querySelector('#buss-destination')");
@@ -1141,7 +1183,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
             await click('Salvesta sündmus');
             await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");
             assert.equal(await calendarRaw(), before, 'the shared legacy key is not written');
-            assert.match(await body(), /Majandus uuenes teises aknas\. Laadi leht uuesti\./);
+            assert.match(await body(), /Majamajandus uuenes teises aknas\. Laadi leht uuesti\./);
             assert.equal(await evaluate("document.querySelector('.mm-save-event').disabled"), true);
             await evaluate("sessionStorage.removeItem('c6HintUnreadable')");
             await click('Tühista');
@@ -1234,10 +1276,10 @@ test('StorageStatus renders the accepted copy and actions for every storage stat
   const buttons = html => [...html.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map(match => match[1]);
   const cases = [
     ['AUTHORITY_HINT_PENDING', {}, 'Seadme salvestusruum ei võtnud muudatust vastu. Proovi uuesti.', ['Proovi uuesti']],
-    ['BLOCKED', {}, 'Sulge Majanduse teised aknad ja proovi uuesti.', ['Proovi uuesti']],
+    ['BLOCKED', {}, 'Sulge Majamajanduse teised aknad ja proovi uuesti.', ['Proovi uuesti']],
     ['STORAGE_LOST', { variant: 'dated', switchedAt: '2026-09-16T10:00:00.000Z' }, 'Kohalik andmebaas puudub. Taasta andmed seisuga 2026-09-16T10:00:00.000Z varukoopiast?', ['Taasta andmed']],
     ['STORAGE_LOST', { variant: 'undated' }, 'Taasta andmed seadme varukoopiast?', ['Taasta andmed']],
-    ['RELOAD_REQUIRED', {}, 'Majandus uuenes teises aknas. Laadi leht uuesti.', ['Laadi uuesti']],
+    ['RELOAD_REQUIRED', {}, 'Majamajandus uuenes teises aknas. Laadi leht uuesti.', ['Laadi uuesti']],
     ['REVERT_STORAGE_LOST', { variant: 'dated', switchedAt: '2026-09-16T10:00:00.000Z' }, 'Kohalik andmebaas puudub. Kas kasutada vana salvestust seisuga 2026-09-16T10:00:00.000Z? Hilisemad muudatused võivad puududa.', ['Kasuta vana salvestust']],
     ['REVERT_STORAGE_LOST', { variant: 'undated' }, 'Kohalik andmebaas puudub. Kas kasutada seadme vana salvestust? Hilisemad muudatused võivad puududa.', ['Kasuta vana salvestust']],
     ['REVERT_FAILED', { reason: 'revert-backups-lost' }, 'Taastamine vanale salvestusele ebaõnnestus. Andmed on alles. Proovi uuesti.', ['Proovi uuesti']],
@@ -1253,22 +1295,22 @@ test('StorageStatus renders the accepted copy and actions for every storage stat
   assert.equal(notice('READY', {}), '', 'no notice in the normal READY state');
   assert.ok(text(notice('READY', { divergence: 'LEGACY_DIVERGED' })).includes('Vana kohalik salvestus on muutunud'), 'LEGACY_DIVERGED is a non-blocking notice');
   assert.deepEqual(buttons(notice('READY', { divergence: 'LEGACY_DIVERGED' })), [], 'the divergence notice offers no repair, merge or reset action');
-  assert.ok(text(notice('RELOAD_REQUIRED', {})).includes('Majandus uuenes teises aknas. Laadi leht uuesti.'));
+  assert.ok(text(notice('RELOAD_REQUIRED', {})).includes('Majamajandus uuenes teises aknas. Laadi leht uuesti.'));
 });
 
 test('PWA and HTML identity use Majamajandus without downloaded fonts', () => {
   const read = path => readFileSync(join(root,path),'utf8');
   const manifest = JSON.parse(read('public/manifest.webmanifest'));
-  assert.equal(manifest.name,'Majandus');
-  assert.equal(manifest.short_name,'Majandus');
-  assert.equal(manifest.theme_color,'#1A5B69');
-  assert.equal(manifest.background_color,'#F4F2EE');
-  assert.match(read('index.html'), /<title>Majandus<\/title>/);
-  assert.match(read('index.html'), /name="apple-mobile-web-app-title" content="Majandus"/);
+  assert.equal(manifest.name,'Majamajandus');
+  assert.equal(manifest.short_name,'Majamajandus');
+  assert.equal(manifest.theme_color,'#FFD23F');
+  assert.equal(manifest.background_color,'#F5F7FA');
+  assert.match(read('index.html'), /<title>Majamajandus<\/title>/);
+  assert.match(read('index.html'), /name="apple-mobile-web-app-title" content="Majamajandus"/);
   assert.doesNotMatch(read('index.html'), /fonts.googleapis|Fraunces|AnniVibe/);
-  assert.match(read('vite.config.js'), /\bname: 'Majandus'/);
-  assert.match(read('vite.config.js'), /\bshort_name: 'Majandus'/);
-  assert.match(read('public/favicon.svg'), /aria-label="Majandus"/);
+  assert.match(read('vite.config.js'), /\bname: 'Majamajandus'/);
+  assert.match(read('vite.config.js'), /\bshort_name: 'Majamajandus'/);
+  assert.match(read('public/favicon.svg'), /aria-label="Majamajandus"/);
   for (const [path,size] of [['public/icons/icon-192.png',192],['public/icons/icon-512.png',512],['public/apple-touch-icon.png',180]]) {
     const png = readFileSync(join(root,path));
     assert.equal(png.readUInt32BE(16),size);
