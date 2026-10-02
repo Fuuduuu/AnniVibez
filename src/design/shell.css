@@ -5,19 +5,19 @@ body { margin: 0; }
   --mm-motion-normal: 180ms;
   --mm-motion-slow: 500ms;
   --mm-motion-ease: cubic-bezier(.16,1,.3,1);
-  --mm-surface-gradient: linear-gradient(180deg, #FFFFFF 0%, #F6F8FB 100%);
-  --mm-primary-gradient: linear-gradient(180deg, #FFE58A 0%, #FFD23F 55%, #F5BE1A 100%);
-  --mm-primary-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -3px 0 rgba(150,100,0,.22), 0 2px 0 #D9A400, 0 10px 20px -8px rgba(160,110,0,.5);
-  --mm-primary-shadow-pressed: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(150,100,0,.2), 0 0 0 #D9A400, 0 4px 10px -6px rgba(160,110,0,.5);
-  --mm-surface-shadow-pressed: inset 0 1px 2px rgba(20,40,70,.10), 0 1px 2px rgba(20,40,70,.04);
-  --mm-icon-shadow: inset 0 1px 0 #FFFFFF, inset 0 -2px 0 rgba(20,40,70,.07), 0 1px 0 rgba(20,40,70,.14), 0 6px 14px -8px rgba(20,40,70,.38);
-  --mm-sheet-surface: #F7F9FC;
+  --mm-surface-gradient: linear-gradient(145deg, #F7F8F5 0%, #F1F3EF 100%);
+  --mm-primary-gradient: linear-gradient(180deg, #FFE58A 0%, #FFD23F 100%);
+  --mm-primary-shadow: inset 0 1px 0 rgba(255,255,255,.65), 0 3px 10px rgba(150,110,25,.12);
+  --mm-primary-shadow-pressed: inset 0 1px 3px rgba(150,110,25,.12);
+  --mm-surface-shadow-pressed: inset 2px 2px 5px rgba(32,48,58,.07), inset -2px -2px 5px rgba(255,255,255,.8);
+  --mm-icon-shadow: inset 0 1px 0 rgba(255,255,255,.65), 3px 3px 8px rgba(32,48,58,.06), -3px -3px 8px rgba(255,255,255,.75);
+  --mm-sheet-surface: #F4F5F2;
   --mm-primary-on: #2A2000;
   --mm-primary-ink: #7A5800;
   --mm-warning-tint: #FFE6CF;
   --mm-danger: #CF3F35;
   --mm-danger-tint: #FFDCD8;
-  --mm-field-bg: #F3F6FA;
+  --mm-field-bg: #EFF1ED;
   min-height: 100vh;
   overflow-x: clip;
   padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
@@ -25,10 +25,7 @@ body { margin: 0; }
   font-size: .90625rem;
   line-height: 1.5;
   -webkit-tap-highlight-color: transparent;
-  background-image: radial-gradient(ellipse 420px 350px at 85% 0, rgba(255,210,63,.12), transparent 72%),
-    radial-gradient(ellipse 360px 300px at 0 540px, rgba(255,229,138,.10), transparent 72%),
-    radial-gradient(ellipse 420px 360px at 100% 780px, rgba(140,175,225,.07), transparent 72%),
-    linear-gradient(180deg, #EDF1F6 0, #F5F7FA 650px);
+  background-image: none;
   background-repeat: no-repeat;
 }
 [data-app-shell] h1, [data-app-shell] h2, [data-app-shell] h3, [data-app-shell] p { margin: 0; }
@@ -73,14 +70,14 @@ html[data-mm-navigation=back] .mm-main { animation-name: mm-back-in; }
 
 /* Today is a read-only summary of the current calendar, including recurring events. */
 .mm-card.mm-today { position: relative; isolation: isolate; overflow: hidden; margin-bottom: 24px; padding: 18px;
-  border-radius: 30px; background: radial-gradient(120% 100% at 85% 0, rgba(255,210,63,.10), transparent 65%), #FFFFFF;
-  border-color: rgba(255,255,255,.8); box-shadow: var(--mm-shadow-md); }
+  border-radius: 24px; background: var(--mm-surface);
+  border-color: rgba(255,255,255,.55); box-shadow: var(--mm-shadow-md); }
 .mm-today::before, .mm-today::after { content: ''; position: absolute; z-index: -1; pointer-events: none; border-radius: 50%; }
 .mm-today::before { width: 190px; height: 190px; top: -60px; right: -50px;
-  background: radial-gradient(circle at 35% 35%, rgba(255,210,63,.14), transparent 68%); }
+  background: radial-gradient(circle at 35% 35%, rgba(255,210,63,.06), transparent 68%); }
 .mm-today::after { width: 210px; height: 150px; bottom: -75px; left: -35px;
-  background: radial-gradient(ellipse at 20% 45%, rgba(140,175,225,.16), transparent 65%),
-    radial-gradient(ellipse at 85% 65%, rgba(255,210,63,.14), transparent 65%); }
+  background: radial-gradient(ellipse at 20% 45%, rgba(140,175,225,.05), transparent 65%),
+    radial-gradient(ellipse at 85% 65%, rgba(255,210,63,.05), transparent 65%); }
 [data-app-shell] .mm-today .mm-section-label { margin-bottom: 8px; color: var(--mm-primary-ink); }
 .mm-today-total { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 12px; }
 .mm-today-total strong { font: 700 2.75rem/1.1 var(--mm-display); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
@@ -110,7 +107,7 @@ html[data-mm-navigation=back] .mm-main { animation-name: mm-back-in; }
 
 /* Card system: neutral (.mm-card), tinted and primary (live information). */
 .mm-card { background: var(--mm-surface); background-image: var(--mm-surface-gradient); border: 1px solid var(--mm-border); border-radius: var(--mm-radius); box-shadow: var(--mm-shadow); }
-.mm-card-tinted { background: linear-gradient(180deg, #FFF8DD 0%, var(--mm-tint) 100%); border-color: transparent; box-shadow: inset 0 1px 0 rgba(255,255,255,.8); }
+.mm-card-tinted { background: var(--mm-surface-gradient); border-color: var(--mm-border); box-shadow: var(--mm-shadow); }
 .mm-card-primary { border-color: var(--mm-border); box-shadow: var(--mm-shadow-md); }
 .mm-welcome { padding: 16px; }
 .mm-icon-tile { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0;
@@ -170,7 +167,7 @@ html[data-mm-navigation=back] .mm-main { animation-name: mm-back-in; }
 /* Major settings groups stay distinct without changing their disclosures or controls. */
 .mm-settings-page > .mm-settings-group { margin-bottom: 28px; }
 .mm-settings-page .mm-settings-group > .mm-section-label { color: var(--mm-ink); font-size: .75rem; font-weight: 700; margin-bottom: 12px; }
-.mm-settings-page .mm-settings-group > .mm-card { border-color: var(--mm-border-strong); box-shadow: var(--mm-shadow); }
+.mm-settings-page .mm-settings-group > .mm-card { border-color: var(--mm-border); box-shadow: var(--mm-shadow); }
 
 /* Cloud sync shares the settings card language; only its presentation lives here. */
 .mm-settings-group > .mm-sync-panel { padding: 16px; }
@@ -283,8 +280,8 @@ html[data-mm-navigation=back] .mm-main { animation-name: mm-back-in; }
 .mm-bus-label { color: var(--mm-soft); font-size: .8125rem; margin-bottom: 6px; }
 .mm-bus-current-name { font: 650 1.125rem/1.4 var(--mm-display); color: var(--mm-ink); overflow-wrap: anywhere; }
 .mm-bus-page .mm-bus-gps, .mm-bus-page .mm-bus-map-button { width: 100%; min-height: 52px; justify-content: center;
-  background: var(--mm-bus-tint); background-image: linear-gradient(180deg, #EBF2FC 0%, var(--mm-bus-tint) 100%);
-  border-color: var(--mm-bus); color: var(--mm-soft); font-size: 1rem; font-weight: 600; }
+  background: var(--mm-secondary); background-image: linear-gradient(145deg, #F4F7F8 0%, #EAF0F5 100%);
+  border-color: rgba(59,111,176,.18); color: var(--mm-soft); font-size: 1rem; font-weight: 600; }
 .mm-bus-page :is(.mm-bus-gps,.mm-bus-map-button) svg { color: var(--mm-bus); }
 .mm-bus-page .mm-bus-gps-compact { width: auto; min-height: 44px; background: var(--mm-secondary); border-color: var(--mm-border); color: var(--mm-soft); font-size: .875rem; }
 .mm-bus-alternatives { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
@@ -317,13 +314,13 @@ html[data-mm-navigation=back] .mm-main { animation-name: mm-back-in; }
 /* The fixed floating capsule stays outside page entrance animations and above the home indicator. */
 .mm-nav { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); left: 0; right: 0; z-index: 100;
   width: calc(100% - 20px); max-width: 520px; margin: 0 auto; border: 1px solid rgba(255,255,255,.8); border-radius: 32px;
-  background: var(--mm-surface); background: rgba(255,255,255,.86);
+  background: var(--mm-surface); background: rgba(244,245,242,.93);
   -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
-  box-shadow: inset 0 1px 0 #FFFFFF, 0 1px 2px rgba(20,40,70,.10), 0 20px 40px -14px rgba(20,40,70,.245); }
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 8px 28px rgba(32,48,58,.10), -4px -4px 14px rgba(255,255,255,.6); }
 .mm-nav-inner { position: relative; max-width: 520px; margin: 0 auto; display: flex; padding: 6px; }
 .mm-nav-indicator { position: absolute; pointer-events: none; top: 6px; bottom: 6px; left: 6px; width: calc((100% - 12px) / 5);
   border-radius: 999px; background: var(--mm-primary); background-image: var(--mm-primary-gradient); box-shadow: var(--mm-primary-shadow);
-  transform: translateX(calc(var(--mm-nav-index) * 100%)); transition: transform 450ms cubic-bezier(.3,1.35,.5,1); }
+  transform: translateX(calc(var(--mm-nav-index) * 100%)); transition: transform 300ms var(--mm-motion-ease); }
 .mm-nav button { flex: 1; min-width: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   position: relative; z-index: 1; min-height: max(56px, 3.5rem); padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--mm-soft); font-size: 0.75rem; font-weight: 500;
   letter-spacing: .01em; cursor: pointer; }

@@ -37,12 +37,15 @@ export async function runTimetableChecks({ t, nav, click, input, evaluate, waitF
       assert.equal(await evaluate("document.querySelector('nav [aria-current=page]').textContent.trim()"), 'Veel');
       assert.equal(await evaluate("document.querySelectorAll('.mm-nav-indicator').length"), 1);
     });
-    await t.test('the authoritative reference has a pastel surface, rainbow and independent day colors', async () => {
-      assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-timetable-page')).backgroundColor"),'rgb(253, 249, 245)');
+    await t.test('the school view shares the app surface while retaining rainbow and independent day colors', async () => {
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-timetable-page')).backgroundColor"),
+        await evaluate("getComputedStyle(document.querySelector('[data-app-shell]')).backgroundColor"));
       assert.ok(await evaluate("!!document.querySelector('.mm-timetable-rainbow')"));
       assert.equal(await evaluate("document.querySelector('.mm-timetable-decoration').getAttribute('aria-hidden')"),'true');
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-timetable-decoration')).pointerEvents"),'none');
-      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-weekday=\"2\"] > span')).color"),'rgb(208, 88, 141)');
+      assert.deepEqual(await evaluate(`(() => {const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+        ctx.fillStyle=getComputedStyle(document.querySelector('[data-weekday="2"] > span')).color;ctx.fillRect(0,0,1,1);
+        return Array.from(ctx.getImageData(0,0,1,1).data).slice(0,3);})()`),[139,67,106]);
     });
     await t.test('previous and next week change actual dates, while Täna returns to the current school day', async () => {
       await click('Järgmine nädal');

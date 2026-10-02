@@ -427,7 +427,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
         }
       }
       await nav('Kodu');
-      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-app-shell]')).backgroundColor"), 'rgb(245, 247, 250)');
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-app-shell]')).backgroundColor"), 'rgb(244, 245, 242)');
       await evaluate("document.querySelector('nav button').focus()");
       await send('Input.dispatchKeyEvent', {type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
       await send('Input.dispatchKeyEvent', {type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});
@@ -536,8 +536,8 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
         a.currentTime=timing.duration;const end=new DOMMatrixReadOnly(getComputedStyle(pill).transform).e;
         a.finish();return {same:pill===window.__navPill,duration:timing.duration,ease:timing.easing,start,midway,end};})()`);
       assert.ok(sliding?.same, 'one indicator persists across destinations');
-      assert.equal(sliding.duration,450);
-      assert.equal(sliding.ease,'cubic-bezier(0.3, 1.35, 0.5, 1)');
+      assert.equal(sliding.duration,300);
+      assert.equal(sliding.ease,'cubic-bezier(0.16, 1, 0.3, 1)');
       assert.ok(sliding.end>sliding.start && sliding.midway>sliding.start, 'the indicator moves across the bar');
       await finishMotion();
       const selected=await evaluate(`(() => {const el=document.querySelector('nav [aria-current=page] .mm-nav-icon');

@@ -1,6 +1,6 @@
 /* Anni's device-local homework shares timetable subject tints and pastel surfaces. */
 .mm-school-view-switch { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; padding: 4px;
-  margin: 2px 3px 18px; border: 1px solid #e8dfe6; border-radius: 24px; background: rgba(255,255,255,.72); }
+  margin: 2px 3px 18px; border: 1px solid var(--mm-border); border-radius: 24px; background: var(--mm-secondary); box-shadow: var(--mm-surface-shadow-pressed); }
 .mm-school-view-switch button { min-width: 0; min-height: 44px; padding: 9px 10px; border: 0; border-radius: 20px;
   background: transparent; color: #746585; font-size: .8125rem; font-weight: 650; line-height: 1.35; cursor: pointer;
   transition: background-color 180ms ease,transform 150ms ease; }
@@ -9,7 +9,7 @@
 .mm-homework-view { animation: mm-homework-enter 300ms cubic-bezier(.2,.8,.2,1) both; }
 .mm-homework-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 0 4px 16px; }
 .mm-homework-heading > div { min-width: 0; }
-.mm-homework-heading h2 { color: #3a3150; font-size: 1.125rem; font-weight: 700; }
+.mm-homework-heading h2 { color: var(--mm-ink); font-size: 1.125rem; font-weight: 700; }
 .mm-homework-heading p { margin-top: 4px; color: #746585; font-size: .8125rem; }
 .mm-homework-heading button { min-height: 44px; padding: 10px 14px; font-size: .8125rem; border-radius: 999px; }
 .mm-homework-group { margin: 22px 0 0; }
@@ -21,8 +21,8 @@
 .mm-homework-list { display: grid; gap: 10px; list-style: none; margin: 0; padding: 0 3px; }
 .mm-homework-list > li { min-width: 0; }
 .mm-homework-card { display: grid; grid-template-columns: 44px minmax(0,1fr); align-items: start; gap: 4px; padding: 10px 12px 10px 8px;
-  border: 1px solid rgba(120,100,80,.09); border-left: 5px solid var(--tt-subject-tint); border-radius: 22px;
-  background: linear-gradient(165deg,#ffffff,#fbf8f4); box-shadow: 0 1px 2px rgba(80,60,40,.04),0 4px 12px rgba(80,60,40,.05); }
+  border: 1px solid var(--mm-border); border-left: 5px solid var(--tt-subject-tint); border-radius: 22px;
+  background: var(--mm-surface-gradient); box-shadow: var(--mm-shadow); }
 .mm-homework-check { position: relative; display: grid; place-items: center; width: 44px; height: 44px; cursor: pointer; }
 .mm-homework-check input { position: absolute; inset: 0; opacity: 0; width: 44px; height: 44px; margin: 0; cursor: pointer; }
 .mm-homework-check > span { pointer-events: none; display: grid; place-items: center; width: 25px; height: 25px;
@@ -32,7 +32,7 @@
 .mm-homework-check input:disabled { cursor: not-allowed; }
 .mm-homework-check input:disabled + span { opacity: .55; }
 [data-app-shell] .mm-homework-open { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 100%; min-height: 44px;
-  min-width: 0; padding: 6px 0; border: 0; border-radius: 12px; text-align: left; color: #3a3150; background: transparent; cursor: pointer;
+  min-width: 0; padding: 6px 0; border: 0; border-radius: 12px; text-align: left; color: var(--mm-ink); background: transparent; cursor: pointer;
   transition: transform 150ms ease; }
 .mm-homework-open:active { transform: scale(.985); }
 .mm-homework-subject { display: inline-block; max-width: 100%; border-radius: 9px; padding: 4px 8px;

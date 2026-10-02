@@ -31,15 +31,15 @@ export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send})
           card:css(document.querySelector('.mm-event-row')),primary:css(document.querySelector('.mm-quick-grid .mm-button-primary')),
           secondary:css(document.querySelector('.mm-quick-grid .mm-button-secondary')),nav:css(nav),inset:r.x,bottom:innerHeight-r.bottom,
           blur:getComputedStyle(nav).backdropFilter,pills:nav.querySelectorAll('.mm-nav-indicator').length};})()`);
-      assert.equal((polish.shell.image.match(/radial-gradient/g)||[]).length,3);
-      assert.equal(polish.hero.bg,'rgb(255, 255, 255)');assert.equal(polish.hero.radius,'30px');
+      assert.equal(polish.shell.image,'none');
+      assert.equal(polish.hero.bg,polish.shell.bg);assert.equal(polish.hero.radius,'24px');
       assert.match(polish.warm,/255, 210, 63/);assert.match(polish.cool,/140, 175, 225/);
       assert.match(polish.card.image,/linear-gradient/);assert.match(polish.card.shadow,/inset/);
-      assert.match(polish.hero.shadow,/24px 40px/);
-      assert.equal(polish.primary.image,'linear-gradient(rgb(255, 229, 138) 0%, rgb(255, 210, 63) 55%, rgb(245, 190, 26) 100%)');
+      assert.match(polish.hero.shadow,/-8px -8px 24px/);
+      assert.equal(polish.primary.image,'linear-gradient(rgb(255, 229, 138) 0%, rgb(255, 210, 63) 100%)');
       assert.equal(polish.primary.color,'rgb(42, 32, 0)');assert.equal(polish.primary.border,'0px');assert.equal(polish.primary.radius,'16px');
       assert.match(polish.primary.shadow,/inset/);assert.ok(parseFloat(polish.primary.minHeight)>=52);
-      assert.equal(polish.secondary.image,'linear-gradient(rgb(255, 255, 255) 0%, rgb(246, 248, 251) 100%)');
+      assert.equal(polish.secondary.image,'linear-gradient(145deg, rgb(247, 248, 245) 0%, rgb(241, 243, 239) 100%)');
       assert.equal(polish.secondary.radius,'16px');assert.notEqual(polish.secondary.shadow,'none');
       assert.equal(polish.inset,10);assert.equal(polish.bottom,16);assert.match(polish.blur,/blur\(18px\)/);assert.equal(polish.pills,1);
       const home=await evaluate(`(()=>{const rows=[...document.querySelectorAll('[aria-labelledby=upcoming-heading] [data-occurrence]')];

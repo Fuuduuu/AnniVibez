@@ -1,9 +1,9 @@
 export const AV = {
-  page:        '#EDF1F6',
-  bg:          '#F5F7FA',
-  bgWarm:      '#F3F6FA',
+  page:        '#F4F5F2',
+  bg:          '#F4F5F2',
+  bgWarm:      '#EFF1ED',
   bgSoft:      '#E3E9F0',
-  card:        '#FFFFFF',
+  card:        '#F4F5F2',
   primary:     '#FFD23F',
   primaryStrong: '#FFC300',
   primaryTint: '#FFF3C4',
@@ -18,7 +18,7 @@ export const AV = {
   purpleL:     '#FFF3C4',
   purpleM:     '#FFD23F',
   rose:        '#394656',
-  roseL:       '#F3F6FA',
+  roseL:       '#EFF1ED',
   peach:       '#C0600C',
   peachL:      '#FFE6CF',
   sage:        '#3B6FB0',
@@ -27,18 +27,18 @@ export const AV = {
   text:        '#15202E',
   textSoft:    '#394656',
   muted:       '#566273',
-  border:      'rgba(20,40,70,.14)',
+  border:      'rgba(32,48,58,.08)',
   danger:      '#CF3F35',
   dangerTint:  '#FFDCD8',
   warningTint: '#FFE6CF',
 
-  shadow:      'inset 0 1px 0 #FFFFFF, inset 0 -2px 0 rgba(20,40,70,.05), 0 1px 0 rgba(20,40,70,.10), 0 3px 6px -2px rgba(20,40,70,.10), 0 14px 30px -16px rgba(20,40,70,.36)',
-  shadowSm:    'inset 0 1px 0 #FFFFFF, inset 0 -1px 0 rgba(20,40,70,.04), 0 1px 2px rgba(20,40,70,.06), 0 6px 14px -10px rgba(20,40,70,.18)',
-  shadowMd:    'inset 0 1px 0 #FFFFFF, inset 0 -2px 0 rgba(20,40,70,.05), 0 2px 0 rgba(20,40,70,.10), 0 8px 14px -6px rgba(20,40,70,.14), 0 24px 40px -18px rgba(20,40,70,.42)',
-  shadowLg:    '0 12px 40px rgba(20,40,70,.18)',
+  shadow:      'inset 0 1px 0 rgba(255,255,255,.65), 6px 6px 18px rgba(32,48,58,.065), -6px -6px 18px rgba(255,255,255,.8)',
+  shadowSm:    'inset 0 1px 0 rgba(255,255,255,.6), 3px 3px 10px rgba(32,48,58,.055), -3px -3px 10px rgba(255,255,255,.75)',
+  shadowMd:    'inset 0 1px 0 rgba(255,255,255,.7), 8px 8px 24px rgba(32,48,58,.075), -8px -8px 24px rgba(255,255,255,.85)',
+  shadowLg:    '0 12px 36px rgba(32,48,58,.14)',
 
-  r:    12,
-  rSm:  10,
+  r:    22,
+  rSm:  14,
   navH: 68,
 };
 
@@ -74,7 +74,7 @@ export const FONT = {
 };
 
 export const card = {
-  background:   'linear-gradient(180deg, #FFFFFF 0%, #F6F8FB 100%)',
+  background:   'linear-gradient(145deg, #F7F8F5 0%, #F1F3EF 100%)',
   borderRadius: AV.r,
   border:       `1px solid ${AV.border}`,
   boxShadow:    AV.shadowSm,
