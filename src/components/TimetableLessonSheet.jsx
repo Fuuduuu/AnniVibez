@@ -1,9 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { WEEKDAYS } from '../timetable/model.js';
 import { subjectColors } from '../timetable/presentation.js';
+import { lessonHomework } from '../homework/model.js';
+import { HomeworkRow } from '../homework/HomeworkRow';
 
-export function TimetableLessonSheet({ lesson, writable, onEdit, onClose }) {
+export function TimetableLessonSheet({ lesson, date, now, homework, homeworkError, writable, onEdit, onClose,
+  onAddHomework, onOpenHomework, onCompleteHomework }) {
   const ref = useRef(null);
+  const tasks = lessonHomework(homework.items, lesson, date);
   useEffect(() => { const dialog = ref.current;dialog.showModal();return () => dialog.close(); }, []);
   return <dialog ref={ref} role="dialog" className="mm-event-dialog mm-timetable-dialog mm-lesson-sheet"
     aria-labelledby="lesson-detail-title" style={subjectColors(lesson.subject)}
@@ -22,7 +26,12 @@ export function TimetableLessonSheet({ lesson, writable, onEdit, onClose }) {
       <div><dt>Õpetaja</dt><dd>{lesson.teacher || '—'}</dd></div>
     </dl>
     <section className="mm-lesson-homework" aria-label="Kodused tööd"><h3>Kodused tööd</h3>
-      <p>Siin pole veel koduseid töid. Stuudiumi ühendus tuleb tulevikus.</p></section>
+      {(homework.error || homeworkError) && <p role="alert">{homework.error || homeworkError}</p>}
+      {tasks.length ? <ul className="mm-homework-list mm-lesson-homework-list">{tasks.map(item => <li key={item.id}>
+        <HomeworkRow item={item} now={now} writable={homework.writable} compact onOpen={onOpenHomework} onComplete={onCompleteHomework} />
+      </li>)}</ul> : <p>Siin pole veel koduseid töid.</p>}
+      <button type="button" className="mm-button mm-button-primary mm-lesson-homework-add" disabled={!homework.writable} onClick={onAddHomework}>Lisa kodune töö</button>
+    </section>
     <div className="mm-lesson-sheet-actions">
       <button type="button" className="mm-button mm-button-secondary" disabled={!writable} onClick={onEdit}>Muuda tund</button>
       <button type="button" className="mm-button mm-button-primary" onClick={onClose}>Sulge</button>

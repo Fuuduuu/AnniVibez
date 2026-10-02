@@ -15,7 +15,7 @@ export function PageHeader({ title, subtitle }) {
   </header>;
 }
 
-export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, timetable }) {
+export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, timetable, homework }) {
   const now = useCalendarNow();
   const today = localDate(now);
   const todayItems = expandOccurrences(calendar.events, today, today);
@@ -59,7 +59,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, time
         <p className="mm-footnote">Kalender töötab ka kohalikult. Pilvesüngi saad soovi korral Seadetes sisse lülitada.</p>
       </div>}
     </section>
-    <TimetableHomeCard timetable={timetable} now={now} onOpen={() => onNavigate('tunniplaan')} />
+    <TimetableHomeCard timetable={timetable} homework={homework} now={now} onOpen={() => onNavigate('tunniplaan')} />
     <section className="mm-section" aria-labelledby="home-bus-heading">
       <h2 className="mm-section-label" id="home-bus-heading">Buss praegu</h2>
       <BussCard savedPlaces={savedPlaces} onOpenBuss={() => onNavigate('buss')} />

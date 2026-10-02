@@ -14,6 +14,7 @@ import { runWasteChecks } from '../waste/browser-cases.mjs';
 import { runReminderChecks } from '../reminders/browser-cases.mjs';
 import { runVisualChecks } from './visual-cases.mjs';
 import { runTimetableChecks } from '../timetable/browser-cases.mjs';
+import { runHomeworkChecks } from '../homework/browser-cases.mjs';
 import { createEvent } from '../../src/calendar/eventModel.js';
 import { createEventRepository } from '../../src/calendar/eventRepository.js';
 import { normalizeWasteResult } from '../../src/waste/providers.js';
@@ -33,7 +34,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 // SHELL_RUNTIME_MODE=LEGACY|READY selects one mode; unset runs both.
 const MODES = process.env.SHELL_RUNTIME_MODE ? [process.env.SHELL_RUNTIME_MODE] : ['LEGACY', 'READY'];
 // The cutover acceptance checks run with the plain shell suite; the feature wrappers (calendar, waste, reminder, ...) skip them.
-const OTHER_SUITE_FLAGS = ['CALENDAR_TESTS', 'WASTE_TESTS', 'REMINDER_TESTS', 'NATIVE_NOTIFICATION_TEST', 'VISUAL_TESTS', 'TIMETABLE_TESTS'];
+const OTHER_SUITE_FLAGS = ['CALENDAR_TESTS', 'WASTE_TESTS', 'REMINDER_TESTS', 'NATIVE_NOTIFICATION_TEST', 'VISUAL_TESTS', 'TIMETABLE_TESTS', 'HOMEWORK_TESTS'];
 const SHARED_KEYS = ['majamajandus_household_events_v1', 'majamajandus_household_profile_v1', 'sade_saved_places'];
 const HINT_KEY = 'majandus_storage_authority_v1';
 const STAMP = '2026-09-14T06:00:00.000Z';
@@ -753,6 +754,9 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
     }
     if (process.env.TIMETABLE_TESTS === '1') {
       await runTimetableChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
+    }
+    if (process.env.HOMEWORK_TESTS === '1') {
+      await runHomeworkChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
     }
     if (process.env.CALENDAR_TESTS === '1') {
       await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
