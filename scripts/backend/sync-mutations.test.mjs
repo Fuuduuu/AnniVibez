@@ -842,3 +842,88 @@ test("42 both future production modules have no src/ imports", () => {
     assert.doesNotMatch(source, /\b(?:from\s*|import\s*\(\s*|import\s*)["'][^"']*src[/\\]/);
   }
 });
+
+const CATEGORY_A = "custom:32d04c45-5f31-4d12-8337-2f829c473a01";
+const CATEGORY_B = "custom:91d2731e-c1c7-4a13-90ec-5f16cc916ba2";
+const SNAPSHOT_A = { category: CATEGORY_A, categoryLabel: "Koertekool", categoryColor: "#7A5CC8" };
+
+test("categories V2 server accepts new built-ins and canonical custom snapshots without changing old payload bytes", () => {
+  for (const category of ["culture", "birthday", "training", "waste", "maintenance", "car", "general", "payment"]) {
+    const event = manualEvent({ category, subtype: category === "waste" ? "bio" : null });
+    assert.equal(JSON.stringify(validateCalendarEventPayload(event, event.id)), JSON.stringify(event));
+    assert.equal(Object.hasOwn(validateCalendarEventPayload(event, event.id), "categoryColor"), false);
+  }
+  const custom = manualEvent({ ...SNAPSHOT_A, categoryLabel: " Koertekool ", categoryColor: "#7a5cc8" });
+  const canonical = validateCalendarEventPayload(custom, custom.id);
+  assert.equal(canonical.categoryLabel, "Koertekool");
+  assert.equal(canonical.categoryColor, "#7A5CC8");
+  assert.deepEqual(validateEvent(custom), canonical);
+  for (const patch of [
+    { category: "custom:dog" }, { category: CATEGORY_A + "x" },
+    { categoryLabel: null }, { categoryColor: null }, { categoryLabel: " " },
+    { categoryLabel: "x".repeat(61) }, { categoryColor: "#fff" }, { categoryColor: "red" },
+    { category: "culture" }, { subtype: "bio" },
+  ]) assert.throws(() => validateCalendarEventPayload({ ...custom, ...patch }, custom.id));
+  for (const field of ["categoryLabel", "categoryColor"]) {
+    const missing = { ...custom }; delete missing[field];
+    assert.throws(() => validateCalendarEventPayload(missing, custom.id));
+  }
+});
+
+test("categories V2 transitions cannot reuse a custom identity and preserve revision and replay behavior", async () => {
+  await withFreshDb(async db => {
+    assert.deepEqual(await create(db), { status: "APPLIED", revision: 1 });
+    assert.deepEqual(await update(db, SNAPSHOT_A, "v2-general-custom", 1), { status: "APPLIED", revision: 2 });
+    assertRejected(await update(db, { category: CATEGORY_B }, "v2-incomplete-identity", 2), "INVALID_PAYLOAD");
+    const transitions = [
+      { category: CATEGORY_B, categoryLabel: "Rattasõit", categoryColor: "#278B8B" },
+      { category: "culture", subtype: null, categoryLabel: null, categoryColor: null },
+      { ...SNAPSHOT_A, subtype: null },
+      { category: "waste", subtype: "bio", categoryLabel: null, categoryColor: null },
+      { ...SNAPSHOT_A, subtype: null },
+    ];
+    let revision = 2;
+    for (const patch of transitions) {
+      assert.deepEqual(await update(db, patch, `v2-transition-${revision}`, revision), { status: "APPLIED", revision: ++revision });
+      const row = await one(db, "SELECT payload_json FROM calendar_events WHERE id = 'evt_1'");
+      const event = JSON.parse(row.payload_json);
+      assert.equal(event.category, patch.category);
+      if (patch.categoryLabel === null) {
+        assert.equal(event.categoryLabel, null); assert.equal(event.categoryColor, null);
+      }
+      assert.deepEqual(validateEvent(event), event);
+    }
+    assert.deepEqual(await create(db), { status: "REPLAYED", result: { status: "APPLIED", revision: 1 } });
+    const legacy = manualEvent({ id: "legacy-payment", category: "payment" });
+    await create(db, legacy, "v2-payment-create");
+    assert.deepEqual(await apply(db, mutation("UPDATE", { entityId: legacy.id, mutationId: "v2-payment-edit", patch: { category: "general" } })),
+      { status: "APPLIED", revision: 2 });
+  });
+});
+
+test("categories V2 stale label, color and ID patches overlap as one identity but notes remain disjoint", async () => {
+  await withFreshDb(async db => {
+    await create(db, manualEvent(SNAPSHOT_A));
+    assert.deepEqual(await update(db, { categoryLabel: "Koerte trenn" }, "v2-label", 1), { status: "APPLIED", revision: 2 });
+    assertConflict(await update(db, { categoryColor: "#278B8B" }, "v2-stale-color", 1), "FIELD_OVERLAP");
+    assertConflict(await update(db, { category: "culture", categoryLabel: null, categoryColor: null }, "v2-stale-id", 1), "FIELD_OVERLAP");
+    assert.deepEqual(await update(db, { notes: "Muud märkmed" }, "v2-disjoint", 1), { status: "MERGED", revision: 3 });
+    const event = JSON.parse((await one(db, "SELECT payload_json FROM calendar_events WHERE id = 'evt_1'")).payload_json);
+    assert.equal(event.category, CATEGORY_A); assert.equal(event.categoryLabel, "Koerte trenn");
+    assert.equal(event.categoryColor, "#7A5CC8");
+  });
+});
+
+test("categories V2 recurrence overrides retain a whole snapshot while legacy overrides stay byte-identical", () => {
+  const old = weeklyEvent({ overrides: { "2026-10-12": { category: "maintenance", subtype: null } } });
+  assert.equal(JSON.stringify(validateCalendarEventPayload(old, old.id)), JSON.stringify(old));
+  for (const override of [{ categoryLabel: "Vana nime erand" }, { category: CATEGORY_A }]) {
+    const event = weeklyEvent({ ...SNAPSHOT_A, overrides: { "2026-10-12": override } });
+    assert.throws(() => validateCalendarEventPayload(event, event.id));
+    assert.throws(() => validateEvent(event));
+  }
+  const custom = weeklyEvent({ ...SNAPSHOT_A, overrides: { "2026-10-12": { category: "culture", subtype: null } } });
+  const canonical = validateCalendarEventPayload(custom, custom.id);
+  assert.deepEqual(canonical.overrides["2026-10-12"], { category: "culture", subtype: null, categoryLabel: null, categoryColor: null });
+  assert.deepEqual(validateEvent(custom), canonical);
+});

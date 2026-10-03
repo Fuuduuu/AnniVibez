@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,readCalendarEvents,calendarRaw,corruptCalendar,repairCalendar,failWrites,restoreWrites}) {
+export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,mode,seedCalendar,readCalendarEvents,calendarRaw,corruptCalendar,repairCalendar,failWrites,restoreWrites}) {
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   const select = async (id,value) => {
     await evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
@@ -109,5 +109,78 @@ export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body
     assert.equal(await calendarRaw(),corrupt,'an unreadable calendar is never overwritten');
     await repairCalendar();
     await send('Page.reload');await waitFor("!!document.querySelector('nav')");
+  });
+  await t.test('categories V2 picker creates a reusable color snapshot and deleting the choice preserves the event',async()=>{
+    await nav('Kalender');await click('Lisa sündmus');await input('#event-title','Koerte trenn');
+    assert.deepEqual(await evaluate("[...document.querySelector('#event-category').options].map(option=>option.textContent)"),
+      ['Kultuur','Sünnipäevad','Trenn','Prügivedu','Majahaldus','Auto','Üldine']);
+    await click('Lisa kategooria');
+    await waitFor("!!document.querySelector('#category-name')");
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-category-dialog')).backgroundColor"),'rgb(244, 245, 242)');
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-category-dialog')).fontFamily === getComputedStyle(document.querySelector('[data-app-shell]')).fontFamily"),true);
+    await input('#category-name','Koertekool');await input('#category-color','#7a5cc8');
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-category-dialog .mm-category-preview')).backgroundColor"),'rgb(236, 232, 247)');
+    if(process.env.MJM_SCREENSHOTS) {
+      const shot=await send('Page.captureScreenshot',{format:'png'});
+      writeFileSync(join(process.env.MJM_SCREENSHOTS,`Category-new-${mode}.png`),Buffer.from(shot.data,'base64'));
+    }
+    await click('Salvesta kategooria');
+    await waitFor("!document.querySelector('#category-name')");
+    const category = await evaluate("document.querySelector('#event-category').value");
+    assert.match(category,/^custom:/);
+    assert.match(await evaluate("document.querySelector('.mm-category-preview').innerText"),/Koertekool/);
+    await input('#event-date','2026-09-14');await click('Salvesta sündmus');
+    await waitFor("!document.querySelector('dialog[open]')");
+    const saved = (await storage()).events.find(event=>event.title==='Koerte trenn');
+    assert.equal(saved.categoryLabel,'Koertekool');assert.equal(saved.categoryColor,'#7A5CC8');
+    assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/Koertekool/);
+    assert.equal(await evaluate("document.querySelector('#selected-events [data-occurrence]').style.getPropertyValue('--event-color')"),'#7A5CC8');
+    await evaluate("document.querySelector('[data-date=\"2026-09-13\"]').click()");
+    await waitFor("document.querySelector('[data-date=\"2026-09-13\"]').getAttribute('aria-pressed') === 'true'");
+    await evaluate("Promise.all(document.querySelector('[data-date=\"2026-09-14\"]').getAnimations().map(animation=>animation.finished.catch(()=>{}))).then(()=>true)");
+    assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-date=\"2026-09-14\"]')).backgroundColor"),'rgb(236, 232, 247)');
+    assert.match(await evaluate("document.querySelector('.mm-agenda-row').textContent"),/Koertekool/);
+    assert.equal(await evaluate("document.querySelector('.mm-agenda-row').style.getPropertyValue('--event-color')"),'#7A5CC8');
+    await nav('Kodu');
+    assert.match(await evaluate("document.querySelector('.mm-events-home').innerText"),/Koertekool/);
+    assert.equal(await evaluate("document.querySelector('.mm-events-home [data-occurrence]').style.getPropertyValue('--event-color')"),'#7A5CC8');
+    await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Kalender');
+    await click('Lisa sündmus');
+    assert.equal(await evaluate(`[...document.querySelector('#event-category').options].some(option=>option.value===${JSON.stringify(category)})`),true);
+    await click('Halda kategooriaid');await click('Kustuta kategooria Koertekool');await click('Valmis');
+    assert.equal(await evaluate(`[...document.querySelector('#event-category').options].some(option=>option.value===${JSON.stringify(category)})`),false);
+    await click('Tühista');
+    assert.equal((await storage()).events.find(event=>event.id===saved.id).categoryColor,'#7A5CC8');
+    await openEvent('Koerte trenn');await click('Muuda');
+    assert.equal(await evaluate("document.querySelector('#event-category').value"),category);
+    await select('event-category','culture');await click('Salvesta sündmus');
+    await waitFor("!document.querySelector('dialog[open]')");
+    const changed = (await storage()).events.find(event=>event.id===saved.id);
+    assert.equal(changed.category,'culture');assert.equal(changed.categoryLabel,null);assert.equal(changed.categoryColor,null);
+    await openEvent('Koerte trenn');await click('Kustuta');await click('Kinnita kustutamine');
+    await waitFor("!document.querySelector('dialog[open]')");
+  });
+  await t.test('categories V2 old payloads render and payment edits migrate only the selected event',async()=>{
+    const events=['payment','maintenance','waste','general'].map(category=>({id:`legacy-${category}`,title:`Vana ${category}`,
+      category,subtype:category==='waste'?'paper':null,date:'2026-09-14',time:null,recurrence:{frequency:'none',interval:1},
+      reminder:{daysBefore:0},source:'manual',householdId:null,notes:'',seriesId:null,excludedDates:[],overrides:{}}));
+    await seedCalendar(events);
+    const before=await calendarRaw();
+    await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Kalender');
+    assert.equal(await evaluate("document.querySelectorAll('#selected-events [data-occurrence]').length"),4);
+    assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/Majahaldus/);
+    assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/Paber ja papp/);
+    assert.equal(await calendarRaw(),before,'ordinary legacy reads and rendering do not rewrite any calendar bytes');
+    await openEvent('Vana payment');
+    assert.match(await evaluate("document.querySelector('.mm-category-detail').innerText"),/Üldine/);
+    await click('Muuda');
+    assert.equal(await evaluate("document.querySelector('#event-category').value"),'general');
+    assert.equal(await evaluate("[...document.querySelector('#event-category').options].some(option=>option.value==='payment')"),false);
+    await input('#event-title','Muudetud vana sündmus');await click('Salvesta sündmus');
+    await waitFor("!document.querySelector('dialog[open]')");
+    const after=await readCalendarEvents();
+    assert.equal(after.find(event=>event.id==='legacy-payment').category,'general');
+    for(const original of events.filter(event=>event.category!=='payment')) assert.deepEqual(after.find(event=>event.id===original.id),original);
+    await seedCalendar([]);await send('Page.reload');await waitFor("!!document.querySelector('nav')");
   });
 }

@@ -90,7 +90,7 @@ html[data-mm-navigation=back] .mm-main { animation-name: mm-back-in; }
   text-align: left; cursor: pointer; }
 .mm-today-chip:nth-child(2) { animation-delay: 150ms; }
 .mm-today-chip:nth-child(n+3) { animation-delay: 180ms; }
-.mm-today-chip svg { color: var(--event-color); width: 16px; height: 16px; flex-shrink: 0; }
+.mm-today-chip svg { color: var(--event-ink,var(--event-color)); width: 16px; height: 16px; flex-shrink: 0; }
 .mm-today-chip span { min-width: 0; overflow-wrap: anywhere; }
 .mm-today-chip time { font-variant-numeric: tabular-nums; }
 

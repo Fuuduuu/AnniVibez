@@ -9,14 +9,15 @@ import {
 } from "./syncRepository.js";
 
 const EVENT_FIELDS = [
-  "id", "title", "category", "subtype", "date", "time", "recurrence",
+  "id", "title", "category", "subtype", "categoryLabel", "categoryColor", "date", "time", "recurrence",
   "reminder", "source", "householdId", "notes", "seriesId",
   "excludedDates", "overrides", "importMeta",
 ];
-const EDIT_FIELDS = ["title", "category", "subtype", "date", "time", "reminder", "notes"];
+const EDIT_FIELDS = ["title", "category", "subtype", "categoryLabel", "categoryColor", "date", "time", "reminder", "notes"];
 const RULE_FIELDS = new Set(["date", "recurrence", "seriesId", "excludedDates", "overrides"]);
-const IDENTITY_FIELDS = new Set(["category", "subtype"]);
-const CATEGORIES = new Set(["waste", "maintenance", "payment", "general"]);
+const IDENTITY_FIELDS = new Set(["category", "subtype", "categoryLabel", "categoryColor"]);
+const CATEGORIES = new Set(["culture", "birthday", "training", "waste", "maintenance", "car", "general", "payment"]);
+const CUSTOM_CATEGORY = /^custom:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const WASTE_SUBTYPES = new Set(["mixed", "bio", "paper", "packaging", "other"]);
 const FREQUENCY_MAXIMUM = { none: 1, weekly: 52, monthly: 12, yearly: 1 };
 const MUTATION_FIELDS = ["mutationId", "entityType", "entityId", "operation", "baseRevision", "patch"];
@@ -68,8 +69,20 @@ function notesValue(value) {
 }
 
 function categoryValue(value) {
-  requireCondition(CATEGORIES.has(value));
-  return value;
+  requireCondition(typeof value === "string" && (CATEGORIES.has(value) || CUSTOM_CATEGORY.test(value)));
+  return CUSTOM_CATEGORY.test(value) ? value.toLowerCase() : value;
+}
+
+function categoryLabelValue(value) {
+  if (value === null) return null;
+  requireCondition(typeof value === "string" && value.trim().length > 0 && value.trim().length <= 60);
+  return value.trim();
+}
+
+function categoryColorValue(value) {
+  if (value === null) return null;
+  requireCondition(typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value));
+  return value.toUpperCase();
 }
 
 function subtypeValue(value) {
@@ -125,6 +138,8 @@ function editValue(key, value) {
     case "title": return titleValue(value);
     case "category": return categoryValue(value);
     case "subtype": return subtypeValue(value);
+    case "categoryLabel": return categoryLabelValue(value);
+    case "categoryColor": return categoryColorValue(value);
     case "date": return calendarDate(value);
     case "time": return timeValue(value);
     case "reminder": return reminderValue(value);
@@ -170,6 +185,13 @@ function validateBase(value, entityId) {
     id, title, category, subtype, date, time, recurrence, reminder,
     source: value.source, householdId: null, notes, seriesId,
   };
+  // Old payloads retain absence, including their canonical mutation digests.
+  for (const field of ["categoryLabel", "categoryColor"]) {
+    if (Object.hasOwn(value, field)) result[field] = editValue(field, value[field]);
+  }
+  if (CUSTOM_CATEGORY.test(category)) requireCondition(typeof result.categoryLabel === "string" && typeof result.categoryColor === "string");
+  else requireCondition((!Object.hasOwn(result, "categoryLabel") || result.categoryLabel === null)
+    && (!Object.hasOwn(result, "categoryColor") || result.categoryColor === null));
   if (value.source === "manual") requireCondition(!Object.hasOwn(value, "importMeta"));
   else {
     requireCondition(category === "waste" && Object.hasOwn(value, "importMeta"));
@@ -186,8 +208,16 @@ export function validateCalendarEventPayload(value, entityId) {
     (excludedDates.length === 0 && Object.keys(rawOverrides).length === 0));
   const overrides = {};
   for (const [date, patch] of Object.entries(rawOverrides)) {
-    const merged = validateBase({ ...base, ...patch }, entityId);
-    overrides[date] = Object.fromEntries(EDIT_FIELDS.filter(key => Object.hasOwn(patch, key)).map(key => [key, merged[key]]));
+    if (CUSTOM_CATEGORY.test(patch.category) || Object.hasOwn(patch, "categoryLabel") || Object.hasOwn(patch, "categoryColor")) {
+      requireCondition([...IDENTITY_FIELDS].every(key => Object.hasOwn(patch, key)));
+    }
+    const merged = validateBase(mergeCategoryIdentity(base, patch), entityId);
+    const normalized = Object.fromEntries(EDIT_FIELDS.filter(key => Object.hasOwn(patch, key)).map(key => [key, merged[key]]));
+    if ([...IDENTITY_FIELDS].some(key => Object.hasOwn(patch, key)) &&
+      (CUSTOM_CATEGORY.test(base.category) || CUSTOM_CATEGORY.test(merged.category) || Object.hasOwn(patch, "categoryLabel") || Object.hasOwn(patch, "categoryColor"))) {
+      for (const key of IDENTITY_FIELDS) normalized[key] = merged[key] ?? null;
+    }
+    overrides[date] = normalized;
   }
   const { importMeta, ...withoutMeta } = base;
   const canonical = { ...withoutMeta, excludedDates, overrides };
@@ -272,6 +302,16 @@ function isOverlap(patch, history) {
   return history.some(row => JSON.parse(row.changed_fields_json).some(field => incoming.has(groupOf(field))));
 }
 
+function mergeCategoryIdentity(previous, patch) {
+  const next = { ...previous, ...patch };
+  if (Object.hasOwn(patch, "category") && patch.category !== previous.category) {
+    for (const field of ["categoryLabel", "categoryColor"]) {
+      if (!Object.hasOwn(patch, field) && (Object.hasOwn(previous, field) || CUSTOM_CATEGORY.test(patch.category))) next[field] = null;
+    }
+  }
+  return next;
+}
+
 function deriveUpdate(previous, patch, entityId) {
   const recurrence = patch.recurrence ?? previous.recurrence;
   const reset = (Object.hasOwn(patch, "date") && patch.date !== previous.date)
@@ -285,7 +325,7 @@ function deriveUpdate(previous, patch, entityId) {
   const category = patch.category ?? previous.category;
   requireCondition(!(category !== "waste" && Object.hasOwn(patch, "subtype") && patch.subtype !== null));
   return validateCalendarEventPayload({
-    ...previous, ...patch,
+    ...mergeCategoryIdentity(previous, patch),
     id: entityId, source: previous.source, householdId: null,
     subtype: category === "waste" ? (Object.hasOwn(patch, "subtype") ? patch.subtype : previous.subtype) : null,
     seriesId,

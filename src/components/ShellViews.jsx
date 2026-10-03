@@ -1,6 +1,7 @@
 import { BussCard } from './BussCard';
 import { ShellIcon } from './ShellIcon';
-import { calendarEventColors } from '../design/tokens';
+import { calendarEventColors, calendarEventInk } from '../design/tokens';
+import { categoryPresentation } from '../calendar/categoryModel.js';
 import { EventRows, CalendarError } from './CalendarEvents';
 import { homeOccurrences } from '../reminders/due';
 import { expandOccurrences } from '../calendar/recurrence';
@@ -34,8 +35,8 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, time
           ? todayItems.slice(0, 2).map(item => `${item.title}${item.time ? ` kell ${item.time}` : ''}`).join(' · ')
           : 'Täna pole midagi plaanis. Hea hetk järgmised koduasjad paika panna.'}</p>
         {todayItems.length > 0 && <div className="mm-today-events">
-          {todayItems.slice(0, 3).map(item => <button key={item.occurrenceId} className="mm-today-chip" style={{'--event-color':calendarEventColors(item).color}} onClick={() => onOpen(item)}>
-            <ShellIcon name={item.category} /><span>{item.time && <time dateTime={item.time}>{item.time} </time>}{item.title}</span>
+          {todayItems.slice(0, 3).map(item => <button key={item.occurrenceId} className="mm-today-chip" style={{'--event-color':calendarEventColors(item).color,'--event-ink':calendarEventInk(item)}} onClick={() => onOpen(item)}>
+            <ShellIcon name={categoryPresentation(item).icon} /><span>{item.time && <time dateTime={item.time}>{item.time} </time>}{item.title}</span>
           </button>)}
           {todayItems.length > 3 && <button className="mm-text-button" onClick={() => onNavigate('kalender')}>Veel {todayItems.length - 3} kalendris</button>}
         </div>}
@@ -51,7 +52,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, time
       {!upcoming.length && <div className="mm-card mm-card-tinted mm-welcome">
         <span className="mm-icon-tile"><ShellIcon name="kodu" /></span>
         <h3>Paneme sinu kodu asjad ritta</h3>
-        <p>Lähenevaid sündmusi pole. Lisa kalendrisse hooldus, makse või prügipäev.</p>
+        <p>Lähenevaid sündmusi pole. Lisa kalendrisse pereplaanid või prügipäevad.</p>
         <div className="mm-welcome-actions">
           <button className="mm-button mm-button-primary" onClick={() => onNavigate('seaded', 'prugivedu')}>Leia prügipäevad</button>
           <button className="mm-button mm-button-secondary" disabled={!calendar.writable} onClick={() => onAdd(today)}>Lisa esimene sündmus</button>

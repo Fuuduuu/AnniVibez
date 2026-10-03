@@ -8,6 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
+import { mergeCalendarCategories } from '../../src/calendar/categoryModel.js';
 import { waitForBrowserEndpoint } from '../bus/browser-lifecycle.mjs';
 import * as createHousehold from '../../functions/api/auth/create-household.js';
 import * as deviceLink from '../../functions/api/auth/device-link.js';
@@ -719,5 +720,73 @@ test('an invalid incoming link never starts OWNER setup; interrupted claiming af
     assert.deepEqual((await b.evaluate('window.client.snapshot()')).view.events.map(event => event.title), ['Existing owner event']);
     assert.equal((await a.db.prepare('SELECT count(*) AS n FROM households').first()).n, 1);
     assert.equal((await a.db.prepare('SELECT count(*) AS n FROM users').first()).n, 1);
+  } finally { if (b) await b.close(); await a.close(); }
+});
+
+test('categories V2 old bootstrap and all category transitions round-trip between two devices through the real outbox', {timeout:90000}, async () => {
+  const a = await harness();
+  let b;
+  try {
+    await a.evaluate(`(async () => {
+      await window.client.enable();
+      const template = (await window.client.snapshot()).calendar[0].payload;
+      for (const category of ['payment','maintenance','waste','general']) {
+        const patch = {...template,id:'old-' + category,title:'Old ' + category,category,subtype:category==='waste'?'paper':null};
+        await window.client.remote({mutationId:'old-create-' + category,entityType:'calendar_event',entityId:patch.id,operation:'CREATE',baseRevision:0,patch});
+      }
+      await window.client.sync.run();
+    })()`);
+    const link = await a.evaluate('window.client.sync.createDeviceLink()');
+    b = await harness({sharedBackend:a,query:'?unrelatedLocal=1'});
+    assert.equal(await b.evaluate(`window.client.sync.claimDevice({link:${JSON.stringify(link)},deviceName:'Category Device B'})`),true);
+    for (const category of ['payment','maintenance','waste','general']) {
+      const old = (await b.evaluate('window.client.snapshot()')).view.events.find(event=>event.id==='old-' + category);
+      assert.equal(old.category,category);
+      assert.equal(Object.hasOwn(old,'categoryLabel'),false);
+      assert.equal(Object.hasOwn(old,'categoryColor'),false);
+    }
+    const catA = {category:'custom:32d04c45-5f31-4d12-8337-2f829c473a01',categoryLabel:'Koertekool',categoryColor:'#7A5CC8'};
+    const catB = {category:'custom:91d2731e-c1c7-4a13-90ec-5f16cc916ba2',categoryLabel:'Rattasõit',categoryColor:'#278B8B'};
+    for (const [writer, reader, patch] of [
+      [a,b,catA], [b,a,catB], [a,b,{category:'culture'}],
+      [b,a,catA], [a,b,{category:'waste',subtype:'bio'}], [b,a,catB],
+    ]) {
+      const pending = await writer.evaluate(`(async () => {
+        await window.client.repositories.calendar.update('existing-owner-event',${JSON.stringify(patch)});
+        return window.client.snapshot();
+      })()`);
+      const mutation = pending.outbox.find(item=>item.entityId==='existing-owner-event');
+      assert.equal(mutation.patch.category,patch.category);
+      assert.equal(Object.hasOwn(mutation.patch,'subtype'),true);
+      assert.equal(Object.hasOwn(mutation.patch,'categoryLabel'),true);
+      assert.equal(Object.hasOwn(mutation.patch,'categoryColor'),true);
+      if (!patch.category.startsWith('custom:')) {
+        assert.equal(mutation.patch.categoryLabel,null); assert.equal(mutation.patch.categoryColor,null);
+      }
+      await writer.evaluate('window.client.sync.run()');
+      assert.deepEqual((await writer.evaluate('window.client.snapshot()')).outbox,[]);
+      await reader.evaluate('window.client.sync.run()');
+      const snapshot = await reader.evaluate('window.client.snapshot()');
+      const event = snapshot.view.events.find(event=>event.id==='existing-owner-event');
+      assert.equal(event.category,patch.category);
+      assert.equal(event.categoryLabel,patch.categoryLabel ?? null);
+      assert.equal(event.categoryColor,patch.categoryColor ?? null);
+      if (patch.category.startsWith('custom:')) {
+        const choices = mergeCalendarCategories({categories:[],hiddenIds:[]},snapshot.view.events);
+        assert.ok(choices.some(choice=>choice.id===patch.category && choice.label===patch.categoryLabel && choice.color===patch.categoryColor));
+      }
+      assert.equal(snapshot.tokenLeaked,false);
+    }
+    const migrated = await b.evaluate(`(async () => {
+      await window.client.repositories.calendar.update('old-payment',{title:'Edited old payment'});
+      await window.client.sync.run();return window.client.snapshot();
+    })()`);
+    assert.equal(migrated.view.events.find(event=>event.id==='old-payment').category,'general');
+    await a.evaluate('window.client.sync.run()');
+    assert.equal((await a.evaluate('window.client.snapshot()')).view.events.find(event=>event.id==='old-payment').category,'general');
+    await b.reload();await b.evaluate('window.client.sync.run()');
+    const reloaded = await b.evaluate('window.client.snapshot()');
+    assert.equal(reloaded.view.events.find(event=>event.id==='existing-owner-event').categoryLabel,'Rattasõit');
+    assert.deepEqual(reloaded.outbox,[]);assert.deepEqual(reloaded.conflicts,[]);
   } finally { if (b) await b.close(); await a.close(); }
 });

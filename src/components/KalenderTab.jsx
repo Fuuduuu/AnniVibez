@@ -3,7 +3,8 @@ import { PageHeader } from './ShellViews';
 import { ShellIcon } from './ShellIcon';
 import { EventRows, CalendarError } from './CalendarEvents';
 import { CATEGORIES } from '../calendar/eventModel';
-import { AV, CALENDAR_COLORS, calendarEventColors } from '../design/tokens';
+import { categoryPresentation } from '../calendar/categoryModel.js';
+import { AV, CALENDAR_COLORS, calendarEventColors, calendarEventInk } from '../design/tokens';
 import { expandOccurrences } from '../calendar/recurrence';
 import { addDays, addMonths, agendaGroup, formatDate, localDate, monthDays } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
@@ -38,15 +39,15 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
         {days.map((day,index)=>{
           if(!day) return <span key={`outside-${index}`} />;
           const events=visible.filter(e=>e.date === day);
-          const categories=[...new Set(events.map(e=>e.category))];
-          const description=events.length ? `, ${events.length} sündmust: ${categories.map(c=>CATEGORIES[c].label).join(', ')}` : ', sündmusi pole';
+          const categories=[...new Map(events.map(event=>[event.category,categoryPresentation(event)])).values()];
+          const description=events.length ? `, ${events.length} sündmust: ${categories.map(category=>category.label).join(', ')}` : ', sündmusi pole';
           return <button key={day} type="button" data-date={day} aria-pressed={selected === day}
             aria-current={day === today ? 'date' : undefined} aria-label={formatDate(day,{weekday:'long',day:'numeric',month:'long',year:'numeric'})+description}
             className={`mm-day ${day.slice(0,7) !== selected.slice(0,7) ? 'mm-other-month' : ''}`}
-            style={categories.length ? {'--day-tint':calendarEventColors(events[0]).tint,'--day-color':calendarEventColors(events[0]).color} : undefined}
+            style={categories.length ? {'--day-tint':calendarEventColors(events[0]).tint,'--day-color':calendarEventColors(events[0]).color,'--day-ink':calendarEventInk(events[0])} : undefined}
             onClick={()=>setSelected(day)}>
             <span>{Number(day.slice(8))}</span>
-            <span className="mm-day-markers" aria-hidden="true">{categories.length > 0 && <ShellIcon name={categories[0]} />}{events.length > 1 && <small>{events.length}</small>}</span>
+            <span className="mm-day-markers" aria-hidden="true">{categories.length > 0 && <ShellIcon name={categories[0].icon} />}{events.length > 1 && <small>{events.length}</small>}</span>
           </button>;
         })}
       </div>
@@ -56,7 +57,7 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
       <EventRows items={selectedItems} today={today} now={now} onOpen={item=>onOpen(item,setSelected)} variant="selected" />
       {!selectedItems.length && <div className="mm-card mm-calendar-empty">
         <h3>{calendar.events.length ? 'Sel päeval pole midagi plaanis' : 'Ühtegi sündmust pole veel'}</h3>
-        <p>{calendar.events.length ? 'Lisa siia kodu jaoks oluline tegevus.' : 'Lisa esimene hooldus, makse või prügipäev.'}</p>
+        <p>{calendar.events.length ? 'Lisa siia kodu jaoks oluline tegevus.' : 'Lisa esimene pereplaan, trenn või prügipäev.'}</p>
         <button className="mm-button mm-button-secondary" disabled={!calendar.writable} onClick={()=>onAdd(selected,setSelected)}>{calendar.events.length ? 'Lisa sündmus siia' : 'Lisa esimene sündmus'}</button>
       </div>}
     </section>

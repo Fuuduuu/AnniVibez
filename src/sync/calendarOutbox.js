@@ -1,4 +1,5 @@
 import { validateDeviceAuthRecord, validateOutboxRecord } from '../storage/localReplica.js';
+import { CATEGORY_IDENTITY_FIELDS } from '../calendar/categoryModel.js';
 
 // This planner runs synchronously inside the existing calendar readwrite transaction.
 // A mutation's contents never change after an attempt; retries retain the same mutationId.
@@ -33,6 +34,12 @@ export function planCalendarOutbox(snapshot, plan, { newId, clock }) {
     else {
       const patch = Object.fromEntries(Object.entries(record.payload).filter(([key, value]) =>
         !['id', 'householdId', 'source'].includes(key) && JSON.stringify(value) !== JSON.stringify(existing.payload[key])));
+      for (const key of ['categoryLabel', 'categoryColor']) {
+        if (Object.hasOwn(existing.payload, key) && !Object.hasOwn(record.payload, key)) patch[key] = null;
+      }
+      if (CATEGORY_IDENTITY_FIELDS.some(key => Object.hasOwn(patch, key))) {
+        for (const key of CATEGORY_IDENTITY_FIELDS) patch[key] = record.payload[key] ?? null;
+      }
       enqueue('UPDATE', record, patch);
     }
   }

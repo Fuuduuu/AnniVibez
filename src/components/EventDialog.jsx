@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { CATEGORIES, WASTE_SUBTYPES, FREQUENCIES } from '../calendar/eventModel';
+import { WASTE_SUBTYPES, FREQUENCIES } from '../calendar/eventModel';
+import { categoryPresentation } from '../calendar/categoryModel.js';
 import { formatDate } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
 import { ReminderStatus } from './ReminderStatus';
+import { CalendarCategoryPicker } from './CalendarCategoryPicker.jsx';
 
-const fields = event => ({title:event.title || '',category:event.category || 'general',subtype:event.subtype || 'mixed',
+const fields = event => ({title:event.title || '',category:event.category === 'payment' ? 'general' : event.category || 'general',subtype:event.subtype || 'mixed',
+  ...(Object.hasOwn(event,'categoryLabel') ? {categoryLabel:event.categoryLabel} : {}),
+  ...(Object.hasOwn(event,'categoryColor') ? {categoryColor:event.categoryColor} : {}),
   date:event.date,time:event.time || '',recurrence:{...(event.recurrence ?? {frequency:'none',interval:1})},
   reminder:{...(event.reminder ?? {daysBefore:0})},notes:event.notes || ''});
 const hasAdvanced = event => event.recurrence?.frequency !== 'none' && !!event.recurrence
@@ -73,7 +77,8 @@ export function EventDialog({selection,calendar,onClose}) {
       {!missing && mode === 'view' && <>
         <h3>{selection.item.title}</h3>
         <p>{formatDate(selection.item.date,{day:'numeric',month:'long',year:'numeric'})} · {selection.item.time || 'Kogu päev'}</p>
-        <p>{CATEGORIES[selection.item.category].label}{selection.item.category === 'waste' ? ` · ${WASTE_SUBTYPES[selection.item.subtype]}` : ''}</p>
+        <p className="mm-category-detail" style={{'--category-color':categoryPresentation(selection.item).color,'--category-tint':categoryPresentation(selection.item).tint}}>
+          <i aria-hidden="true" />{categoryPresentation(selection.item).label}{selection.item.category === 'waste' ? ` · ${WASTE_SUBTYPES[selection.item.subtype]}` : ''}</p>
         <p>{selection.item.source === 'manual' ? 'Käsitsi lisatud' : 'Imporditud'}{recurring ? ' · Korduv sündmus' : ''}</p>
         {selection.seriesOnly && recurring && <p className="mm-notice">Graafiku vaade: muudad või kustutad kogu sarja. Üksikkorra muutmiseks ava kuupäev kalendrist.</p>}
         {imported && <p className="mm-notice">{source.importMeta?.providerName || 'Allikas'}: kuupäev, liik ja pealkiri on allika hallata. Muuta saad märkmeid ja meeldetuletust.</p>}
@@ -104,7 +109,7 @@ export function EventDialog({selection,calendar,onClose}) {
         {imported && <p className="mm-notice">Kuupäev, liik ja pealkiri on allika hallata. Märkmed ja meeldetuletus säilivad värskendamisel.</p>}
         <fieldset className="mm-source-fields" disabled={imported}>
         <label className="mm-field" htmlFor="event-title">Pealkiri<input id="event-title" value={form.title} onChange={e=>set('title',e.target.value)} maxLength={200} required autoFocus /></label>
-        <label className="mm-field" htmlFor="event-category">Kategooria<select id="event-category" value={form.category} onChange={e=>set('category',e.target.value)}>{Object.entries(CATEGORIES).map(([key,value])=><option value={key} key={key}>{value.label}</option>)}</select></label>
+        <CalendarCategoryPicker value={form} events={calendar.events} disabled={imported} onChange={identity=>setForm(previous=>({...previous,...identity}))} />
         {form.category === 'waste' && <label className="mm-field" htmlFor="event-subtype">Jäätme liik<select id="event-subtype" value={form.subtype} onChange={e=>set('subtype',e.target.value)}>{Object.entries(WASTE_SUBTYPES).map(([key,value])=><option value={key} key={key}>{value}</option>)}</select></label>}
         <div className="mm-form-pair">
           <label className="mm-field" htmlFor="event-date">Kuupäev<input id="event-date" type="date" value={form.date} onChange={e=>set('date',e.target.value)} required /></label>

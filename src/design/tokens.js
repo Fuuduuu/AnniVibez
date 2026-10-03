@@ -1,3 +1,5 @@
+import { CATEGORIES, categoryInk, categoryPresentation, isCustomCategory } from '../calendar/categoryModel.js';
+
 export const AV = {
   page:        '#F4F5F2',
   bg:          '#F4F5F2',
@@ -43,12 +45,8 @@ export const AV = {
 };
 
 // Presentation colors from the current reference; calendar classification stays in eventModel.
-export const CALENDAR_COLORS = {
-  waste:       { color: '#2A76CF', tint: '#DCEBFF' },
-  maintenance: { color: '#C8680F', tint: '#FFE6CF' },
-  payment:     { color: '#CC3F74', tint: '#FFDDE8' },
-  general:     { color: '#6B4CD8', tint: '#E7E0FF' },
-};
+export const CALENDAR_COLORS = Object.fromEntries(Object.entries(CATEGORIES)
+  .map(([id, { color, tint }]) => [id, { color, tint }]));
 
 export const WASTE_SUBTYPE_COLORS = {
   mixed:     { color: '#5E6573', tint: '#E7E8EC' },
@@ -58,8 +56,14 @@ export const WASTE_SUBTYPE_COLORS = {
   other:     { color: '#C8680F', tint: '#FFE6CF' },
 };
 
-export function calendarEventColors({ category, subtype }) {
-  return (category === 'waste' && WASTE_SUBTYPE_COLORS[subtype]) || CALENDAR_COLORS[category];
+export function calendarEventColors(event) {
+  if (event.category === 'waste' && WASTE_SUBTYPE_COLORS[event.subtype]) return WASTE_SUBTYPE_COLORS[event.subtype];
+  const { color, tint } = categoryPresentation(event);
+  return { color, tint };
+}
+
+export function calendarEventInk(event) {
+  return isCustomCategory(event.category) ? categoryInk(event.categoryColor) : calendarEventColors(event).color;
 }
 
 export const GRAD = {

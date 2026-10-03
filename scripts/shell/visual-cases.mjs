@@ -15,7 +15,7 @@ export async function runVisualChecks({t,nav,click,input,evaluate,waitFor,send})
   for (const [title,date,category,time] of [
     ['Filter check','2026-09-14','maintenance','10:30'],
     ['Waste pickup','2026-09-15','waste',''],
-    ['House payment','2026-09-18','payment','12:00'],
+    ['House payment','2026-09-18','general','12:00'],
   ]) {
     await click('Lisa sündmus');await input('#event-title',title);await input('#event-date',date);
     await select('event-category',category);if(time) await input('#event-time',time);

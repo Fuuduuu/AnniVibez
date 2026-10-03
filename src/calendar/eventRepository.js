@@ -1,4 +1,5 @@
 import { createEvent, validateEvent, EDIT_FIELDS } from './eventModel.js';
+import { CATEGORY_IDENTITY_FIELDS, mergeCategoryIdentity } from './categoryModel.js';
 import { matchesDate } from './recurrence.js';
 import { dayNumber } from './dates.js';
 import { reconcileWaste, validateImportHistory } from '../waste/reconcile.js';
@@ -66,13 +67,15 @@ export function createEventRepository(storage, newId = () => crypto.randomUUID()
         let next;
         if(event.recurrence.frequency !== 'none' && options.scope === 'occurrence') {
           const base={...event,date:options.occurrenceDate,excludedDates:[],overrides:{}};
+          const previous=mergeCategoryIdentity(base,event.overrides[options.occurrenceDate] ?? {});
           const input=Object.fromEntries(Object.entries(patch).filter(([key])=>EDIT_FIELDS.includes(key)));
-          const merged=validateEvent({...base,...event.overrides[options.occurrenceDate],...input});
+          if(previous.category === 'payment' && !Object.hasOwn(input,'category')) input.category='general';
+          const merged=validateEvent(mergeCategoryIdentity(previous,input));
           const changes=Object.fromEntries(EDIT_FIELDS.filter(key=>JSON.stringify(stable(merged[key])) !== JSON.stringify(stable(base[key])))
             .map(key=>[key,merged[key]]));
-          // Category and subtype form one identity; title-only overrides must not freeze other series fields.
-          if(Object.hasOwn(changes,'category') || Object.hasOwn(changes,'subtype')) {
-            changes.category=merged.category;changes.subtype=merged.subtype;
+          // An occurrence owns the entire category snapshot; title-only edits keep inheriting the series.
+          if(CATEGORY_IDENTITY_FIELDS.some(key=>Object.hasOwn(changes,key))) {
+            for(const key of CATEGORY_IDENTITY_FIELDS) changes[key]=merged[key] ?? null;
           }
           const overrides={...event.overrides};
           if(Object.keys(changes).length) overrides[options.occurrenceDate]=changes;
@@ -81,7 +84,8 @@ export function createEventRepository(storage, newId = () => crypto.randomUUID()
         } else {
           const rule=patch.recurrence ?? event.recurrence;
           const reset=(patch.date && patch.date !== event.date) || JSON.stringify(stable(rule)) !== JSON.stringify(stable(event.recurrence));
-          next={...event,...patch,id:event.id,source:event.source,householdId:event.householdId,
+          const input=event.category === 'payment' && !Object.hasOwn(patch,'category') ? {...patch,category:'general'} : patch;
+          next={...mergeCategoryIdentity(event,input),id:event.id,source:event.source,householdId:event.householdId,
             seriesId:rule.frequency === 'none' ? null : event.seriesId ?? `series:${event.id}`,
             excludedDates:reset ? [] : event.excludedDates,overrides:reset ? {} : event.overrides};
         }

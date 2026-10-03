@@ -1,5 +1,6 @@
-import { CATEGORIES, WASTE_SUBTYPES } from '../calendar/eventModel';
-import { calendarEventColors } from '../design/tokens';
+import { WASTE_SUBTYPES } from '../calendar/eventModel';
+import { categoryPresentation } from '../calendar/categoryModel.js';
+import { calendarEventColors, calendarEventInk } from '../design/tokens';
 import { formatDate, relativeDate } from '../calendar/dates';
 import { ReminderStatus } from './ReminderStatus';
 import { ShellIcon } from './ShellIcon';
@@ -7,16 +8,16 @@ import { ShellIcon } from './ShellIcon';
 export function EventRows({items,today,now,onOpen,variant='default'}) {
   return <div className={`mm-event-list mm-events-${variant}`}>
     {items.map(item=>{
-      const category=CATEGORIES[item.category];
+      const category=categoryPresentation(item);
       const colors=calendarEventColors(item);
       const relative=relativeDate(item.date,today);
       const categoryLabel=category.label+(item.category === 'waste' ? ` · ${WASTE_SUBTYPES[item.subtype]}` : '');
       return <button key={item.occurrenceId} type="button" data-occurrence={item.occurrenceId}
-        className={variant === 'agenda' ? 'mm-agenda-row' : 'mm-card mm-event-row'} style={{'--event-color':colors.color,'--event-tint':colors.tint}}
+        className={variant === 'agenda' ? 'mm-agenda-row' : 'mm-card mm-event-row'} style={{'--event-color':colors.color,'--event-ink':calendarEventInk(item),'--event-tint':colors.tint}}
         onClick={()=>onOpen(item)}>
         {variant === 'default'
           ? <span className="mm-event-day" aria-hidden="true">{item.date.slice(8)}<small>{formatDate(item.date,{month:'short'})}</small></span>
-          : <span className="mm-event-icon" aria-hidden="true"><ShellIcon name={item.category} /></span>}
+          : <span className="mm-event-icon" aria-hidden="true"><ShellIcon name={category.icon} /></span>}
         <span className="mm-event-copy"><strong title={variant === 'agenda' ? item.title : undefined}>{item.title}</strong>
           {variant === 'home' ? <span>{categoryLabel} · {item.time || 'Kogu päev'}</span>
             : variant === 'selected' ? <>

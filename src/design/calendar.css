@@ -24,7 +24,7 @@
 .mm-day[aria-pressed=true]:not(:disabled):not([aria-disabled=true]) { transform: scale(1.06); }
 .mm-day[aria-pressed=true]:not(:disabled):not([aria-disabled=true]):active { transform: translateY(1px); box-shadow: var(--mm-primary-shadow-pressed); }
 .mm-day-markers { display: flex; align-items: center; gap: 2px; min-height: 12px; }
-.mm-day-markers svg { width: 12px; height: 12px; color: var(--day-color); }
+.mm-day-markers svg { width: 12px; height: 12px; color: var(--day-ink,var(--day-color)); }
 .mm-day[aria-pressed=true] .mm-day-markers svg { color: inherit; }
 .mm-day-markers small { font-size: 0.5625rem; }
 @media (hover: hover) and (pointer: fine) {
@@ -42,6 +42,21 @@
 .mm-calendar-legend svg { color: var(--event-color); width: 16px; height: 16px; flex-shrink: 0; }
 
 /* Event rows */
+.mm-category-picker { margin-bottom: 16px; }
+.mm-category-picker .mm-field { margin-bottom: 8px; }
+.mm-category-preview { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 6px 10px; border-radius: 999px; color: var(--mm-ink); font-size: .8125rem; line-height: 1.4; overflow-wrap: anywhere; }
+.mm-category-preview i, .mm-category-detail i, .mm-category-manager i { display: inline-block; width: 12px; height: 12px; flex-shrink: 0; border: 1px solid rgba(21,32,46,.2); border-radius: 50%; }
+.mm-category-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
+.mm-category-tools .mm-text-button { margin: 0; min-height: 44px; }
+.mm-category-dialog { width: min(420px,100%); }
+.mm-category-dialog #category-color { width: 100%; height: 46px; padding: 4px; cursor: pointer; }
+.mm-category-dialog .mm-category-save { width: 100%; justify-content: center; margin-top: 20px; }
+.mm-category-manager { list-style: none; padding: 0; margin: 16px 0 0; }
+.mm-category-manager li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--mm-border); }
+.mm-category-manager li > span { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.mm-category-manager li > button { flex-shrink: 0; min-height: 44px; }
+.mm-dialog-body > .mm-category-detail { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: var(--category-tint); color: var(--mm-ink); }
+.mm-category-detail i { background: var(--category-color); }
 .mm-event-list { display: flex; flex-direction: column; gap: 8px; }
 .mm-event-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 13px 14px;
   border-left: 3px solid var(--event-color); text-align: left; cursor: pointer; font-family: inherit; }
@@ -55,7 +70,7 @@
 .mm-events-home .mm-event-when[data-relative="täna"] { background: var(--mm-danger-tint); color: var(--mm-ink); }
 .mm-events-home .mm-event-when[data-relative="homme"] { background: var(--mm-warning-tint); color: var(--mm-ink); }
 .mm-event-icon { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0;
-  color: var(--event-color); background: var(--event-tint); border-radius: 12px; }
+  color: var(--event-ink,var(--event-color)); background: var(--event-tint); border-radius: 12px; }
 .mm-events-home .mm-event-row { border-left: 1px solid var(--mm-border); min-height: 70px; padding: 11px 12px; gap: 10px; flex-wrap: wrap; }
 .mm-events-selected .mm-event-row { align-items: flex-start; }
 

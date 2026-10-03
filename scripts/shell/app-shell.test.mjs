@@ -298,7 +298,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
     };
     const restoreWrites = () => evaluate(mode === 'READY' ? 'IDBObjectStore.prototype.put=window.__nativePut;true' : 'Storage.prototype.setItem=window.__nativeSet;true');
     const ready = () => waitFor("!!document.querySelector('nav')");
-    const shared = { mode, readCalendarEvents, readHouseholdProfile, readSavedPlaces, calendarRaw, householdRaw, placesRaw,
+    const shared = { mode, seedCalendar, readCalendarEvents, readHouseholdProfile, readSavedPlaces, calendarRaw, householdRaw, placesRaw,
       corruptCalendar, repairCalendar, corruptHousehold, repairHousehold, failWrites, restoreWrites };
     await send('Runtime.enable');
     await send('Page.enable');

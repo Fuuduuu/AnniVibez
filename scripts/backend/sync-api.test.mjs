@@ -10,10 +10,55 @@ import * as pullEndpoint from "../../functions/api/sync/pull.js";
 import * as pushEndpoint from "../../functions/api/sync/push.js";
 import { insertHouseholdCreation } from "../../functions/_lib/db.js";
 import { applyCalendarMutation, validateCalendarEventPayload } from "../../functions/_lib/sync.js";
+import { validateEvent } from "../../src/calendar/eventModel.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const migrationSql = readFileSync(resolve(root, "migrations/0001_majandus_backend.sql"), "utf8");
 const NOW = "2026-09-29T10:00:00.000Z";
+
+test("categories V2 bootstrap and pull preserve all four old payloads without rewriting rows or adding metadata", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    const old = ["payment", "maintenance", "waste", "general"].map(category => ({ ...event(`old_${category}`),
+      category, subtype: category === "waste" ? "paper" : null }));
+    for (const payload of old) await apply(db, a, mutation("CREATE", `old_create_${payload.id}`, payload.id, payload));
+    const before = (await db.prepare("SELECT id, payload_json, revision FROM calendar_events ORDER BY id").all()).results;
+    for (const [endpoint, path, getPayloads] of [
+      [bootstrapEndpoint, "/api/sync/bootstrap", body => body.calendarEvents.map(record => record.payload)],
+      [pullEndpoint, "/api/sync/pull?after=0", body => body.changes.map(change => change.record.payload)],
+    ]) {
+      const response = await endpoint.onRequestGet({ request: request(path, a), env: { DB: db } });
+      assert.equal(response.status, 200);
+      const payloads = getPayloads(await response.json());
+      assert.deepEqual(payloads.toSorted((x, y) => x.id.localeCompare(y.id)), old.toSorted((x, y) => x.id.localeCompare(y.id)));
+      for (const payload of payloads) {
+        assert.equal(Object.hasOwn(payload, "categoryLabel"), false);
+        assert.equal(Object.hasOwn(payload, "categoryColor"), false);
+        assert.deepEqual(validateEvent(payload), payload);
+      }
+    }
+    assert.deepEqual((await db.prepare("SELECT id, payload_json, revision FROM calendar_events ORDER BY id").all()).results, before);
+  });
+});
+
+test("categories V2 push transports every new built-in and custom snapshot through bootstrap and pull", async () => {
+  await withFreshDb(async ({ db, a }) => {
+    const payloads = ["culture", "birthday", "training", "waste", "maintenance", "car", "general"].map(category =>
+      ({ ...event(`new_${category}`), category, subtype: category === "waste" ? "bio" : null }));
+    payloads.push({ ...event("new_custom"), category: "custom:32d04c45-5f31-4d12-8337-2f829c473a01", categoryLabel: "Koertekool", categoryColor: "#7A5CC8" });
+    const response = await pushEndpoint.onRequestPost({ request: request("/api/sync/push", a, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mutations: payloads.map(payload =>
+        mutation("CREATE", `new_create_${payload.id}`, payload.id, payload)) }) }), env: { DB: db } });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).results.every(result => result.status === "APPLIED"), true);
+    const boot = await bootstrapEndpoint.onRequestGet({ request: request("/api/sync/bootstrap", a), env: { DB: db } });
+    assert.equal(boot.status, 200);
+    assert.deepEqual((await boot.json()).calendarEvents.map(record => record.payload).toSorted((x, y) => x.id.localeCompare(y.id)),
+      payloads.toSorted((x, y) => x.id.localeCompare(y.id)));
+    const delta = await pullEndpoint.onRequestGet({ request: request("/api/sync/pull?after=0", a), env: { DB: db } });
+    assert.equal(delta.status, 200);
+    assert.equal((await delta.json()).changes.length, 8);
+  });
+});
 
 function migrationStatements(sql) {
   const statements = [];
