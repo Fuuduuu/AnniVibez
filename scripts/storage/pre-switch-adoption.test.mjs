@@ -602,7 +602,7 @@ test('mismatch neither merges nor re-adopts; a clean fenced switch removes its f
         fence: clean.durable.fence, replicaName: clean.durable.replicaName,
         dbVersion: clean.dbVersion },
       { writerState: 'LEGACY', state: 'READY', authorityStatus: 'active',
-        fence: null, replicaName: SAVED, dbVersion: 1 },
+        fence: null, replicaName: SAVED, dbVersion: 2 },
       'successful authority creation must leave no fence and use the acknowledged legacy value',
     );
   } finally {

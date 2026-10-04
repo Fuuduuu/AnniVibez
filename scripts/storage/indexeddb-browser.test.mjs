@@ -171,11 +171,11 @@ test('native IndexedDB schema and primitives preserve transaction atomicity acro
       return { DB_NAME, DB_VERSION, STORE_NAMES, stores, outbox: { keyPath: outbox.keyPath, unique: outbox.unique } };
     })()`);
     assert.equal(schema.DB_NAME, 'majandus_local_v1');
-    assert.equal(schema.DB_VERSION, 1);
-    assert.deepEqual(schema.STORE_NAMES, ['meta', 'auth', 'householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState', 'outbox', 'syncState', 'conflicts']);
+    assert.equal(schema.DB_VERSION, 2);
+    assert.deepEqual(schema.STORE_NAMES, ['meta', 'auth', 'householdProfile', 'calendarEvents', 'sharedPlaces', 'wasteState', 'outbox', 'syncState', 'conflicts', 'shoppingItems']);
     assert.deepEqual(schema.stores, {
       meta: 'key', auth: 'key', householdProfile: 'key', calendarEvents: 'id', sharedPlaces: 'id',
-      wasteState: 'key', outbox: 'mutationId', syncState: 'key', conflicts: 'id',
+      wasteState: 'key', outbox: 'mutationId', syncState: 'key', conflicts: 'id', shoppingItems: 'id',
     });
     assert.deepEqual(schema.outbox, { keyPath: 'sequence', unique: true });
     await harness.pageReload();
@@ -651,10 +651,10 @@ test('C1 replica connection loss: a DB_VERSION + 1 upgrade closes a subscribed r
       await window.__t.reset();
       return { events, blocked, upgraded, version, lostName, openName };
     })()`);
-    assert.deepEqual(result.events, [{ type: 'versionchange', oldVersion: 1, newVersion: 2 }], 'exactly one versionchange delivered');
+    assert.deepEqual(result.events, [{ type: 'versionchange', oldVersion: 2, newVersion: 3 }], 'exactly one versionchange delivered');
     assert.equal(result.blocked, false, 'the replica handle closed, so the upgrade was not blocked');
     assert.equal(result.upgraded, true);
-    assert.equal(result.version, 2);
+    assert.equal(result.version, 3);
     assert.equal(result.lostName, 'ReplicaConnectionLostError');
     assert.equal(result.openName, 'ReplicaConnectionLostError');
   } finally {
@@ -682,7 +682,7 @@ test('C1 replica connection loss: deleteDatabase delivers newVersion null and co
       const names = (await indexedDB.databases()).map(database => database.name);
       return { events, blocked, lostName, stillListed: names.includes(DB_NAME) };
     })()`);
-    assert.deepEqual(result.events, [{ type: 'versionchange', oldVersion: 1, newVersion: null }]);
+    assert.deepEqual(result.events, [{ type: 'versionchange', oldVersion: 2, newVersion: null }]);
     assert.equal(result.blocked, false);
     assert.equal(result.lostName, 'ReplicaConnectionLostError');
     assert.equal(result.stillListed, false);

@@ -1063,7 +1063,7 @@ test('C3 shared place orders must be the contiguous integers 0..n-1', () => {
 });
 
 test('C3/C4 direct transaction calls stay confined to the accepted storage modules', () => {
-  const allowed = new Set(['src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/runtimeWrites.js', 'src/storage/storageAuthority.js', 'src/sync/calendarSyncStore.js']);
+  const allowed = new Set(['src/storage/legacyMigration.js', 'src/storage/localReplica.js', 'src/storage/runtimeWrites.js', 'src/storage/storageAuthority.js', 'src/sync/calendarSyncStore.js', 'src/shopping/shoppingStore.js']);
   const files = [...runtimeSourceFiles(), ...readdirSync(join(repositoryRoot, STORAGE_DIRECTORY)).map(name => `${STORAGE_DIRECTORY}/${name}`)];
   const callers = files.filter(path => CODE_FILE.test(path))
     .filter(path => /\.transact\s*\(|(?<!function\s+)\brunTransaction\s*\(/.test(readFileSync(join(repositoryRoot, path), 'utf8')));
@@ -1179,9 +1179,9 @@ test('storage import guard detects every equivalent static, side-effect, re-expo
   for (const source of safe) assert.deepEqual(storageImportFindings(source, 'src/components/Example.jsx'), [], source);
 });
 
-// The client MVP adds exactly its sync store and pure outbox planner; components still never import storage.
+// Calendar and shopping each add their scoped store and pure validators; components never import storage.
 const C6_STORAGE_IMPORTER_ALLOWLIST = ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/hooks/useSavedPlaces.js', 'src/main.jsx', 'src/waste/useHousehold.js',
-  'src/sync/calendarOutbox.js', 'src/sync/calendarSyncStore.js'];
+  'src/sync/calendarOutbox.js', 'src/sync/calendarSyncStore.js', 'src/shopping/records.js', 'src/shopping/shoppingStore.js'];
 
 test('only the accepted C6 runtime importers import the storage foundation from outside src/storage', () => {
   const files = runtimeSourceFiles();
@@ -1210,7 +1210,8 @@ test('only the accepted C6 runtime importers import the storage foundation from 
 test('C6 browser capabilities are read only in src/main.jsx, never in the runtime, the shared hooks or the status UI', () => {
   const globals = /\b(?:indexedDB|BroadcastChannel|localStorage|sessionStorage|navigator|crypto)\b/;
   for (const path of ['src/App.jsx', 'src/calendar/useHouseholdEvents.js', 'src/waste/useHousehold.js', 'src/hooks/useSavedPlaces.js', 'src/components/StorageStatus.jsx',
-    'src/sync/calendarSync.js', 'src/sync/calendarSyncStore.js', 'src/sync/calendarOutbox.js', 'src/sync/CalendarSyncSettings.jsx']) {
+    'src/sync/calendarSync.js', 'src/sync/calendarSyncStore.js', 'src/sync/calendarOutbox.js', 'src/sync/CalendarSyncSettings.jsx',
+    'src/shopping/records.js', 'src/shopping/shoppingStore.js', 'src/shopping/sync.js', 'src/shopping/useShopping.js']) {
     const code = readFileSync(join(repositoryRoot, path), 'utf8').replace(/\/\/.*$/gm, '');
     assert.doesNotMatch(code, globals, `${path} must not read browser capabilities`);
   }
@@ -1252,7 +1253,7 @@ test('the application bundle contains the storage foundation only through the ac
       if (target === STORAGE_DIRECTORY || target.startsWith(`${STORAGE_DIRECTORY}/`)) importers.add(from);
     }
   }
-  assert.deepEqual([...importers].sort(), ['src/App.jsx', 'src/main.jsx', 'src/sync/calendarOutbox.js', 'src/sync/calendarSyncStore.js'], 'src/storage enters the bundle only through accepted runtime and sync importers');
+  assert.deepEqual([...importers].sort(), ['src/App.jsx', 'src/main.jsx', 'src/shopping/records.js', 'src/shopping/shoppingStore.js', 'src/sync/calendarOutbox.js', 'src/sync/calendarSyncStore.js'], 'src/storage enters the bundle only through accepted runtime and sync importers');
   for (const path of [...importers]) assert.ok(C6_STORAGE_IMPORTER_ALLOWLIST.includes(path), `${path} is an allowlisted importer`);
   const js = bundleJavaScript(app);
   assert.ok(js.includes('majandus_local_v1'), 'the IndexedDB database name is in the bundle');
@@ -1265,9 +1266,9 @@ test('storage foundation modules stay injection-only: no network, global storage
   assert.deepEqual(modules, ['indexedDb.js', 'legacyMigration.js', 'localReplica.js', 'replicaRepositories.js', 'runtimeRecords.js', 'runtimeWrites.js', 'schema.js', 'storageAuthority.js']);
   // C3 extends the accepted imports only with the pure domain modules named by the runtime cutover plan.
   // C4 (storageAuthority.js) reuses legacyMigration.js, localReplica.js/indexedDb.js and the same pure domain modules; no new import surface.
-  // C5 (replicaRepositories.js) additionally reuses runtimeWrites.js (runReplicaMutation); no other new import surface.
+  // C5 reuses runtimeWrites.js; shared shopping adds only its pure record validators.
   const allowedImports = ['../calendar/eventRepository.js', '../waste/householdRepository.js', './indexedDb.js', './localReplica.js', './schema.js',
-    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js', './legacyMigration.js', './runtimeWrites.js', '../sync/calendarOutbox.js'];
+    '../places/savedPlaces.js', '../calendar/eventModel.js', '../waste/reconcile.js', './runtimeRecords.js', './legacyMigration.js', './runtimeWrites.js', '../sync/calendarOutbox.js', '../shopping/records.js'];
   const forbidden = ['fetch(', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'sendBeacon', 'navigator', 'localStorage', 'sessionStorage', 'window.', 'document.', 'serviceWorker', 'react'];
   for (const name of modules) {
     const source = readFileSync(join(repositoryRoot, STORAGE_DIRECTORY, name), 'utf8');

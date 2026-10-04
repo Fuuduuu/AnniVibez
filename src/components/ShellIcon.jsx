@@ -5,6 +5,7 @@ const PATHS = {
   veel: 'M5 5h5v5H5z M14 5h5v5h-5z M5 14h5v5H5z M14 14h5v5h-5z',
   seaded: 'M4 7h16 M4 17h16 M8 4v6 M16 14v6',
   add: 'M12 5v14 M5 12h14',
+  shopping: 'M3 4h2l2 12h12l2-9H6 M9 20h.01 M18 20h.01 M10 7V4 M17 7V4',
   waste: 'M4 7h16 M7 7l1 14h8l1-14 M9 7V3h6v4 M10 11v6 M14 11v6',
   culture: 'M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z M15 7v2 M15 12v1 M15 16v1',
   birthday: 'M3 9h18v4H3z M5 13v8h14v-8 M12 9v12 M12 9H8a3 3 0 1 1 3-3l1 3 M12 9h4a3 3 0 1 0-3-3l-1 3',

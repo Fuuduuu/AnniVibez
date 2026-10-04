@@ -56,6 +56,12 @@ export function validateCalendarEventRecord(record) {
   return record;
 }
 
+export function validateShoppingItemRecord(record) {
+  validateReplicaEnvelope(record);
+  requireNonEmptyString(record.id, 'record.id');
+  return record;
+}
+
 export function validateSharedPlaceRecord(record) {
   validateReplicaEnvelope(record);
   requireNonEmptyString(record.id, 'record.id');
@@ -231,6 +237,12 @@ export function createLocalReplica({ indexedDb = globalThis.indexedDB, clock = (
     listCalendarEvents: async () => {
       const records = await transact('calendarEvents', 'readonly', ({ stores }) => requestResult(stores.calendarEvents.getAll()));
       // Locale-independent, matching the same comparator C4's revert/export already uses.
+      return records.sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+    },
+    getShoppingItem: id => get('shoppingItems', id),
+    putShoppingItem: record => put('shoppingItems', record, validateShoppingItemRecord),
+    listShoppingItems: async () => {
+      const records = await transact('shoppingItems', 'readonly', ({ stores }) => requestResult(stores.shoppingItems.getAll()));
       return records.sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
     },
     listSharedPlaces: async () => {

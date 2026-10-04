@@ -1,6 +1,7 @@
 import { requestResult } from './indexedDb.js';
 import { validateCalendarEventRecord, validateDeviceAuthRecord, validateCalendarSyncState, validateOutboxRecord } from './localReplica.js';
 import { validateRuntimeRecord, validateSharedPlaceOrders } from './runtimeRecords.js';
+import { validateShoppingRecord, validateShoppingSyncState, validateShoppingOutbox, validateShoppingConflict } from '../shopping/records.js';
 
 // Runtime mutation helper (runtime cutover C3). Every runtime domain write runs
 // READ -> synchronous PLAN -> VALIDATE -> synchronous WRITE in one readwrite transaction that also
@@ -19,8 +20,9 @@ const DOMAIN_STORES = Object.freeze({
   places: Object.freeze(['sharedPlaces']),
   calendar: Object.freeze(['calendarEvents', 'wasteState', 'auth', 'outbox']),
   calendarSync: Object.freeze(['auth', 'householdProfile', 'calendarEvents', 'outbox', 'syncState', 'conflicts']),
+  shopping: Object.freeze(['auth', 'shoppingItems', 'outbox', 'syncState', 'conflicts']),
 });
-const KEY_PATHS = Object.freeze({ householdProfile: 'key', wasteState: 'key', calendarEvents: 'id', sharedPlaces: 'id', auth: 'key', outbox: 'mutationId', syncState: 'key', conflicts: 'id', meta: 'key' });
+const KEY_PATHS = Object.freeze({ householdProfile: 'key', wasteState: 'key', calendarEvents: 'id', sharedPlaces: 'id', shoppingItems: 'id', auth: 'key', outbox: 'mutationId', syncState: 'key', conflicts: 'id', meta: 'key' });
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isNonEmptyString = value => typeof value === 'string' && value.length > 0;
@@ -84,10 +86,14 @@ function validatePlan(planned, writableStores, domain) {
   for (const put of planned.puts) {
     if (!isPlainObject(put) || !writableStores.has(put.store)) throw new TypeError('plan puts must target a store of this mutation');
     if (put.store === 'auth') validateDeviceAuthRecord(put.record);
-    else if (put.store === 'syncState') validateCalendarSyncState(put.record);
+    else if (put.store === 'syncState') {
+      if(domain === 'shopping') validateShoppingSyncState(put.record);
+      else validateCalendarSyncState(put.record);
+    }
     else if (put.store === 'outbox') {
       validateOutboxRecord(put.record);
-      if (put.record.entityType !== 'calendar_event' || !Number.isSafeInteger(put.record.sequence)) throw new TypeError('Only sequenced calendar outbox writes are allowed');
+      if(domain === 'shopping') validateShoppingOutbox(put.record);
+      else if (put.record.entityType !== 'calendar_event' || !Number.isSafeInteger(put.record.sequence)) throw new TypeError('Only sequenced calendar outbox writes are allowed');
     } else if (put.store === 'meta') {
       if (domain === 'calendarSync' && put.record?.key === 'calendarBeforeDeviceLinkV1') {
         const archive = put.record;
@@ -105,9 +111,11 @@ function validatePlan(planned, writableStores, domain) {
       } else if (put.record?.key !== 'outboxSequence' || !Number.isSafeInteger(put.record.value) || put.record.value < 0
           || Object.keys(put.record).length !== 2) throw new TypeError('Unsupported runtime metadata write');
     } else if (put.store === 'conflicts') {
-      if (!isPlainObject(put.record) || !isNonEmptyString(put.record.id) || put.record.entityType !== 'calendar_event'
+      if(domain === 'shopping') validateShoppingConflict(put.record);
+      else if (!isPlainObject(put.record) || !isNonEmptyString(put.record.id) || put.record.entityType !== 'calendar_event'
           || !isNonEmptyString(put.record.entityId)) throw new TypeError('Invalid calendar conflict');
-    } else validateRuntimeRecord(put.store, put.record);
+    } else if(put.store === 'shoppingItems') validateShoppingRecord(put.record);
+    else validateRuntimeRecord(put.store, put.record);
     touch(put.store, put.record[KEY_PATHS[put.store]]);
   }
   for (const removal of planned.deletes) {

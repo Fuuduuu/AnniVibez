@@ -15,6 +15,7 @@ import { runReminderChecks } from '../reminders/browser-cases.mjs';
 import { runVisualChecks } from './visual-cases.mjs';
 import { runTimetableChecks } from '../timetable/browser-cases.mjs';
 import { runHomeworkChecks } from '../homework/browser-cases.mjs';
+import { runShoppingAppChecks } from '../shopping/app-cases.mjs';
 import { createEvent } from '../../src/calendar/eventModel.js';
 import { createEventRepository } from '../../src/calendar/eventRepository.js';
 import { normalizeWasteResult } from '../../src/waste/providers.js';
@@ -34,7 +35,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 // SHELL_RUNTIME_MODE=LEGACY|READY selects one mode; unset runs both.
 const MODES = process.env.SHELL_RUNTIME_MODE ? [process.env.SHELL_RUNTIME_MODE] : ['LEGACY', 'READY'];
 // The cutover acceptance checks run with the plain shell suite; the feature wrappers (calendar, waste, reminder, ...) skip them.
-const OTHER_SUITE_FLAGS = ['CALENDAR_TESTS', 'WASTE_TESTS', 'REMINDER_TESTS', 'NATIVE_NOTIFICATION_TEST', 'VISUAL_TESTS', 'TIMETABLE_TESTS', 'HOMEWORK_TESTS'];
+const OTHER_SUITE_FLAGS = ['CALENDAR_TESTS', 'WASTE_TESTS', 'REMINDER_TESTS', 'NATIVE_NOTIFICATION_TEST', 'VISUAL_TESTS', 'TIMETABLE_TESTS', 'HOMEWORK_TESTS', 'SHOPPING_TESTS'];
 const SHARED_KEYS = ['majamajandus_household_events_v1', 'majamajandus_household_profile_v1', 'sade_saved_places'];
 const HINT_KEY = 'majandus_storage_authority_v1';
 const STAMP = '2026-09-14T06:00:00.000Z';
@@ -60,6 +61,12 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       }})}}
     });` : 'const notificationService=undefined;'}
     export function createStorageRuntime(options) {
+      ${process.env.SHOPPING_TESTS==='1'?`const originalFetch=options.fetchImpl;
+      window.__shoppingCalls=[];
+      options={...options,fetchImpl:(path,options)=>{
+        if(String(path).startsWith('/api/shopping/'))window.__shoppingCalls.push(path);
+        return originalFetch(path,options);
+      }};`:''}
       window.__runtime = createRealStorageRuntime(options);
       return window.__runtime;
     }
@@ -81,6 +88,9 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
   const js = bundle.outputFiles.find(f => f.path.endsWith('.js')).text;
   const css = bundle.outputFiles.find(f => f.path.endsWith('.css'))?.text || '';
   const server = createServer((req, res) => {
+    if(process.env.SHOPPING_TESTS==='1'&&req.url.startsWith('/api/shopping/')){
+      res.writeHead(503,{'Content-Type':'application/json'});res.end(JSON.stringify({error:{code:'LOCAL_TEST_OFFLINE'}}));return;
+    }
     if (process.env.NATIVE_NOTIFICATION_TEST === '1' && req.url === '/notification-test-sw.js') {
       res.setHeader('Content-Type','text/javascript');
       res.end("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));");return;
@@ -310,6 +320,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
     await waitFor("!!document.querySelector('nav')");
     const initialStorage = await storage();
 
+    if(process.env.SHOPPING_TESTS!=='1'){
     await t.test(`the mounted runtime is the ${mode} authority and no shared legacy key was written`, async () => {
       const authority = await evaluate("__idb.get('meta','storageAuthorityV1')");
       const hint = await evaluate(`localStorage.getItem('${HINT_KEY}')`);
@@ -511,7 +522,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       assert.equal(page.start.transform,'translateX(-30px)', 'backward tabs enter from the left');
       assertEntrance(await entrance('.mm-mark'),120,240);
       const delays=await evaluate("[...document.querySelectorAll('.mm-page > .mm-section')].map(e=>parseFloat(getComputedStyle(e).animationDelay)*1000)");
-      assert.equal(delays.length,3);
+      assert.equal(delays.length,4,'Home includes the compact shopping section');
       for(let i=1;i<delays.length;i++) assert.ok(delays[i]-delays[i-1]>=20 && delays[i]-delays[i-1]<=40);
       await finishMotion();
       assert.equal(await evaluate("getComputedStyle(document.querySelector('.mm-main')).transform"),'none',
@@ -749,6 +760,10 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
         });
       }
     });
+    }
+    if (process.env.SHOPPING_TESTS === '1') {
+      await runShoppingAppChecks({t,nav,click,input,evaluate,waitFor,body,mode});
+    }
     if (process.env.VISUAL_TESTS === '1') {
       await runVisualChecks({t,nav,click,input,evaluate,waitFor,body,send});
     }
@@ -1061,7 +1076,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
         await t.test('C6 cutover: a real versionchange shows the reload banner and disables every shared-domain write control', async () => {
           await resetProfile({ legacy: seededKeys });
           await nav('Kalender'); await click('Lisa sündmus'); await input('#event-title', 'Jääb vormi');
-          const result = await evaluate(`new Promise((resolve,reject)=>{const r=indexedDB.open('majandus_local_v1',2);let blocked=false;
+          const result = await evaluate(`new Promise((resolve,reject)=>{const r=indexedDB.open('majandus_local_v1',3);let blocked=false;
             r.onblocked=()=>{blocked=true;};r.onupgradeneeded=()=>{};r.onsuccess=()=>{r.result.close();resolve({blocked});};r.onerror=()=>reject(r.error);})`);
           assert.equal(result.blocked, false, 'the mounted connection closes on versionchange, so the upgrade is not blocked');
           await waitFor("!!document.querySelector('[data-storage-state=RELOAD_REQUIRED]')");

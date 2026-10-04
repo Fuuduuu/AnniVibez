@@ -20,6 +20,11 @@ import { createEventRepository, EVENT_STORAGE_KEY } from './calendar/eventReposi
 import { createHouseholdRepository, HOUSEHOLD_KEY } from './waste/householdRepository';
 import { createReplicaRepositories } from './storage/replicaRepositories.js';
 import { createCalendarSync } from './sync/calendarSync.js';
+import { createShoppingStore } from './shopping/shoppingStore.js';
+import { createShoppingSync } from './shopping/sync.js';
+import { useShopping } from './shopping/useShopping.js';
+import { ShoppingTab } from './components/ShoppingTab.jsx';
+import { ShoppingHomeCard } from './components/ShoppingHomeCard.jsx';
 import './design/shell.css';
 import './design/calendar.css';
 import './design/timetable.css';
@@ -46,7 +51,7 @@ const TABS = [
 
 const WRITE_STATES = ['LEGACY', 'READY'];
 const AUTO_RETRY_STATES = ['BLOCKED', 'AUTHORITY_HINT_PENDING'];
-const DOMAINS = ['calendar', 'household', 'places'];
+const DOMAINS = ['calendar', 'household', 'places', 'shopping'];
 // Failures that mean "this tab no longer owns the storage": the writes stop and a reload is required.
 const RELOAD_ERRORS = ['RuntimeAuthorityError', 'ReplicaConnectionLostError', 'ReplicaClosedError', 'LegacyWriteRefusedError', 'VersionError'];
 
@@ -174,8 +179,8 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
         try { channel?.postMessage({ type: 'committed', domain }); } catch { /* best-effort */ }
         if (domain === 'calendar') owned.sync?.run();
       },
-      applyState: result => { invalid = result.domainInvalid ?? []; Object.values(stores).forEach(store => store.recompute()); owned.sync?.refreshAvailability(); },
-      dispose: () => { owned.sync?.dispose(); Object.values(stores).forEach(store => store.dispose()); [...registrations].filter(entry => entry.session === owned).forEach(entry => registrations.delete(entry)); },
+      applyState: result => { invalid = result.domainInvalid ?? []; Object.values(stores).forEach(store => store.recompute()); owned.sync?.refreshAvailability(); owned.shopping?.refreshAvailability(); },
+      dispose: () => { owned.sync?.dispose(); owned.shoppingSync?.dispose(); owned.shopping?.dispose(); Object.values(stores).forEach(store => store.dispose()); [...registrations].filter(entry => entry.session === owned).forEach(entry => registrations.delete(entry)); },
     };
     let repositories;
     if (mode === 'READY') {
@@ -191,6 +196,19 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
       unreadable: 'Majapidamise andmeid ei saanud lugeda. Salvestust ei kirjutata üle.', emptyData: { profile: { name: '', address: '' }, writable: false } });
     stores.places = createDomainStore(owned, { domain: 'places', repository: repositories.places, legacyKeys: [PLACES_KEY],
       unreadable: 'Salvestatud kohti ei saanud lugeda. Salvestust ei kirjutata üle.', emptyData: { places: [], writable: false } });
+    if (controller.replica) {
+      owned.shopping = createShoppingStore({replica:controller.replica,authority:identity,newId,clock,
+        isWritable:()=>session===owned&&WRITE_STATES.includes(controller.getState()),
+        onCommitted:kind=>{
+          if(session!==owned)return;
+          try { channel?.postMessage({type:'committed',domain:'shopping'}); } catch { /* best-effort */ }
+          if(kind==='local'&&controller.getState()==='READY')owned.shoppingSync?.run();
+        }});
+      owned.register({domain:'shopping',legacyKeys:[],refresh:()=>owned.shopping.refresh().catch(()=>{})});
+      if(mode==='READY')owned.shoppingSync=createShoppingSync({store:owned.shopping,fetchImpl,
+        isReady:()=>session===owned&&controller.getState()==='READY'});
+      queueMicrotask(()=>{owned.shopping.refresh().catch(()=>{});owned.shoppingSync?.run();});
+    }
     if (mode === 'READY') {
       owned.sync = createCalendarSync({ replica: controller.replica, authority: identity, newId, clock, fetchImpl,
         initialDeviceLink,
@@ -201,6 +219,8 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
             refreshWhere(entry => entry.session === owned && entry.domain === domain);
             try { channel?.postMessage({ type: 'committed', domain }); } catch { /* best-effort */ }
           }
+          owned.shopping?.refresh().catch(()=>{});
+          owned.shoppingSync?.run();
         },
       });
       queueMicrotask(() => owned.sync.run());
@@ -248,17 +268,22 @@ export function createStorageRuntime({ controller, storage, windowTarget, docume
     if (AUTO_RETRY_STATES.includes(controller.getState())) await retry();
     // Without BroadcastChannel a foreground signal is the only cross-tab freshness path: re-read, never poll.
     if (!channel && controller.getState() === 'READY') await refreshWhere(() => true);
-    if (controller.getState() === 'READY') session?.sync?.run();
+    if (session?.shopping) await session.shopping.refresh().catch(()=>{});
+    if (controller.getState() === 'READY') { session?.sync?.run(); session?.shoppingSync?.run(); }
   });
   const onFocus = () => foreground('focus');
   const onVisibility = () => { if (documentTarget.visibilityState === 'visible') foreground('visibility'); };
-  const onOnline = () => { if (controller.getState() === 'READY') session?.sync?.run(); };
+  const onOnline = () => { if (controller.getState() === 'READY') { session?.sync?.run(); session?.shoppingSync?.run(); } };
   const onMessage = event => {
     const message = event?.data;
     if (message?.type === 'authority-changed') forward({ type: 'authority-changed' });
     else if (message?.type === 'committed' && DOMAINS.includes(message.domain)) {
       enqueue(async () => {
-        if (controller.getState() === 'READY') await refreshWhere(entry => entry.domain === message.domain);
+        if (controller.getState() === 'READY'||(controller.getState()==='LEGACY'&&message.domain==='shopping')) await refreshWhere(entry => entry.domain === message.domain);
+        if (controller.getState()==='READY'&&['calendar','household'].includes(message.domain)) {
+          await session?.shopping?.refresh().catch(()=>{});
+          session?.shoppingSync?.run();
+        }
       });
     }
   };
@@ -302,7 +327,7 @@ function ShellFrame({ tab, active, onNavigate, banner, overlay, children }) {
     <div data-app-shell style={SHELL_STYLE}>
       {banner}
       <main key={tab} id="main-content" className="mm-main">
-        {['loo', 'paevik', 'tunniplaan'].includes(tab) && (
+        {['loo', 'paevik', 'tunniplaan', 'shopping'].includes(tab) && (
           <div className="mm-back">
             <button className="mm-button mm-button-secondary" onClick={() => onNavigate('veel')}>
               <ShellIcon name="back" />Tagasi: Veel
@@ -384,9 +409,10 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
   const reminders = useReminders(notificationService);
   const timetable = useTimetable();
   const homework = useHomework();
+  const shopping = useShopping(session);
   const { profile, saveName } = useSettings();
   const { places, loading: placesLoading, writable: placesWritable, error: placesError, update: updatePlace } = useSavedPlaces(session);
-  const active = ['loo', 'paevik', 'tunniplaan'].includes(tab) ? 'veel' : tab;
+  const active = ['loo', 'paevik', 'tunniplaan', 'shopping'].includes(tab) ? 'veel' : tab;
 
   if (calendar.loading || household.loading || placesLoading) {
     return <div data-app-shell style={SHELL_STYLE}><StorageSplash /></div>;
@@ -404,7 +430,9 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
         {eventSelection && <EventDialog selection={eventSelection} calendar={calendar} onClose={() => setEventSelection(null)} />}
         <ReminderRuntime events={calendar.events} reminders={reminders} />
       </>}>
-      {tab === 'kodu' && <KoduTab savedPlaces={places} onNavigate={navigate} calendar={calendar} onAdd={openAdd} onOpen={openEvent} timetable={timetable} homework={homework} />}
+      {tab === 'kodu' && <KoduTab savedPlaces={places} onNavigate={navigate} calendar={calendar} onAdd={openAdd} onOpen={openEvent} timetable={timetable} homework={homework}
+        shoppingHomeCard={<ShoppingHomeCard shopping={shopping} onOpen={()=>navigate('shopping')} />} />}
+      {tab === 'shopping' && <ShoppingTab shopping={shopping} />}
       {tab === 'kalender' && <KalenderTab calendar={calendar} onAdd={openAdd} onOpen={openEvent} />}
       {deviceTab(tab, places, navigate, timetable, homework)}
       {tab === 'seaded' && <SeadedTab profile={profile} saveName={saveName} places={places} placesWritable={placesWritable} placesError={placesError}
@@ -420,7 +448,7 @@ function LimitedShell({ state, result, actions }) {
   const { tab, navigate } = useTabNavigation();
   const timetable = useTimetable();
   const homework = useHomework();
-  const active = ['loo', 'paevik', 'tunniplaan'].includes(tab) ? 'veel' : tab;
+  const active = ['loo', 'paevik', 'tunniplaan', 'shopping'].includes(tab) ? 'veel' : tab;
   const device = deviceTab(tab, [], navigate, timetable, homework);
   return (
     <ShellFrame tab={tab} active={active} onNavigate={navigate}>

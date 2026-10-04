@@ -16,7 +16,7 @@ export function PageHeader({ title, subtitle }) {
   </header>;
 }
 
-export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, timetable, homework }) {
+export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, timetable, homework, shoppingHomeCard }) {
   const now = useCalendarNow();
   const today = localDate(now);
   const todayItems = expandOccurrences(calendar.events, today, today);
@@ -61,6 +61,7 @@ export function KoduTab({ savedPlaces, onNavigate, calendar, onAdd, onOpen, time
       </div>}
     </section>
     <TimetableHomeCard timetable={timetable} homework={homework} now={now} onOpen={() => onNavigate('tunniplaan')} />
+    {shoppingHomeCard}
     <section className="mm-section" aria-labelledby="home-bus-heading">
       <h2 className="mm-section-label" id="home-bus-heading">Buss praegu</h2>
       <BussCard savedPlaces={savedPlaces} onOpenBuss={() => onNavigate('buss')} />
@@ -91,6 +92,7 @@ export function VeelTab({ onNavigate }) {
     <div className="mm-card mm-utility-list">
       {[
         { id:'tunniplaan', title:'Tunniplaan', description:'Anni koolinädal, tunnid ja klassiruumid.' },
+        { id:'shopping', title:'Ostunimekiri', description:'Ostud ja ostmata asjad ühes nimekirjas.' },
         { id:'loo', title:'Joonistamine ja loomine', description:'Ideed, joonistamise nipid ja väikesed loovad projektid.' },
         { id:'paevik', title:'Päevik', description:'Sinu mõtted ja päeva hetked, olemasoleva PIN-i taga.' },
       ].map(item => <button key={item.id} className="mm-utility-row" onClick={() => onNavigate(item.id)}>
