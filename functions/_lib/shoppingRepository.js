@@ -5,14 +5,16 @@ export async function readShoppingBootstrap(db, householdId) {
   const [cursorResult, rowsResult] = await db.batch([
     bind(db, "SELECT COALESCE(MAX(seq), 0) AS cursor FROM change_log WHERE household_id = ? AND entity_type = 'shopping_item'", [householdId]),
     bind(db,
-      `SELECT item.id, item.payload_json, item.revision, item.created_at, item.updated_at, item.deleted_at,
+      `WITH latest AS (
+         SELECT entity_id, MAX(seq) AS seq FROM change_log
+         WHERE household_id = ? AND entity_type = 'shopping_item' GROUP BY entity_id
+       )
+       SELECT item.id, item.payload_json, item.revision, item.created_at, item.updated_at, item.deleted_at,
               log.revision AS latest_revision, log.operation AS latest_operation
        FROM shopping_items AS item
-       LEFT JOIN change_log AS log ON log.seq = (
-         SELECT MAX(seq) FROM change_log
-         WHERE household_id = item.household_id AND entity_type = 'shopping_item' AND entity_id = item.id
-       )
-       WHERE item.household_id = ? ORDER BY item.id`, [householdId]),
+       LEFT JOIN latest ON latest.entity_id = item.id
+       LEFT JOIN change_log AS log ON log.seq = latest.seq
+       WHERE item.household_id = ? ORDER BY item.id`, [householdId, householdId]),
   ]);
   return { cursor: cursorResult.results[0].cursor, rows: rowsResult.results };
 }
@@ -23,11 +25,14 @@ export async function readShoppingDelta(db, householdId, after) {
       `WITH scoped AS (
          SELECT seq, entity_id, revision, operation FROM change_log
          WHERE household_id = ? AND entity_type = 'shopping_item'
+       ), latest AS (
+         SELECT entity_id, MAX(seq) AS seq FROM scoped GROUP BY entity_id
        )
        SELECT COALESCE(MAX(seq), 0) AS cursor,
          CASE WHEN EXISTS (
            SELECT 1 FROM shopping_items AS item
-           LEFT JOIN scoped AS log ON log.seq = (SELECT MAX(seq) FROM scoped WHERE entity_id = item.id)
+           LEFT JOIN latest ON latest.entity_id = item.id
+           LEFT JOIN scoped AS log ON log.seq = latest.seq
            WHERE item.household_id = ? AND (log.seq IS NULL OR log.revision != item.revision
              OR (log.operation = 'DELETE') != (item.deleted_at IS NOT NULL))
          ) OR EXISTS (
@@ -44,15 +49,17 @@ export async function readShoppingDelta(db, householdId, after) {
                 MIN(revision) AS history_first, MAX(revision) AS history_last
          FROM change_log WHERE household_id = ? AND entity_type = 'shopping_item' AND seq > ?
          GROUP BY entity_id
+       ), base AS (
+         SELECT entity_id, MAX(revision) AS revision FROM change_log
+         WHERE household_id = ? AND entity_type = 'shopping_item' AND seq <= ? GROUP BY entity_id
        )
        SELECT log.seq, log.entity_type, log.entity_id, log.operation, log.revision AS change_revision,
               item.id, item.payload_json, item.revision, item.created_at, item.updated_at, item.deleted_at,
               latest.history_count, latest.history_distinct, latest.history_first, latest.history_last,
-              COALESCE((SELECT MAX(revision) FROM change_log
-                        WHERE household_id = ? AND entity_type = 'shopping_item'
-                          AND entity_id = log.entity_id AND seq <= ?), 0) AS history_base_revision
+              COALESCE(base.revision, 0) AS history_base_revision
        FROM latest JOIN change_log AS log ON log.seq = latest.seq
        LEFT JOIN shopping_items AS item ON item.id = log.entity_id AND item.household_id = log.household_id
+       LEFT JOIN base ON base.entity_id = log.entity_id
        ORDER BY log.seq`, [householdId, after, householdId, after]),
   ]);
   return { cursor: cursorResult.results[0].cursor, incomplete: cursorResult.results[0].history_incomplete === 1,
