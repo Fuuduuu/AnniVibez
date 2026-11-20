@@ -1,5 +1,6 @@
 import { requireAuthenticated } from "../../_lib/auth.js";
-import { apiError, json, readJsonObject, requireMethod } from "../../_lib/http.js";
+import { apiError, readJsonObject, requireMethod } from "../../_lib/http.js";
+import { pushMutations } from "../../_lib/mergeCapability.js";
 import { applyCalendarMutation } from "../../_lib/sync.js";
 
 const MAX_MUTATIONS = 8;
@@ -32,15 +33,8 @@ export async function onRequestPost({ request, env }) {
     if (Object.keys(input).length !== 1 || !Object.hasOwn(input, "mutations")
       || !Array.isArray(input.mutations) || input.mutations.length > MAX_MUTATIONS) return invalidRequest();
 
-    const results = [];
-    for (const mutation of input.mutations) {
-      const mutationId = typeof mutation?.mutationId === "string" ? mutation.mutationId : null;
-      const result = await applyCalendarMutation({
-        db, context: authentication.context, mutation, clock: () => new Date().toISOString(),
-      });
-      results.push({ mutationId, ...result });
-    }
-    return json(200, { results });
+    return await pushMutations(request, input.mutations, (mutation, supportsMergeEvidence) =>
+      applyCalendarMutation({ db, context: authentication.context, mutation, supportsMergeEvidence, clock: () => new Date().toISOString() }));
   } catch {
     return internalError();
   }

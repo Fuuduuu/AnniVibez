@@ -1,3 +1,5 @@
+import { mutationJournalJson } from "./mergeCapability.js";
+
 // Shopping uses the shared journal and idempotency tables with its own entity type.
 const bind = (db, sql, values) => db.prepare(sql).bind(...values);
 
@@ -112,7 +114,7 @@ function changeLogStatement(db, record, guarded) {
 
 function appliedStatement(db, record) {
   return bind(db, "INSERT INTO applied_mutations (mutation_id, household_id, result_json, created_at) VALUES (?, ?, ?, ?)",
-    [record.mutationId, record.householdId, JSON.stringify({ digest: record.digest, result: record.result }), record.timestamp]);
+    [record.mutationId, record.householdId, mutationJournalJson(record, "shopping_item"), record.timestamp]);
 }
 
 export function commitShoppingCreate(db, record) {

@@ -7,6 +7,7 @@ import {
   findCalendarEntityId,
   findChangedFieldsSince,
 } from "./syncRepository.js";
+import { clientUpgradeRequired, requiresMergeEvidence } from "./mergeCapability.js";
 
 const EVENT_FIELDS = [
   "id", "title", "category", "subtype", "categoryLabel", "categoryColor", "date", "time", "recurrence",
@@ -297,9 +298,14 @@ function groupOf(field) {
   return field;
 }
 
-function isOverlap(patch, history) {
-  const incoming = new Set(Object.keys(patch).map(groupOf));
-  return history.some(row => JSON.parse(row.changed_fields_json).some(field => incoming.has(groupOf(field))));
+function readHistoryFields(history) {
+  try {
+    const entries = history.map(row => JSON.parse(row.changed_fields_json));
+    if (entries.some(fields => !Array.isArray(fields) || fields.some(field => !EVENT_FIELDS.includes(field)))) return null;
+    return [...new Set(entries.flat())].sort();
+  } catch {
+    return null;
+  }
 }
 
 function mergeCategoryIdentity(previous, patch) {
@@ -338,6 +344,14 @@ const rejected = code => ({ status: "REJECTED", code });
 const conflict = code => ({ status: "CONFLICT", code });
 const unavailable = () => conflict("ENTITY_UNAVAILABLE");
 
+async function replay(db, row, householdId, mutation, digest, supportsMergeEvidence) {
+  if (row.household_id !== householdId) return rejected("MUTATION_UNAVAILABLE");
+  const stored = JSON.parse(row.result_json);
+  if (stored.digest !== digest) return rejected("MUTATION_ID_REUSED");
+  if (await requiresMergeEvidence(db, householdId, mutation, stored.result?.status, supportsMergeEvidence)) return clientUpgradeRequired();
+  return { status: "REPLAYED", result: stored.result };
+}
+
 function canonicalTimestamp(clock) {
   requireCondition(typeof clock === "function");
   const value = clock();
@@ -346,7 +360,7 @@ function canonicalTimestamp(clock) {
   return value;
 }
 
-export async function applyCalendarMutation({ db, context, mutation, clock }) {
+export async function applyCalendarMutation({ db, context, mutation, clock, supportsMergeEvidence = false }) {
   requireCondition(db && typeof db.prepare === "function" && typeof db.batch === "function");
   requireCondition(isRecord(context) && typeof context.householdId === "string"
     && typeof context.userId === "string");
@@ -355,13 +369,7 @@ export async function applyCalendarMutation({ db, context, mutation, clock }) {
   catch (error) { return rejected(error.code === "IMMUTABLE_FIELD" ? error.code : "INVALID_REQUEST"); }
   const digest = await digestCanonicalMutation(value);
   const existingMutation = await findAppliedMutation(db, value.mutationId);
-  if (existingMutation) {
-    if (existingMutation.household_id !== context.householdId) return rejected("MUTATION_UNAVAILABLE");
-    const stored = JSON.parse(existingMutation.result_json);
-    return stored.digest === digest
-      ? { status: "REPLAYED", result: stored.result }
-      : rejected("MUTATION_ID_REUSED");
-  }
+  if (existingMutation) return replay(db, existingMutation, context.householdId, value, digest, supportsMergeEvidence);
   if (value.operation === "CREATE" ? value.baseRevision !== 0 : value.baseRevision <= 0)
     return rejected("INVALID_REQUEST");
 
@@ -386,23 +394,36 @@ export async function applyCalendarMutation({ db, context, mutation, clock }) {
     } else {
       previous = validateCalendarEventPayload(JSON.parse(row.payload_json), value.entityId);
       const stale = value.baseRevision < headRevision;
+      let interveningFields;
       if (stale) {
         const history = await findChangedFieldsSince(db, context.householdId, value.entityId, value.baseRevision);
         // An incomplete history cannot establish that a stale patch is disjoint.
         if (history.length !== headRevision - value.baseRevision
           || history.some((entry, index) => entry.revision !== value.baseRevision + index + 1))
           return conflict("HISTORY_UNAVAILABLE");
-        if (isOverlap(value.patch, history)) return conflict("FIELD_OVERLAP");
+        interveningFields = readHistoryFields(history);
+        if (!interveningFields) return conflict("HISTORY_UNAVAILABLE");
+        const incoming = new Set(Object.keys(value.patch).map(groupOf));
+        if (interveningFields.some(field => incoming.has(groupOf(field)))) return conflict("FIELD_OVERLAP");
       }
       try { nextPayload = deriveUpdate(previous, value.patch, value.entityId); }
       catch { return stale ? conflict("MERGE_INVALID") : rejected("INVALID_PAYLOAD"); }
       changedFields = Object.keys(nextPayload).filter(key =>
         canonicalJson(previous[key]) !== canonicalJson(nextPayload[key])).sort();
-      result = { status: stale ? "MERGED" : "APPLIED", revision: headRevision + 1 };
+      const revision = headRevision + 1;
+      result = stale ? {
+        status: "MERGED", revision,
+        merge: {
+          fields: interveningFields,
+          record: { id: value.entityId, payload: nextPayload, revision, createdAt: row.created_at, deletedAt: null },
+        },
+      } : { status: "APPLIED", revision };
     }
   }
 
+  if (await requiresMergeEvidence(db, context.householdId, value, result.status, supportsMergeEvidence)) return clientUpgradeRequired();
   const timestamp = canonicalTimestamp(clock);
+  if (result.merge) result.merge.record.updatedAt = timestamp;
   const record = {
     mutationId: value.mutationId, householdId: context.householdId, userId: context.userId,
     entityId: value.entityId, operation: value.operation, expectedRevision: headRevision,
@@ -418,13 +439,7 @@ export async function applyCalendarMutation({ db, context, mutation, clock }) {
     // A concurrent duplicate may have committed between the preflight and the
     // guarded batch. Re-read the durable record; never replay based on memory.
     const committed = await findAppliedMutation(db, value.mutationId);
-    if (committed) {
-      if (committed.household_id !== context.householdId) return rejected("MUTATION_UNAVAILABLE");
-      const stored = JSON.parse(committed.result_json);
-      return stored.digest === digest
-        ? { status: "REPLAYED", result: stored.result }
-        : rejected("MUTATION_ID_REUSED");
-    }
+    if (committed) return replay(db, committed, context.householdId, value, digest, supportsMergeEvidence);
     if (value.operation === "CREATE") {
       if (await findCalendarEntityId(db, value.entityId)) return unavailable();
     } else {

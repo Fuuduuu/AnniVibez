@@ -1,3 +1,5 @@
+import { mutationJournalJson } from "./mergeCapability.js";
+
 // D1 persistence for the calendar mutation service. Domain decisions live in sync.js.
 const bind = (db, sql, values) => db.prepare(sql).bind(...values);
 
@@ -109,7 +111,7 @@ function appliedStatement(db, record) {
   return bind(db,
     "INSERT INTO applied_mutations (mutation_id, household_id, result_json, created_at) VALUES (?, ?, ?, ?)",
     [record.mutationId, record.householdId,
-      JSON.stringify({ digest: record.digest, result: record.result }), record.timestamp]);
+      mutationJournalJson(record, "calendar_event"), record.timestamp]);
 }
 
 export function commitCalendarCreate(db, record) {

@@ -123,7 +123,7 @@ async function one(db, sql, ...values) {
 }
 
 async function apply(db, value, context = CONTEXT_A) {
-  return applyCalendarMutation({ db, context, mutation: value, clock: () => NOW });
+  return applyCalendarMutation({ db, context, mutation: value, clock: () => NOW, supportsMergeEvidence: true });
 }
 
 async function create(db, event = manualEvent(), id = "mut_create", context = CONTEXT_A) {
@@ -426,8 +426,11 @@ test("23 stale notes patch merges after a title-only history change", async () =
     const result = await update(db, { notes: "Personal note" }, "mut_notes", 1);
     assert.equal(result.status, "MERGED");
     assert.equal(result.revision, 3);
+    assert.deepEqual(result.merge.fields, ["title"]);
+    assert.deepEqual(await update(db, { notes: "Personal note" }, "mut_notes", 1), { status: "REPLAYED", result });
     const row = await one(db, "SELECT payload_json, revision FROM calendar_events WHERE id = ?", "evt_1");
     assert.equal(row.revision, 3);
+    assert.deepEqual(result.merge.record.payload, JSON.parse(row.payload_json));
     assert.equal(JSON.parse(row.payload_json).title, "New title");
     assert.equal(JSON.parse(row.payload_json).notes, "Personal note");
     assert.deepEqual(JSON.parse((await one(db, "SELECT changed_fields_json FROM change_log WHERE revision = 3")).changed_fields_json), ["notes"]);
@@ -907,7 +910,10 @@ test("categories V2 stale label, color and ID patches overlap as one identity bu
     assert.deepEqual(await update(db, { categoryLabel: "Koerte trenn" }, "v2-label", 1), { status: "APPLIED", revision: 2 });
     assertConflict(await update(db, { categoryColor: "#278B8B" }, "v2-stale-color", 1), "FIELD_OVERLAP");
     assertConflict(await update(db, { category: "culture", categoryLabel: null, categoryColor: null }, "v2-stale-id", 1), "FIELD_OVERLAP");
-    assert.deepEqual(await update(db, { notes: "Muud märkmed" }, "v2-disjoint", 1), { status: "MERGED", revision: 3 });
+    const merged = await update(db, { notes: "Muud märkmed" }, "v2-disjoint", 1);
+    assert.equal(merged.status, "MERGED");
+    assert.equal(merged.revision, 3);
+    assert.deepEqual(merged.merge.fields, ["categoryLabel"]);
     const event = JSON.parse((await one(db, "SELECT payload_json FROM calendar_events WHERE id = 'evt_1'")).payload_json);
     assert.equal(event.category, CATEGORY_A); assert.equal(event.categoryLabel, "Koerte trenn");
     assert.equal(event.categoryColor, "#7A5CC8");

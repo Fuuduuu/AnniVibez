@@ -678,7 +678,7 @@ test("push preserves MERGED and canonical auth, method, and infrastructure error
   await withFreshDb(async ({ db, a }) => {
     const post = async (mutations) => pushEndpoint.onRequestPost({
       request: request("/api/sync/push", a, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", "X-Annivibe-Sync-Capabilities": "merge-evidence-v1" },
         body: JSON.stringify({ mutations }),
       }), env: { DB: db },
     });
@@ -688,7 +688,11 @@ test("push preserves MERGED and canonical auth, method, and infrastructure error
     assert.equal((await post([original])).status, 200);
     assert.equal((await post([title])).status, 200);
     const merged = await post([notes]);
-    assert.deepEqual(await merged.json(), { results: [{ mutationId: "mut_notes", status: "MERGED", revision: 3 }] });
+    const snapshot = await bootstrapEndpoint.onRequestGet({ request: request("/api/sync/bootstrap", a), env: { DB: db } });
+    const { calendarEvents: [record] } = await snapshot.json();
+    const result = { status: "MERGED", revision: 3, merge: { fields: ["title"], record } };
+    assert.deepEqual(await merged.json(), { results: [{ mutationId: "mut_notes", ...result }] });
+    assert.deepEqual(await (await post([notes])).json(), { results: [{ mutationId: "mut_notes", status: "REPLAYED", result }] });
 
     const missingDb = await pushEndpoint.onRequestPost({
       request: request("/api/sync/push", a, { method: "POST", headers: { "Content-Type": "application/json" }, body: '{"mutations":[]}' }),

@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { applyShoppingMutation, shoppingMutationDigest, canonicalJson } from "../../functions/_lib/shopping.js";
 import { withFreshDb, mutation, item, ITEM_A, ITEM_B, uuidFor, NOW, CREATED, rows, one, seedCalendar, seedMember, synchronizeShoppingReads } from "./shopping-fixtures.mjs";
 
-const apply = (db, context, value, clock = () => NOW) => applyShoppingMutation({ db, context, mutation: value, clock });
+const apply = (db, context, value, clock = () => NOW) =>
+  applyShoppingMutation({ db, context, mutation: value, clock, supportsMergeEvidence: true });
 
 test("shopping CREATE atomically persists one canonical item, one history row and one replay result", async () => {
   await withFreshDb(async ({ db, a }) => {
@@ -70,7 +71,13 @@ test("stale shopping updates merge disjoint fields using contiguous history", as
   await withFreshDb(async ({ db, a }) => {
     await apply(db, a, mutation());
     await apply(db, a, mutation("UPDATE", 101, { name: "Kaerapiim" }));
-    assert.deepEqual(await apply(db, a, mutation("UPDATE", 102, { quantity: "2 l" })), { status: "MERGED", revision: 3 });
+    const pending = mutation("UPDATE", 102, { quantity: "2 l" });
+    const result = await apply(db, a, pending);
+    assert.deepEqual(result, { status: "MERGED", revision: 3, merge: {
+      fields: ["name"],
+      record: { id: ITEM_A, payload: item({ name: "Kaerapiim", quantity: "2 l" }), revision: 3, updatedAt: NOW, deletedAt: null },
+    } });
+    assert.deepEqual(await apply(db, a, pending), { status: "REPLAYED", result });
     assert.deepEqual(JSON.parse((await one(db, "SELECT payload_json FROM shopping_items WHERE id = ?", ITEM_A)).payload_json), item({ name: "Kaerapiim", quantity: "2 l" }));
     assert.deepEqual(JSON.parse((await one(db, "SELECT changed_fields_json FROM change_log WHERE revision = 3")).changed_fields_json), ["quantity"]);
   });
@@ -254,7 +261,11 @@ test("a concurrent disjoint shopping loser can retry and merge without losing ei
       const values = [mutation("UPDATE", 101, { name: "Kaerapiim" }), mutation("UPDATE", 102, { quantity: "2 l" })];
       const results = await Promise.all(values.map(value => apply(barrier.db, a, value)));
       assert.deepEqual(results.map(result => result.status).sort(), ["APPLIED", "CONFLICT"]);
-      assert.deepEqual(await apply(db, a, values[results.findIndex(result => result.status === "CONFLICT")]), { status: "MERGED", revision: 3 });
+      const loser = results.findIndex(result => result.status === "CONFLICT");
+      const retried = await apply(db, a, values[loser]);
+      assert.equal(retried.status, "MERGED");
+      assert.equal(retried.revision, 3);
+      assert.deepEqual(retried.merge.fields, [loser === 0 ? "quantity" : "name"]);
       assert.deepEqual(JSON.parse((await one(db, "SELECT payload_json FROM shopping_items WHERE id = ?", ITEM_A)).payload_json), item({ name: "Kaerapiim", quantity: "2 l" }));
       assert.equal((await rows(db, "SELECT * FROM change_log")).length, 3);
       assert.equal((await rows(db, "SELECT * FROM applied_mutations")).length, 3);

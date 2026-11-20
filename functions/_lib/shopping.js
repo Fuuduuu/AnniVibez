@@ -2,6 +2,7 @@ import {
   commitShoppingCreate, commitShoppingDelete, commitShoppingUpdate,
   findAppliedShoppingMutation, findShoppingChangedFieldsSince, findShoppingEntity, findShoppingEntityId,
 } from "./shoppingRepository.js";
+import { clientUpgradeRequired, requiresMergeEvidence } from "./mergeCapability.js";
 
 const ITEM_FIELDS = ["id", "name", "quantity", "category", "note", "checkedAt", "createdAt"];
 const UPDATE_FIELDS = ["name", "quantity", "category", "note", "checkedAt"];
@@ -108,16 +109,17 @@ const rejected = code => ({ status: "REJECTED", code });
 const conflict = code => ({ status: "CONFLICT", code });
 const unavailable = () => conflict("ENTITY_UNAVAILABLE");
 
-function replay(row, householdId, digest) {
+async function replay(db, row, householdId, mutation, digest, supportsMergeEvidence) {
   if (row.household_id !== householdId) return rejected("MUTATION_UNAVAILABLE");
   const stored = JSON.parse(row.result_json);
   if (stored.digest !== digest) return rejected("MUTATION_ID_REUSED");
   requireCondition(isRecord(stored.result) && ["APPLIED", "MERGED"].includes(stored.result.status)
     && Number.isSafeInteger(stored.result.revision) && stored.result.revision >= 1);
+  if (await requiresMergeEvidence(db, householdId, mutation, stored.result.status, supportsMergeEvidence)) return clientUpgradeRequired();
   return { status: "REPLAYED", result: stored.result };
 }
 
-export async function applyShoppingMutation({ db, context, mutation, clock }) {
+export async function applyShoppingMutation({ db, context, mutation, clock, supportsMergeEvidence = false }) {
   requireCondition(db && typeof db.prepare === "function" && typeof db.batch === "function");
   requireCondition(isRecord(context) && typeof context.householdId === "string" && context.householdId.length > 0
     && typeof context.userId === "string" && context.userId.length > 0);
@@ -126,11 +128,11 @@ export async function applyShoppingMutation({ db, context, mutation, clock }) {
   catch (error) { return rejected(error.code === "IMMUTABLE_FIELD" ? error.code : "INVALID_REQUEST"); }
   const digest = await digestCanonicalMutation(value);
   const existing = await findAppliedShoppingMutation(db, value.mutationId);
-  if (existing) return replay(existing, context.householdId, digest);
+  if (existing) return replay(db, existing, context.householdId, value, digest, supportsMergeEvidence);
   let headRevision = 0;
   let nextPayload = null;
   let changedFields = [];
-  let stale = false;
+  let interveningFields = null;
   if (value.operation === "CREATE") {
     if (await findShoppingEntityId(db, value.entityId)) return unavailable();
     nextPayload = value.patch;
@@ -144,8 +146,7 @@ export async function applyShoppingMutation({ db, context, mutation, clock }) {
     if (value.operation === "UPDATE") {
       const previous = validateShoppingItemPayload(JSON.parse(row.payload_json), value.entityId);
       requireCondition(previous.createdAt === row.created_at);
-      stale = value.baseRevision < headRevision;
-      if (stale) {
+      if (value.baseRevision < headRevision) {
         const history = await findShoppingChangedFieldsSince(db, context.householdId, value.entityId, value.baseRevision);
         if (history.length !== headRevision - value.baseRevision
           || history.some((entry, index) => entry.revision !== value.baseRevision + index + 1)) return conflict("HISTORY_UNAVAILABLE");
@@ -155,14 +156,24 @@ export async function applyShoppingMutation({ db, context, mutation, clock }) {
           return changed;
         });
         if (fields.some(key => Object.hasOwn(value.patch, key))) return conflict("FIELD_OVERLAP");
+        interveningFields = [...new Set(fields)].sort();
       }
       nextPayload = validateShoppingItemPayload({ ...previous, ...value.patch }, value.entityId);
       changedFields = Object.keys(nextPayload).filter(key => canonicalJson(nextPayload[key]) !== canonicalJson(previous[key])).sort();
     }
   }
+  const status = interveningFields === null ? "APPLIED" : "MERGED";
+  if (await requiresMergeEvidence(db, context.householdId, value, status, supportsMergeEvidence)) return clientUpgradeRequired();
   requireCondition(typeof clock === "function");
   const changedAt = timestamp(clock());
-  const result = { status: stale ? "MERGED" : "APPLIED", revision: headRevision + 1 };
+  const revision = headRevision + 1;
+  const result = interveningFields === null ? { status: "APPLIED", revision } : {
+    status: "MERGED", revision,
+    merge: {
+      fields: interveningFields,
+      record: { id: value.entityId, payload: nextPayload, revision, updatedAt: changedAt, deletedAt: null },
+    },
+  };
   const record = {
     mutationId: value.mutationId, householdId: context.householdId, userId: context.userId,
     entityId: value.entityId, operation: value.operation, revision: result.revision,
@@ -176,7 +187,7 @@ export async function applyShoppingMutation({ db, context, mutation, clock }) {
     return result;
   } catch {
     const committed = await findAppliedShoppingMutation(db, value.mutationId);
-    if (committed) return replay(committed, context.householdId, digest);
+    if (committed) return replay(db, committed, context.householdId, value, digest, supportsMergeEvidence);
     if (value.operation === "CREATE") {
       if (await findShoppingEntityId(db, value.entityId)) return unavailable();
     } else {

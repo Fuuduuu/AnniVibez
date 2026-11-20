@@ -1,5 +1,6 @@
 import { requireAuthenticated } from "../../_lib/auth.js";
-import { apiError, json, readJsonObject, requireMethod } from "../../_lib/http.js";
+import { apiError, readJsonObject, requireMethod } from "../../_lib/http.js";
+import { pushMutations } from "../../_lib/mergeCapability.js";
 import { applyShoppingMutation } from "../../_lib/shopping.js";
 
 const internalError = () => apiError(500, "INTERNAL_ERROR", "Internal server error.");
@@ -19,13 +20,8 @@ export async function onRequestPost({ request, env }) {
     const input = body.value;
     if (Object.keys(input).length !== 1 || !Object.hasOwn(input, "mutations")
       || !Array.isArray(input.mutations) || input.mutations.length > 8) return invalidRequest();
-    const results = [];
-    for (const mutation of input.mutations) {
-      const mutationId = typeof mutation?.mutationId === "string" ? mutation.mutationId : null;
-      const result = await applyShoppingMutation({ db, context: authentication.context, mutation, clock: () => new Date().toISOString() });
-      results.push({ mutationId, ...result });
-    }
-    return json(200, { results });
+    return await pushMutations(request, input.mutations, (mutation, supportsMergeEvidence) =>
+      applyShoppingMutation({ db, context: authentication.context, mutation, supportsMergeEvidence, clock: () => new Date().toISOString() }));
   } catch {
     return internalError();
   }
