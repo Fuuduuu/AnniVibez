@@ -80,6 +80,39 @@ export async function runShoppingChecks({ t, send, evaluate, waitFor, input, cli
     assert.match(await body(), /Õunad/);
     assert.match(await body(), /1 asi ostmata/);
   });
+  await t.test('bulk confirmation keeps its original count and leaves a newly purchased item in the list', async () => {
+    const entries = [item('Kinnitatud ost', 1, { checkedAt: '2026-10-04T09:00:00.000Z' }),
+      item('Vahepeal ostetud', 2), item('Veel ostmata', 3)];
+    await evaluate(`__shoppingFixture.seed(${JSON.stringify(entries)})`);
+    await evaluate("(()=>{const details=document.querySelector('.mm-shopping-checked');if(!details.open)details.querySelector('summary').click();return true;})()");
+    await click('Kustuta ostetud');
+    const confirmation = "document.querySelector('dialog[open]')";
+    const before = await evaluate(`${confirmation}.innerText`);
+    assert.match(before, /eemaldatakse 1 ostetud asi/);
+    await evaluate(`__shoppingFixture.store.check(${JSON.stringify(entries[1].id)}, true)`);
+    await waitFor("document.querySelector('.mm-shopping-checked summary')?.textContent.includes('OSTETUD · 2')");
+    const after = await evaluate(`${confirmation}.innerText`);
+    await click('Kustuta ostetud', confirmation);
+    await waitFor("!document.querySelector('dialog[open]')");
+    assert.deepEqual(await evaluate("__shoppingFixture.store.getSnapshot().items.map(item => item.name).sort()"),
+      ['Vahepeal ostetud', 'Veel ostmata']);
+    assert.equal(after, before, 'the confirmation must still describe the original selection');
+  });
+  await t.test('a changed selected item requires a new confirmation and retains the entire selection', async () => {
+    const now = '2026-10-04T09:00:00.000Z';
+    const entries = [item('Kinnitatud ost', 1, { checkedAt: now }), item('Vahepeal muudetud', 2, { checkedAt: now })];
+    await evaluate(`__shoppingFixture.seed(${JSON.stringify(entries)})`);
+    await evaluate("(()=>{const details=document.querySelector('.mm-shopping-checked');if(!details.open)details.querySelector('summary').click();return true;})()");
+    await click('Kustuta ostetud');
+    const confirmation = "document.querySelector('dialog[open]')";
+    await evaluate(`__shoppingFixture.store.update(${JSON.stringify(entries[1].id)}, { quantity: '2 tk' })`);
+    await click('Kustuta ostetud', confirmation);
+    await waitFor(`!!${confirmation}?.querySelector('[role=alert]')`);
+    assert.match(await evaluate(`${confirmation}.querySelector('[role=alert]').textContent`), /Ostude valik muutus/);
+    assert.equal(await evaluate(`${confirmation}.querySelector('button.mm-button-danger').disabled`), true);
+    assert.equal(await evaluate('__shoppingFixture.store.getSnapshot().items.length'), 2);
+    await click('Tühista', confirmation);
+  });
   await t.test('Home shows eight unfinished items with a three-name preview and Veel opens shopping after Tunniplaan', async () => {
     const entries = ['Piim','Leib','Pesugeel','Tee','Vesi','Seep','Või','Mahl'].map((name, index) => item(name, index + 1));
     await evaluate(`__shoppingFixture.seed(${JSON.stringify(entries)}).then(()=>{__shoppingFixture.navigate('home');return true;})`);

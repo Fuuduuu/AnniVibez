@@ -1,10 +1,17 @@
 import {requestResult} from '../storage/indexedDb.js';
 import {runReplicaMutation} from '../storage/runtimeWrites.js';
 import {validateDeviceAuthRecord} from '../storage/localReplica.js';
-import {createShoppingItem,updateShoppingItem,SHOPPING_EDIT_FIELDS} from './model.js';
+import {reconcileMergeAcknowledgement} from '../sync/mergeAcknowledgement.js';
+import {createShoppingItem,updateShoppingItem,SHOPPING_EDIT_FIELDS,SHOPPING_FIELDS} from './model.js';
 import {emptyShoppingState,validateShoppingRecord,validateShoppingSyncState,validateShoppingOutbox,validateShoppingConflict} from './records.js';
 
 const STORES=['auth','shoppingItems','outbox','syncState','conflicts'];
+
+export class ShoppingSelectionChangedError extends Error {
+  constructor() {
+    super('Ostude valik muutus. Sulge kinnitus, värskenda nimekirja ja vali uuesti.');
+  }
+}
 async function read(stores) {
   const [auth,records,allOutbox,state,sequence,allConflicts]=await Promise.all([
     requestResult(stores.auth.get('device')),requestResult(stores.shoppingItems.getAll()),
@@ -120,11 +127,25 @@ export function createShoppingStore({replica,authority=null,newId,clock,isWritab
     return queue(current,[record],[{id,operation:'UPDATE',patch:delta}]);
   });}
   function removeMany(select){return mutate(current=>{
-    const chosen=current.records.filter(row=>!row.deletedAt&&select(row));
+    const chosen=select(current.records.filter(row=>!row.deletedAt));
     for(const row of chosen)existing(current,row.id);
     const records=chosen.map(row=>({...row,deletedAt:clock(),updatedAt:clock(),syncStatus:row.syncStatus==='conflict'?'conflict':'pending'}));
     return queue(current,records,records.map(row=>({id:row.id,operation:'DELETE',patch:{}})));
   });}
+  function clearChecked(confirmedItems) {
+    if (!Array.isArray(confirmedItems) || !confirmedItems.length) throw new TypeError('Missing confirmed shopping items');
+    const confirmed = new Map(confirmedItems.map(item => [item.id, { ...item }]));
+    if (confirmed.size !== confirmedItems.length) throw new TypeError('Duplicate confirmed shopping items');
+    return removeMany(available => {
+      const chosen = available.filter(row => confirmed.has(row.id));
+      // A sync acknowledgement can change bookkeeping without changing what the user confirmed.
+      if (chosen.length !== confirmed.size || chosen.some(({ id, payload }) =>
+        payload.checkedAt === null || SHOPPING_FIELDS.some(field => payload[field] !== confirmed.get(id)[field]))) {
+        throw new ShoppingSelectionChangedError();
+      }
+      return chosen;
+    });
+  }
   function prepareSync(){return mutate(current=>{
     if(!current.auth)return {puts:[],deletes:[],result:null};
     const householdId=current.auth.householdId;
@@ -153,17 +174,35 @@ export function createShoppingStore({replica,authority=null,newId,clock,isWritab
     const next={...item,attemptCount:item.attemptCount+1,lastAttemptAt:clock()};
     return {puts:[{store:'outbox',record:next},{store:'syncState',record:{...current.state,lastAttemptAt:clock()}}],deletes:[],result:next};
   },'sync');}
-  function acknowledge(mutationId,revision){
-    if(!Number.isSafeInteger(revision)||revision<1)throw new TypeError('Invalid shopping acknowledgement');
-    return mutate(current=>{
-      const item=current.outbox.find(row=>row.mutationId===mutationId);if(!item)return {puts:[],deletes:[],result:null};
-      if(revision<=item.baseRevision)throw new TypeError('Shopping revision did not advance');
-      const record=current.records.find(row=>row.id===item.entityId);if(!record)throw new Error('Missing acknowledged shopping item');
-      const remaining=current.outbox.filter(row=>row.entityId===item.entityId&&row.mutationId!==mutationId);
-      const puts=[{store:'shoppingItems',record:{...record,revision:Math.max(record.revision,revision),syncStatus:record.syncStatus==='conflict'?'conflict':remaining.length?'pending':'synced'}}];
-      if(remaining[0]&&remaining[0].attemptCount===0&&remaining[0].operation!=='CREATE')puts.push({store:'outbox',record:{...remaining[0],baseRevision:revision}});
-      return {puts,deletes:[{store:'outbox',key:mutationId}],result:null};
-    },'sync');
+  function acknowledge(mutationId, revision, merge) {
+    if (!Number.isSafeInteger(revision) || revision < 1) throw new TypeError('Invalid shopping acknowledgement');
+    return mutate(current => {
+      const item = current.outbox.find(row => row.mutationId === mutationId);
+      if (!item) return { puts: [], deletes: [], result: null };
+      if (revision <= item.baseRevision) throw new TypeError('Shopping revision did not advance');
+      const local = current.records.find(row => row.id === item.entityId);
+      if (!local) throw new Error('Missing acknowledged shopping item');
+      const dependents = current.outbox.filter(row => row.entityId === item.entityId && row.sequence > item.sequence);
+      const plan = reconcileMergeAcknowledgement({
+        merge, mutation: item, revision, dependents, local, fields: SHOPPING_EDIT_FIELDS,
+        group: field => field,
+        readRecord: record => validateShoppingRecord({ ...record, householdId: current.auth.householdId, syncStatus: 'synced' }),
+        validatePayload: payload => validateShoppingRecord({ ...local, payload }),
+      });
+      const record = { ...local, payload: plan.payload, revision: plan.revision,
+        syncStatus: (plan.blocked || local.syncStatus === 'conflict') ? 'conflict' : dependents.length ? 'pending' : 'synced' };
+      const puts = [{ store: 'shoppingItems', record }];
+      if (plan.blocked) {
+        const conflict = { id: `shopping:${item.entityId}`, entityType: 'shopping_item', entityId: item.entityId,
+          ...plan.blocked, localRecord: record, updatedAt: clock() };
+        puts.push({ store: 'conflicts', record: conflict });
+      }
+      if (plan.nextMutation) puts.push({ store: 'outbox', record: plan.nextMutation });
+      if (plan.refreshSnapshot) {
+        puts.push({ store: 'syncState', record: { ...current.state, bootstrapCompleted: false } });
+      }
+      return { puts, deletes: [{ store: 'outbox', key: mutationId }], result: null };
+    }, 'sync');
   }
   function reject(mutationId,result){return mutate(current=>{
     const item=current.outbox.find(row=>row.mutationId===mutationId);if(!item)return {puts:[],deletes:[],result:null};
@@ -184,7 +223,9 @@ export function createShoppingStore({replica,authority=null,newId,clock,isWritab
     }
     return mutate(current=>{
       if(!current.auth||current.state.householdId!==current.auth.householdId)throw new Error('Shopping auth not prepared');
-      if(!bootstrap&&cursor<current.state.serverCursor)return {puts:[],deletes:[],result:null};
+      if (!bootstrap && (!current.state.bootstrapCompleted || cursor < current.state.serverCursor)) {
+        return { puts: [], deletes: [], result: null };
+      }
       const puts=[];
       for(const input of byId.values()){
         const remote={...input,householdId:current.auth.householdId};
@@ -193,8 +234,10 @@ export function createShoppingStore({replica,authority=null,newId,clock,isWritab
         const pending=current.outbox.some(row=>row.entityId===remote.id);
         if(local&&(pending||local.syncStatus==='conflict')){
           if(local.syncStatus==='conflict'||remote.deletedAt||local.revision===0){
-            const conflict={...current.conflicts.find(row=>row.entityId===local.id),id:`shopping:${local.id}`,entityType:'shopping_item',entityId:local.id,
-              localRecord:local,remoteRecord:remote,updatedAt:clock()};
+            const previous = current.conflicts.find(row => row.entityId === local.id);
+            const remoteRecord = previous?.remoteRecord?.revision > remote.revision ? previous.remoteRecord : remote;
+            const conflict={...previous,id:`shopping:${local.id}`,entityType:'shopping_item',entityId:local.id,
+              localRecord:local,remoteRecord,updatedAt:clock()};
             puts.push({store:'shoppingItems',record:{...local,syncStatus:'conflict'}},{store:'conflicts',record:conflict});
           }
           continue;
@@ -205,8 +248,8 @@ export function createShoppingStore({replica,authority=null,newId,clock,isWritab
       return {puts,deletes:[],result:null};
     },'sync');
   }
-  return {snapshot,refresh,add,update,check:(id,checked)=>update(id,{checkedAt:checked?clock():null}),remove:id=>removeMany(row=>row.id===id),
-    clearChecked:()=>removeMany(row=>row.payload.checkedAt!==null),prepareSync,attempt,acknowledge,reject,applyRemote,
+  return {snapshot,refresh,add,update,check:(id,checked)=>update(id,{checkedAt:checked?clock():null}),
+    remove:id=>removeMany(available=>available.filter(row=>row.id===id)),clearChecked,prepareSync,attempt,acknowledge,reject,applyRemote,
     getSnapshot:()=>view,subscribe:listener=>{listeners.add(listener);return()=>listeners.delete(listener)},
     refreshAvailability:()=>{view={...view,writable:!view.loading&&!view.error&&isWritable()};listeners.forEach(listener=>listener());},
     dispose:()=>{disposed=true;listeners.clear();},

@@ -88,6 +88,99 @@ test('two isolated devices share shopping through real authenticated handlers an
         for(const secret of[authA.deviceToken,authB.deviceToken,link.linkToken])assert.equal(bytes.includes(secret),false);
       }
     });
+    await t.test('MERGED offline queues protect overlaps and DELETE while disjoint updates continue', async () => {
+      const cases = [
+        { name: 'Overlap', dependent: "client.store.update(id,{note:'safe intermediate'}).then(()=>client.store.update(id,{quantity:'3'}))", conflict: 'UPDATE' },
+        { name: 'Disjoint', dependent: "client.store.update(id,{note:'safe note'})", conflict: null },
+        { name: 'Delete', dependent: 'client.store.remove(id)', conflict: 'DELETE' },
+      ];
+      for (const scenario of cases) {
+        const { id: itemId } = await a.evaluate(`client.store.add({name:${JSON.stringify(scenario.name)},quantity:'1'})`);
+        await a.evaluate('client.sync.run()');
+        await b.evaluate('client.sync.run()');
+        await a.evaluate(`(async()=>{const id=${JSON.stringify(itemId)};
+          controls.offline=true;
+          await client.store.update(id,{name:${JSON.stringify(scenario.name + ' offline')}});
+          await ${scenario.dependent};
+          await client.sync.run();
+          controls.offline=false;
+        })()`);
+        await b.evaluate(`client.store.update(${JSON.stringify(itemId)},{quantity:'2'}).then(()=>client.sync.run())`);
+        if (scenario.name === 'Overlap') {
+          await a.evaluate('controls.loseReply=true;client.sync.run()');
+          await a.reload();
+        }
+        await a.evaluate('client.sync.run()');
+        const server = await a.db.prepare('SELECT payload_json,deleted_at FROM shopping_items WHERE id=?').bind(itemId).first();
+        assert.equal(JSON.parse(server.payload_json).quantity, '2', scenario.name);
+        assert.equal(JSON.parse(server.payload_json).name, scenario.name + ' offline');
+        assert.equal(server.deleted_at, null, 'an offline delete must not erase an intervening update');
+        const snapshot = await a.evaluate('client.snapshot()');
+        const conflict = snapshot.conflicts.find(item => item.entityId === itemId);
+        if (scenario.conflict) {
+          assert.equal(conflict?.mutation.operation, scenario.conflict);
+          assert.equal(conflict.remoteRecord.payload.quantity, '2');
+          assert.ok(snapshot.outbox.some(item => item.mutationId === conflict.mutation.mutationId && item.attemptCount === 0));
+          if (scenario.conflict === 'UPDATE') {
+            assert.equal(conflict.localRecord.payload.quantity, '3');
+            assert.equal(JSON.parse(server.payload_json).note, 'safe intermediate');
+          } else assert.ok(conflict.localRecord.deletedAt);
+          await a.reload();
+          const afterReload = await a.evaluate('client.snapshot()');
+          assert.deepEqual(afterReload.conflicts.find(item => item.entityId === itemId), conflict);
+        } else {
+          assert.equal(conflict, undefined);
+          assert.equal(JSON.parse(server.payload_json).note, 'safe note');
+          assert.equal(snapshot.outbox.some(item => item.entityId === itemId), false);
+        }
+      }
+    });
+    await t.test('legacy MERGED replay keeps the dependent pending and bootstraps missing remote evidence', async () => {
+      const { id: itemId } = await a.evaluate("client.store.add({name:'Legacy replay',quantity:'1'})");
+      await a.evaluate('client.sync.run()');
+      await b.evaluate('client.sync.run()');
+      await a.evaluate(`client.store.update(${JSON.stringify(itemId)},{name:'Local name'})
+        .then(()=>client.store.update(${JSON.stringify(itemId)},{note:'Keep this offline note'}))`);
+      await b.evaluate(`client.store.update(${JSON.stringify(itemId)},{quantity:'2'}).then(()=>client.sync.run())`);
+      await a.evaluate('controls.loseReply=true;client.sync.run()');
+      const snapshot = await a.evaluate('client.snapshot()');
+      const first = snapshot.outbox.find(row => row.entityId === itemId);
+      const { result_json: stored } = await a.db.prepare('SELECT result_json FROM applied_mutations WHERE mutation_id=?').bind(first.mutationId).first();
+      assert.equal(JSON.parse(stored).result.status, 'MERGED');
+      await a.db.prepare("UPDATE applied_mutations SET result_json=json_remove(result_json, '$.result.merge') WHERE mutation_id=?")
+        .bind(first.mutationId).run();
+
+      const { cursor } = await a.db.prepare("SELECT MAX(seq) AS cursor FROM change_log WHERE entity_type='shopping_item'").first();
+      await a.evaluate(`client.store.applyRemote([], ${cursor})`);
+      await a.evaluate('controls.calls.length=0;client.sync.run()');
+      assert.ok((await a.evaluate('controls.calls')).includes('/api/shopping/bootstrap'));
+      const after = await a.evaluate('client.snapshot()');
+      const conflict = after.conflicts.find(row => row.entityId === itemId);
+      assert.equal(conflict.result.code, 'MERGE_UNCERTAIN');
+      assert.equal(conflict.remoteRecord.payload.quantity, '2');
+      assert.equal(conflict.localRecord.payload.note, 'Keep this offline note');
+      assert.ok(after.outbox.some(row => row.mutationId === conflict.mutation.mutationId && row.attemptCount === 0));
+      assert.equal(await a.evaluate('client.sync.getSnapshot().status'), 'attention');
+    });
+    await t.test('a new edit based on the visible MERGED value can follow an in-flight disjoint dependent', async () => {
+      const { id: itemId } = await a.evaluate("client.store.add({name:'New edit after merge',quantity:'1'})");
+      await a.evaluate('client.sync.run()');
+      await b.evaluate('client.sync.run()');
+      await a.evaluate(`client.store.update(${JSON.stringify(itemId)},{name:'Local merged name'})
+        .then(()=>client.store.update(${JSON.stringify(itemId)},{note:'In-flight note'}))`);
+      await b.evaluate(`client.store.update(${JSON.stringify(itemId)},{quantity:'2'}).then(()=>client.sync.run())`);
+      await a.evaluate('controls.holdPushNumber=controls.pushes.length+2;window.heldRun=client.sync.run();true');
+      await a.waitFor('controls.pushHeld === true');
+      assert.equal((await a.evaluate(`client.row('Local merged name')`)).payload.quantity, '2');
+      await a.evaluate(`client.store.update(${JSON.stringify(itemId)},{quantity:'3'})`);
+      await a.evaluate('controls.releasePush();window.heldRun');
+      const { payload_json: payload } = await a.db.prepare('SELECT payload_json FROM shopping_items WHERE id=?').bind(itemId).first();
+      assert.equal(JSON.parse(payload).quantity, '3');
+      assert.equal(JSON.parse(payload).note, 'In-flight note');
+      const snapshot = await a.evaluate('client.snapshot()');
+      assert.ok(!snapshot.conflicts.some(item => item.entityId === itemId));
+      assert.ok(!snapshot.outbox.some(item => item.entityId === itemId));
+    });
   }finally{await b?.close();await a.close();}
 });
 

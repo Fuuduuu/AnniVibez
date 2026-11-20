@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { WASTE_SUBTYPES, FREQUENCIES } from '../calendar/eventModel';
-import { categoryPresentation } from '../calendar/categoryModel.js';
+import { CATEGORY_IDENTITY_FIELDS, categoryPresentation } from '../calendar/categoryModel.js';
+import { CALENDAR_EDIT_CONFLICT, getEventEditTarget } from '../calendar/eventRepository.js';
 import { formatDate } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
 import { ReminderStatus } from './ReminderStatus';
@@ -14,18 +15,34 @@ const fields = event => ({title:event.title || '',category:event.category === 'p
 const hasAdvanced = event => event.recurrence?.frequency !== 'none' && !!event.recurrence
   || event.reminder?.daysBefore > 0 || !!event.notes?.trim();
 
+function submitFields(form, imported) {
+  if (imported) return { reminder: form.reminder, notes: form.notes };
+  return { ...form, title: form.title.trim(), subtype: form.category === 'waste' ? form.subtype : null, time: form.time || null };
+}
+
+function changedFields(current, original) {
+  const patch = Object.fromEntries(Object.entries(current).filter(([key, value]) =>
+    JSON.stringify(value) !== JSON.stringify(original[key])));
+  if (CATEGORY_IDENTITY_FIELDS.some(key => Object.hasOwn(patch, key))) {
+    for (const key of CATEGORY_IDENTITY_FIELDS) patch[key] = current[key] ?? null;
+  }
+  return patch;
+}
+
 export function EventDialog({selection,calendar,onClose}) {
   const now=useCalendarNow();
   const source=selection.item ? calendar.events.find(e=>e.id === selection.item.eventId) : null;
   const [mode,setMode]=useState(selection.item ? 'view' : 'edit');
   const [scope,setScope]=useState(null);
   const [form,setForm]=useState(()=>fields(selection.item || {date:selection.date,...selection.defaults}));
+  const [opening,setOpening]=useState(null);
+  const [conflict,setConflict]=useState(null);
   const [error,setError]=useState('');
   const [pending,setPending]=useState(false);
   const [advancedOpen,setAdvancedOpen]=useState(false);
   const dialog=useRef(null);
   const recurring=source?.recurrence.frequency !== 'none' && !!source;
-  const imported=source?.source === 'imported';
+  const imported=(opening?.event ?? source)?.source === 'imported';
   useEffect(()=>{
     const element=dialog.current;
     element.showModal();
@@ -41,25 +58,50 @@ export function EventDialog({selection,calendar,onClose}) {
     return ()=>owner.removeEventListener('keydown',blockEscape,true);
   },[pending]);
   const set=(key,value)=>setForm(prev=>({...prev,[key]:value}));
-  function edit(chosenScope) {
+  function edit(chosenScope, record = source) {
+    const target = getEventEditTarget(record, { scope: chosenScope, occurrenceDate: selection.item.occurrenceDate });
+    if (!target) {
+      setError('Sündmus muutus vahepeal. Ava see kalendrist uuesti.');
+      return;
+    }
+    const values = fields(target);
     setScope(chosenScope);
-    const values=fields(chosenScope === 'series' ? source : selection.item);
+    setOpening({
+      event: record,
+      fields: submitFields(values, record.source === 'imported'),
+      legacyPayment: record.source !== 'imported' && target.category === 'payment',
+    });
     setForm(values);
-    setAdvancedOpen(imported || hasAdvanced(values));
+    setAdvancedOpen(record.source === 'imported' || hasAdvanced(values));
+    setConflict(null);
+    setError('');
     setMode('edit');
   }
   // The dialog closes and reports success only after the mutation has committed; a failure keeps the form.
   async function save(event) {
     event.preventDefault();
-    if(pending) return;
+    if(pending || conflict) return;
     setError('');setPending(true);
-    const patch=imported ? {reminder:form.reminder,notes:form.notes} : {...form,subtype:form.category === 'waste' ? form.subtype : null};
     try {
-      if(selection.item) await calendar.update(selection.item.eventId,patch,{scope,occurrenceDate:selection.item.occurrenceDate});
-      else await calendar.create(patch);
-      selection.onSaved?.(source?.source === 'imported' ? source.date : patch.date);
+      const current = submitFields(form, imported);
+      let savedDate = current.date;
+      if (opening) {
+        const { eventId, occurrenceDate } = selection.item;
+        const patch = changedFields(current, opening.fields);
+        const options = { scope, occurrenceDate, baseline: opening.event };
+        const saved = Object.keys(patch).length || opening.legacyPayment ? await calendar.update(eventId, patch, options) : calendar;
+        const record = saved.events.find(event => event.id === eventId);
+        savedDate = scope === 'occurrence' ? getEventEditTarget(record, options)?.date : record?.date;
+      } else {
+        await calendar.create(current);
+      }
+      if (savedDate) selection.onSaved?.(savedDate);
       onClose();
-    } catch (failure) { setError(failure.message);setPending(false); }
+    } catch (failure) {
+      if (failure.code === CALENDAR_EDIT_CONFLICT) setConflict(failure);
+      setError(failure.message);
+      setPending(false);
+    }
   }
   async function remove() {
     if(pending) return;
@@ -69,11 +111,18 @@ export function EventDialog({selection,calendar,onClose}) {
   }
   const title=mode === 'view' ? 'Sündmus' : mode.startsWith('choose') ? 'Millist osa sarjast?' : mode === 'delete' ? 'Kustuta sündmus' : selection.item ? 'Muuda sündmust' : 'Lisa sündmus';
   const missing=selection.item && !source;
+  const canReload = conflict && getEventEditTarget(conflict.current, { scope, occurrenceDate: selection.item.occurrenceDate });
   return <dialog ref={dialog} className="mm-event-dialog" aria-labelledby="event-dialog-title"
     onCancel={event=>{event.preventDefault();if(!pending) onClose();}}>
     <header className="mm-dialog-heading"><h2 id="event-dialog-title">{title}</h2><button type="button" className="mm-button mm-button-secondary" onClick={onClose} disabled={pending}>Tühista</button></header>
     <div className="mm-dialog-body">
-      {(error || missing) && <p role="alert" className="mm-notice mm-calendar-error">{error || 'Sündmus on vahepeal kustutatud. Sulge see vaade.'}</p>}
+      {(error || missing) && <p role="alert" className="mm-notice mm-calendar-error">{error || (opening
+        ? 'Sündmus on vahepeal kustutatud. Vajadusel kopeeri mustandi tekst.'
+        : 'Sündmus on vahepeal kustutatud. Sulge see vaade.')}</p>}
+      {conflict && (canReload ? <div>
+        <p>Uuesti laadimine asendab sinu mustandi praeguse sündmusega.</p>
+        <button type="button" className="mm-button mm-button-secondary" onClick={() => edit(scope, conflict.current)}>Laadi praegune sündmus</button>
+      </div> : <p>See sündmus või üksikkord pole enam samal kujul saadaval. Vajadusel kopeeri mustandi tekst.</p>)}
       {!missing && mode === 'view' && <>
         <h3>{selection.item.title}</h3>
         <p>{formatDate(selection.item.date,{day:'numeric',month:'long',year:'numeric'})} · {selection.item.time || 'Kogu päev'}</p>
@@ -104,7 +153,7 @@ export function EventDialog({selection,calendar,onClose}) {
         {imported && <p>See eemaldab sündmuse ainult siit seadmest. Kui allikas tagastab kuupäeva uuesti, võib värskendamine selle tagasi lisada.</p>}
         <button className="mm-button mm-delete-confirm" onClick={remove} disabled={pending || !calendar.writable}>Kinnita kustutamine</button>
       </>}
-      {!missing && mode === 'edit' && <form onSubmit={save}>
+      {mode === 'edit' && <form onSubmit={save}>
         {scope && <p className="mm-notice">{scope === 'series' ? 'Muudad kogu sarja. Alguskuupäeva või korduse muutmine eemaldab varasemad üksikkordade erandid ja kustutused.' : 'Muudad ainult seda üksikkorda. Ülejäänud sari jääb alles.'}</p>}
         {imported && <p className="mm-notice">Kuupäev, liik ja pealkiri on allika hallata. Märkmed ja meeldetuletus säilivad värskendamisel.</p>}
         <fieldset className="mm-source-fields" disabled={imported}>
@@ -129,7 +178,7 @@ export function EventDialog({selection,calendar,onClose}) {
         </details>
         <footer className="mm-event-footer">
           <button className="mm-button mm-button-secondary" type="button" onClick={onClose} disabled={pending}>Tühista</button>
-          <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable || pending}>Salvesta sündmus</button>
+          <button className="mm-button mm-button-primary mm-save-event" type="submit" disabled={!calendar.writable || pending || !!conflict || !!missing}>Salvesta sündmus</button>
         </footer>
       </form>}
     </div>

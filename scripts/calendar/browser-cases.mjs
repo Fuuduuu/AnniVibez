@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,mode,seedCalendar,readCalendarEvents,calendarRaw,corruptCalendar,repairCalendar,failWrites,restoreWrites}) {
+export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,attach,mode,seedCalendar,readCalendarEvents,calendarRaw,corruptCalendar,repairCalendar,failWrites,restoreWrites}) {
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   const select = async (id,value) => {
     await evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});el.value=${JSON.stringify(value)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
@@ -164,10 +164,11 @@ export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body
     const events=['payment','maintenance','waste','general'].map(category=>({id:`legacy-${category}`,title:`Vana ${category}`,
       category,subtype:category==='waste'?'paper':null,date:'2026-09-14',time:null,recurrence:{frequency:'none',interval:1},
       reminder:{daysBefore:0},source:'manual',householdId:null,notes:'',seriesId:null,excludedDates:[],overrides:{}}));
+    events.push({...events[0], id:'legacy-payment-no-draft-changes', title:'Vana makse ilma muudatuseta'});
     await seedCalendar(events);
     const before=await calendarRaw();
     await send('Page.reload');await waitFor("!!document.querySelector('nav')");await nav('Kalender');
-    assert.equal(await evaluate("document.querySelectorAll('#selected-events [data-occurrence]').length"),4);
+    assert.equal(await evaluate("document.querySelectorAll('#selected-events [data-occurrence]').length"),5);
     assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/Majahaldus/);
     assert.match(await evaluate("document.querySelector('#selected-events').innerText"),/Paber ja papp/);
     assert.equal(await calendarRaw(),before,'ordinary legacy reads and rendering do not rewrite any calendar bytes');
@@ -180,7 +181,70 @@ export async function runCalendarChecks({t,nav,click,input,evaluate,waitFor,body
     await waitFor("!document.querySelector('dialog[open]')");
     const after=await readCalendarEvents();
     assert.equal(after.find(event=>event.id==='legacy-payment').category,'general');
-    for(const original of events.filter(event=>event.category!=='payment')) assert.deepEqual(after.find(event=>event.id===original.id),original);
+    for(const original of events.filter(event=>event.id!=='legacy-payment')) assert.deepEqual(after.find(event=>event.id===original.id),original);
+    await openEvent('Vana makse ilma muudatuseta');await click('Muuda');await click('Salvesta sündmus');
+    await waitFor("!document.querySelector('dialog[open]')");
+    assert.equal((await readCalendarEvents()).find(event=>event.id==='legacy-payment-no-draft-changes').category,'general');
     await seedCalendar([]);await send('Page.reload');await waitFor("!!document.querySelector('nav')");
   });
+  for (const overlapping of [false, true]) {
+    const changes = overlapping ? 'same-field title edit' : 'disjoint title and notes edits';
+    await t.test(`calendar editor handles two open tabs with ${changes}`, async () => {
+      const title = overlapping ? 'Algne kattuv sündmus' : 'Algne sõltumatu sündmus';
+      const peerTitle = overlapping ? 'Teise vaate kattuv pealkiri' : 'Teise vaate sõltumatu pealkiri';
+      await nav('Kalender');
+      await click('Lisa sündmus');
+      await input('#event-title', title);
+      await click('Salvesta sündmus');
+      await waitFor("!document.querySelector('dialog[open]')");
+      const id = (await readCalendarEvents()).find(event => event.title === title).id;
+      const peer = await attach();
+      try {
+        await openEvent(title);
+        await click('Muuda');
+        if (overlapping) await input('#event-title', 'Esimese vaate mustand');
+        else {
+          await evaluate("document.querySelector('.mm-event-options summary').click()");
+          await evaluate(`(() => {
+            const notes = document.querySelector('#event-notes');
+            Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(notes, 'Esimese vaate märkus');
+            notes.dispatchEvent(new Event('input', { bubbles: true }));
+          })()`);
+        }
+        await peer.press('Kalender', "document.querySelector('nav')");
+        await peer.until(`document.querySelector('#selected-events')?.innerText.includes(${JSON.stringify(title)})`);
+        await peer.run(`[...document.querySelectorAll('#selected-events [data-occurrence]')].find(row => row.textContent.includes(${JSON.stringify(title)})).click()`);
+        await peer.until("!!document.querySelector('dialog[open]')");
+        await peer.press('Muuda');
+        await peer.until("!!document.querySelector('#event-title')");
+        await peer.fill('#event-title', peerTitle);
+        await peer.press('Salvesta sündmus');
+        await peer.until("!document.querySelector('dialog[open]')");
+        await waitFor(`document.querySelector('#selected-events').innerText.includes(${JSON.stringify(peerTitle)})`);
+        await click('Salvesta sündmus');
+        await waitFor("!document.querySelector('dialog[open]') || !!document.querySelector('dialog [role=alert]')");
+        const saved = (await readCalendarEvents()).find(event => event.id === id);
+        assert.equal(saved.title, peerTitle, 'the later title must survive the stale editor');
+        if (!overlapping) {
+          assert.equal(saved.notes, 'Esimese vaate märkus');
+          assert.equal(await evaluate("!!document.querySelector('dialog[open]')"), false);
+          return;
+        }
+        assert.match(await evaluate("document.querySelector('dialog [role=alert]').textContent"), /vahepeal/);
+        assert.equal(await evaluate("document.querySelector('#event-title').value"), 'Esimese vaate mustand');
+        assert.equal(await evaluate("document.querySelector('button[type=submit].mm-save-event').disabled"), true);
+        await click('Laadi praegune sündmus');
+        assert.equal(await evaluate("document.querySelector('#event-title').value"), peerTitle);
+        await input('#event-title', 'Teadlik uus muudatus');
+        await click('Salvesta sündmus');
+        await waitFor("!document.querySelector('dialog[open]')");
+        assert.equal((await readCalendarEvents()).find(event => event.id === id).title, 'Teadlik uus muudatus');
+      } finally {
+        await peer.close();
+      }
+    });
+  }
+  await seedCalendar([]);
+  await send('Page.reload');
+  await waitFor("!!document.querySelector('nav')");
 }

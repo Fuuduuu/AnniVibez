@@ -4,7 +4,7 @@ import {existsSync,mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {tmpdir} from 'node:os';
 import {dirname,join,resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 import {Miniflare} from 'miniflare';
 import {waitForBrowserEndpoint} from '../bus/browser-lifecycle.mjs';
@@ -29,6 +29,8 @@ import {runLegacyMigration} from './src/storage/legacyMigration.js';
 import {createShoppingStore} from './src/shopping/shoppingStore.js';
 import {createShoppingSync} from './src/shopping/sync.js';
 import {createCalendarSyncStore} from './src/sync/calendarSyncStore.js';
+import {createCalendarSync} from './src/sync/calendarSync.js';
+import {createReplicaRepositories} from './src/storage/replicaRepositories.js';
 const clock=()=> '2026-10-04T08:00:00.000Z';
 const newId=()=>crypto.randomUUID();
 const makeController=(mode='forward')=>createStorageAuthorityController({indexedDb:indexedDB,storage:localStorage,cryptoApi:crypto,newId,clock,mode});
@@ -36,7 +38,7 @@ const controller=makeController(new URL(location.href).searchParams.get('storage
 const boot=await controller.boot();if(!['READY','LEGACY'].includes(boot.state))throw Error('Shopping fixture not usable: '+boot.state);
 const authority=controller.getReadyAuthorityIdentity();
 const replica=controller.replica;
-const controls=window.controls={offline:false,loseReply:false,holdPush:false,calls:[],pushes:[],ids:[],abortNextCommit:false};
+const controls=window.controls={offline:false,loseReply:false,holdPush:false,calls:[],pushes:[],pushCapabilities:[],pushResponses:[],ids:[],abortNextCommit:false};
 const transact=replica.transact.bind(replica);
 replica.transact=(names,mode,body)=>transact(names,mode,async context=>{
   const result=await body(context);
@@ -50,21 +52,29 @@ const store=shoppingFor(controller);
 await store.refresh();
 const nativeFetch=window.fetch.bind(window);
 const fetchImpl=async(path,options={})=>{
-  if(!String(path).startsWith('/api/shopping/'))throw Error('Unexpected shopping route');
+  if(!['/api/shopping/','/api/sync/'].some(prefix=>String(path).startsWith(prefix)))throw Error('Unexpected sync route');
   controls.calls.push(path);
-  if(path==='/api/shopping/push')controls.pushes.push(JSON.parse(options.body));
+  const pushing=path==='/api/shopping/push'||path==='/api/sync/push';
+  if(pushing){
+    controls.pushes.push(JSON.parse(options.body));
+    controls.pushCapabilities.push(new Headers(options.headers).get('X-Annivibe-Sync-Capabilities'));
+  }
   if(controls.offline)throw new TypeError('Offline test');
-  if(controls.holdPush&&path==='/api/shopping/push'){
+  if(pushing && controls.upgradeRequired) return new Response(JSON.stringify({error:{code:'CLIENT_UPGRADE_REQUIRED'}}),{status:409});
+  if(pushing&&(controls.holdPush||controls.holdPushNumber===controls.pushes.length)){
     controls.holdPush=false;controls.pushHeld=true;
     await new Promise(resolve=>controls.releasePush=resolve);
   }
   const response=await nativeFetch(path,options);
-  if(controls.loseReply&&path==='/api/shopping/push'){controls.loseReply=false;throw new TypeError('Lost acknowledgement');}
+  if(pushing)controls.pushResponses.push({status:response.status,body:await response.clone().json().catch(()=>null)});
+  if(controls.loseReply&&pushing){controls.loseReply=false;throw new TypeError('Lost acknowledgement');}
   return response;
 };
 const sync=createShoppingSync({store,fetchImpl,isReady:()=>controller.getState()==='READY'});
 const calendar=createCalendarSyncStore({replica,authority,newId,clock});
-window.client={store,sync,calendar,replica,controller,makeController,shoppingFor,
+const calendarSync=createCalendarSync({replica,authority,newId,clock,fetchImpl,isReady:()=>controller.getState()==='READY'});
+const calendarRepository=createReplicaRepositories({replica,authority,newId,clock}).calendar;
+window.client={store,sync,calendar,calendarSync,calendarRepository,replica,controller,makeController,shoppingFor,
   migrate:()=>runLegacyMigration({replica,storage:localStorage,cryptoApi:crypto,newId,newPreparationId:newId,now:clock}),
   snapshot:()=>store.snapshot(),
   install:async auth=>{await replica.putAuth(auth);await store.refresh();},
@@ -74,35 +84,47 @@ window.client={store,sync,calendar,replica,controller,makeController,shoppingFor
 window.clientReady=true;
 `;
 
-export async function shoppingHarness({sharedBackend=null,backend=false,storageMode='forward'}={}){
+export async function shoppingHarness({sharedBackend=null,backend=false,storageMode='forward',clientRoot=root,backendRoot=root}={}){
   assert.ok(browser,'Chromium required; shopping safety must not skip');
-  const bundle=await build({absWorkingDir:root,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',stdin:{contents:fixture,resolveDir:root}});
-  const js=bundle.outputFiles[0].text;
+  const bundle=await build({absWorkingDir:clientRoot,bundle:true,write:false,format:'esm',platform:'browser',target:'es2022',
+    stdin:{contents:fixture,resolveDir:clientRoot}});
+  const fixturePath=resolve(clientRoot)===resolve(root)?'/fixture.js':'/fixture-baseline.js';
+  const fixtures=sharedBackend?.fixtures??new Map();
+  fixtures.set(fixturePath,bundle.outputFiles[0].text);
   let miniflare=null,db=sharedBackend?.db,routes=new Map();
+  async function loadRoutes(directory) {
+    const entries = await Promise.all([
+      ['/api/auth/create-household','onRequestPost'],
+      ['/api/auth/device-link','onRequestPost'],
+      ['/api/auth/claim-device','onRequestPost'],
+      ['/api/shopping/bootstrap','onRequestGet'],
+      ['/api/shopping/pull','onRequestGet'],
+      ['/api/shopping/push','onRequestPost'],
+      ['/api/sync/bootstrap','onRequestGet'],
+      ['/api/sync/pull','onRequestGet'],
+      ['/api/sync/push','onRequestPost'],
+    ].map(async ([path, method]) => [path, (await import(pathToFileURL(join(directory, 'functions', `${path}.js`)).href))[method]]));
+    routes = new Map(entries);
+  }
   if(backend&&!sharedBackend){
     miniflare=new Miniflare({modules:true,script:"export default {fetch(){return new Response('ok')}}",d1Databases:['DB']});
     db=await miniflare.getD1Database('DB');
     for(const name of ['0001_majandus_backend.sql','0002_shopping_items.sql'])for(const sql of migrationStatements(readFileSync(resolve(root,'migrations',name),'utf8')))await db.exec(sql);
-    for(const [path,method,module] of [
-      ['/api/auth/create-household','onRequestPost','../../functions/api/auth/create-household.js'],
-      ['/api/auth/device-link','onRequestPost','../../functions/api/auth/device-link.js'],
-      ['/api/auth/claim-device','onRequestPost','../../functions/api/auth/claim-device.js'],
-      ['/api/shopping/bootstrap','onRequestGet','../../functions/api/shopping/bootstrap.js'],
-      ['/api/shopping/pull','onRequestGet','../../functions/api/shopping/pull.js'],
-      ['/api/shopping/push','onRequestPost','../../functions/api/shopping/push.js'],
-    ])routes.set(path,(await import(module))[method]);
+    await loadRoutes(backendRoot);
   }
   const server=sharedBackend?.server??createServer(async(req,res)=>{
     try{
-      if(req.url==='/fixture.js'){res.setHeader('Content-Type','text/javascript');res.end(js);return;}
-      const path=new URL(req.url,'http://127.0.0.1').pathname;
+      const requestUrl=new URL(req.url,'http://127.0.0.1');
+      const path=requestUrl.pathname;
+      if(fixtures.has(path)){res.setHeader('Content-Type','text/javascript');res.end(fixtures.get(path));return;}
       if(routes.has(path)){
         const chunks=[];for await(const chunk of req)chunks.push(chunk);
         const response=await routes.get(path)({env:{DB:db},request:new Request('http://127.0.0.1'+req.url,{method:req.method,headers:req.headers,...(['GET','HEAD'].includes(req.method)?{}:{body:Buffer.concat(chunks)})})});
         res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;
       }
       if(path.startsWith('/api/')){res.writeHead(404);res.end();return;}
-      res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><script type="module" src="/fixture.js"></script>');
+      const asset=requestUrl.searchParams.has('baseline')?'/fixture-baseline.js':'/fixture.js';
+      res.setHeader('Content-Type','text/html; charset=utf-8');res.end(`<!doctype html><script type="module" src="${asset}"></script>`);
     }catch(error){res.writeHead(500);res.end('Local bridge error: '+error.message);}
   });
   if(!sharedBackend)await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -134,9 +156,19 @@ export async function shoppingHarness({sharedBackend=null,backend=false,storageM
   return {socket,send,evaluate,waitFor};
   }
   const {socket,send,evaluate,waitFor}=await connect(targets.find(target=>target.type==='page'));
-  const url='http://127.0.0.1:'+server.address().port+(storageMode==='forward'?'':'/?storageMode='+storageMode);
+  const query = new URLSearchParams();
+  if (storageMode !== 'forward') query.set('storageMode', storageMode);
+  if (fixturePath === '/fixture-baseline.js') query.set('baseline', '1');
+  const url = 'http://127.0.0.1:' + server.address().port + (query.size ? '/?' + query : '');
   await send('Page.enable');await send('Runtime.enable');await send('Page.navigate',{url});await waitFor('window.clientReady===true');
-  return {db,server,url,evaluate,waitFor,send,
+  return {db,server,url,fixturePath,fixtures,evaluate,waitFor,send,loadRoutes,
+    loadClient:async baseline=>{
+      const target=new URL(url);
+      if(baseline)target.searchParams.set('baseline','1');else target.searchParams.delete('baseline');
+      await evaluate('window.clientReady=false');
+      await send('Page.navigate',{url:target.href});
+      await waitFor('window.clientReady===true');
+    },
     newTab:async()=>{
       const {targetId}=await send('Target.createTarget',{url:'about:blank'});
       const list=await(await fetch('http://127.0.0.1:'+port+'/json/list')).json();

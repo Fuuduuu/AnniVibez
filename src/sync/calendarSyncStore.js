@@ -3,8 +3,18 @@ import { runReplicaMutation } from '../storage/runtimeWrites.js';
 import { validateDeviceAuthRecord, validateCalendarSyncState, validateOutboxRecord } from '../storage/localReplica.js';
 import { validateRuntimeRecord } from '../storage/runtimeRecords.js';
 import { createHouseholdRepository } from '../waste/householdRepository.js';
+import { EDIT_FIELDS } from '../calendar/eventModel.js';
+import { CATEGORY_IDENTITY_FIELDS } from '../calendar/categoryModel.js';
+import { reconcileMergeAcknowledgement } from './mergeAcknowledgement.js';
 
 const STORES = ['auth', 'householdProfile', 'calendarEvents', 'outbox', 'syncState', 'conflicts'];
+const RULE_FIELDS = ['date', 'recurrence', 'seriesId', 'excludedDates', 'overrides'];
+const MERGE_FIELDS = [...new Set([...EDIT_FIELDS, ...RULE_FIELDS, 'importMeta'])];
+function calendarMergeGroup(field) {
+  if (RULE_FIELDS.includes(field)) return 'rule';
+  if (CATEGORY_IDENTITY_FIELDS.includes(field)) return 'identity';
+  return field;
+}
 const emptyState = () => ({ key: 'calendar', serverCursor: 0, bootstrapCompleted: false,
   lastSuccessfulSyncAt: null, lastAttemptAt: null, setupStatus: null });
 
@@ -108,21 +118,30 @@ export function createCalendarSyncStore({ replica, authority, clock, newId, isRe
   const beginAttempt = () => mutate(current => ({ puts: [{ store: 'syncState', record: {
     ...current.state, lastAttemptAt: clock(),
   } }], deletes: [], result: null }));
-  function acknowledge(mutationId, revision) {
+  function acknowledge(mutationId, revision, merge) {
     if (!Number.isSafeInteger(revision) || revision < 1) throw new TypeError('Invalid acknowledged revision');
     return mutate(current => {
       const item = current.outbox.find(record => record.mutationId === mutationId);
       if (!item) return { puts: [], deletes: [], result: null };
-      const record = current.calendar.find(event => event.id === item.entityId);
-      if (!record) throw new Error('Acknowledged calendar record is absent');
-      const remaining = current.outbox.filter(other => other.entityId === item.entityId && other.mutationId !== mutationId);
-      const next = { ...record, revision: Math.max(record.revision, revision),
-        syncStatus: record.syncStatus === 'conflict' ? 'conflict' : remaining.length ? 'pending' : 'synced' };
-      const puts = [{ store: 'calendarEvents', record: next }];
-      // A dependent mutation gets its actual base before its first attempt, never on a retry.
-      const dependent = remaining[0];
-      if (dependent && dependent.attemptCount === 0 && dependent.operation !== 'CREATE') {
-        puts.push({ store: 'outbox', record: { ...dependent, baseRevision: revision } });
+      const local = current.calendar.find(event => event.id === item.entityId);
+      if (!local) throw new Error('Acknowledged calendar record is absent');
+      const dependents = current.outbox.filter(other => other.entityId === item.entityId && other.sequence > item.sequence);
+      const plan = reconcileMergeAcknowledgement({
+        merge, mutation: item, revision, dependents, local, fields: MERGE_FIELDS, group: calendarMergeGroup,
+        readRecord: record => validateRuntimeRecord('calendarEvents', { ...record, syncStatus: 'synced' }),
+        validatePayload: payload => validateRuntimeRecord('calendarEvents', { ...local, payload }),
+      });
+      const record = { ...local, payload: plan.payload, revision: plan.revision,
+        syncStatus: (plan.blocked || local.syncStatus === 'conflict') ? 'conflict' : dependents.length ? 'pending' : 'synced' };
+      const puts = [{ store: 'calendarEvents', record }];
+      if (plan.blocked) {
+        const conflict = { id: `calendar:${item.entityId}`, entityType: 'calendar_event', entityId: item.entityId,
+          ...plan.blocked, localRecord: record, updatedAt: clock() };
+        puts.push({ store: 'conflicts', record: conflict });
+      }
+      if (plan.nextMutation) puts.push({ store: 'outbox', record: plan.nextMutation });
+      if (plan.refreshSnapshot) {
+        puts.push({ store: 'syncState', record: { ...current.state, bootstrapCompleted: false } });
       }
       return { puts, deletes: [{ store: 'outbox', key: mutationId }], result: null };
     });
@@ -153,7 +172,9 @@ export function createCalendarSyncStore({ replica, authority, clock, newId, isRe
     }
     return mutate(current => {
       if (!current.auth) throw new Error('Sync is not enabled');
-      if (!bootstrap && cursor < current.state.serverCursor) return { puts: [], deletes: [], result: null };
+      if (!bootstrap && (!current.state.bootstrapCompleted || cursor < current.state.serverCursor)) {
+        return { puts: [], deletes: [], result: null };
+      }
       const puts = [];
       for (const remote of incoming) {
         const local = current.calendar.find(record => record.id === remote.id);
@@ -161,10 +182,11 @@ export function createCalendarSyncStore({ replica, authority, clock, newId, isRe
           // An echo of our acknowledged revision is harmless; a newer server revision is evidence of a conflict.
           if (remote.revision > local.revision || local.syncStatus === 'conflict') {
             const previous = current.conflicts.find(record => record.entityId === local.id);
+            const remoteRecord = previous?.remoteRecord?.revision > remote.revision ? previous.remoteRecord : remote;
             puts.push({ store: 'calendarEvents', record: { ...local, syncStatus: 'conflict' } },
               { store: 'conflicts', record: { ...previous, id: `calendar:${local.id}`,
                 entityType: 'calendar_event', entityId: local.id, localRecord: local,
-                remoteRecord: remote, updatedAt: clock() } });
+                remoteRecord, updatedAt: clock() } });
           }
           continue;
         }

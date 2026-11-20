@@ -307,6 +307,25 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
             return window.__nativeSet.call(this,key,value);};})()`);
     };
     const restoreWrites = () => evaluate(mode === 'READY' ? 'IDBObjectStore.prototype.put=window.__nativePut;true' : 'Storage.prototype.setItem=window.__nativeSet;true');
+    const appUrl = `http://127.0.0.1:${server.address().port}`;
+    const attach = async () => {
+      const target = await (await fetch(`http://127.0.0.1:${cdpPort}/json/new?${appUrl}`, { method: 'PUT' })).json();
+      const tabSocket = new WebSocket(target.webSocketDebuggerUrl);
+      await new Promise((resolve, reject) => { tabSocket.addEventListener('open', resolve, { once: true }); tabSocket.addEventListener('error', reject, { once: true }); });
+      let tabId = 0; const waiting = new Map();
+      tabSocket.addEventListener('message', event => { const message = JSON.parse(event.data); const request = waiting.get(message.id);
+        if (request) { waiting.delete(message.id); if (message.error) request.reject(new Error(JSON.stringify(message.error))); else request.resolve(message.result); } });
+      const call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++tabId; waiting.set(id, { resolve, reject }); tabSocket.send(JSON.stringify({ id, method, params })); });
+      const run = async expression => { const result = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+        assert.equal(result.exceptionDetails, undefined, JSON.stringify(result.exceptionDetails)); return result.result.value; };
+      const until = async expression => { for (let i = 0; i < 100; i++) { if (await run(expression)) return; await pause(30); } assert.fail('Second tab condition not met: ' + expression); };
+      const press = async (text, within = 'document') => { await run(`[...${within}.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(text)}||b.getAttribute('aria-label')===${JSON.stringify(text)}).click()`); await pause(80); };
+      const fill = async (selector, value) => { await run(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`); await pause(60); };
+      await call('Runtime.enable'); await call('Page.enable');
+      await until("!!document.querySelector('nav')");
+      return { run, until, press, fill, close: async () => { tabSocket.close(); await fetch(`http://127.0.0.1:${cdpPort}/json/close/${target.id}`); } };
+    };
     const ready = () => waitFor("!!document.querySelector('nav')");
     const shared = { mode, seedCalendar, readCalendarEvents, readHouseholdProfile, readSavedPlaces, calendarRaw, householdRaw, placesRaw,
       corruptCalendar, repairCalendar, corruptHousehold, repairHousehold, failWrites, restoreWrites };
@@ -774,7 +793,7 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       await runHomeworkChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
     }
     if (process.env.CALENDAR_TESTS === '1') {
-      await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
+      await runCalendarChecks({t,nav,click,input,evaluate,waitFor,body,send,attach,...shared});
     }
     if (process.env.WASTE_TESTS === '1') {
       await runWasteChecks({t,nav,click,input,evaluate,waitFor,body,send,...shared});
@@ -801,7 +820,6 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
 
     if (process.env.CUTOVER_TESTS === '1' || OTHER_SUITE_FLAGS.every(flag => process.env[flag] !== '1')) {
       // ---- C6 cutover acceptance: real controller, real migration/switch, real repositories, real browser signals ----
-      const appUrl = `http://127.0.0.1:${server.address().port}`;
       const memory = () => { const values = new Map(); return { getItem: key => (values.has(key) ? values.get(key) : null), setItem: (key, value) => { values.set(key, String(value)); } }; };
       const FIXTURE_ADDRESS = 'Fixture 1';
       let seedIds = 0;
@@ -834,24 +852,6 @@ for (const mode of MODES) test(`Majamajandus shell in Chromium (${mode} runtime)
       };
       const stateOf = () => evaluate("document.querySelector('[data-storage-state]')?.dataset.storageState ?? null");
       const noSharedControls = () => evaluate(`!document.querySelector('[aria-label="Lisa sündmus"]') && !document.querySelector('#household-name')`);
-      const attach = async () => {
-        const target = await (await fetch(`http://127.0.0.1:${cdpPort}/json/new?${appUrl}`, { method: 'PUT' })).json();
-        const tabSocket = new WebSocket(target.webSocketDebuggerUrl);
-        await new Promise((resolve, reject) => { tabSocket.addEventListener('open', resolve, { once: true }); tabSocket.addEventListener('error', reject, { once: true }); });
-        let tabId = 0; const waiting = new Map();
-        tabSocket.addEventListener('message', event => { const message = JSON.parse(event.data); const request = waiting.get(message.id);
-          if (request) { waiting.delete(message.id); if (message.error) request.reject(new Error(JSON.stringify(message.error))); else request.resolve(message.result); } });
-        const call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++tabId; waiting.set(id, { resolve, reject }); tabSocket.send(JSON.stringify({ id, method, params })); });
-        const run = async expression => { const result = await call('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
-          assert.equal(result.exceptionDetails, undefined, JSON.stringify(result.exceptionDetails)); return result.result.value; };
-        const until = async expression => { for (let i = 0; i < 100; i++) { if (await run(expression)) return; await pause(30); } assert.fail('Second tab condition not met: ' + expression); };
-        const press = async (text, within = 'document') => { await run(`[...${within}.querySelectorAll('button')].find(b=>b.textContent.trim()===${JSON.stringify(text)}||b.getAttribute('aria-label')===${JSON.stringify(text)}).click()`); await pause(80); };
-        const fill = async (selector, value) => { await run(`(()=>{const el=document.querySelector(${JSON.stringify(selector)});
-          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`); await pause(60); };
-        await call('Runtime.enable'); await call('Page.enable');
-        await until("!!document.querySelector('nav')");
-        return { run, until, press, fill, close: async () => { tabSocket.close(); await fetch(`http://127.0.0.1:${cdpPort}/json/close/${target.id}`); } };
-      };
       const addEventInTab = async (tab, title) => {
         await tab.press('Kalender', "document.querySelector('nav')");
         await tab.press('Lisa sündmus'); await tab.until("!!document.querySelector('#event-title')");

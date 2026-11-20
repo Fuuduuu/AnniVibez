@@ -151,6 +151,117 @@ test('storage write failures never publish unsaved events and concurrent operati
   assert.throws(()=>a.update('id1',{title:'Unsaved'}));
   assert.equal(a.load().events[0].title,draft.title);
 });
+
+test('guarded series notes preserve a newer rule, date and exception set', () => {
+  const repository = repo(memory());
+  const baseline = repository.create({ ...draft, recurrence: { frequency: 'weekly', interval: 1 } }).events[0];
+  const id = baseline.id;
+  const changed = repository.update(id, { date: '2026-09-21', recurrence: { frequency: 'weekly', interval: 2 } }, { scope: 'series' }).events[0];
+  const excluded = repository.remove(id, { scope: 'occurrence', occurrenceDate: '2026-10-05' }).events[0];
+  const actual = repository.update(id, { notes: 'Säilita märkmed' }, { scope: 'series', baseline }).events[0];
+  assert.deepEqual(actual, { ...excluded, date: changed.date, recurrence: changed.recurrence, notes: 'Säilita märkmed' });
+});
+
+test('guarded series schedule edits cannot silently discard newly written exceptions', () => {
+  const storage = memory();
+  const repository = repo(storage);
+  const baseline = repository.create({ ...draft, recurrence: { frequency: 'weekly', interval: 1 } }).events[0];
+  const id = baseline.id;
+  repository.remove(id, { scope: 'occurrence', occurrenceDate: '2026-09-21' });
+  const before = storage.getItem(EVENT_STORAGE_KEY);
+  assert.throws(
+    () => repository.update(id, { date: '2026-09-15' }, { scope: 'series', baseline }),
+    { code: 'CALENDAR_EDIT_CONFLICT' },
+  );
+  assert.equal(storage.getItem(EVENT_STORAGE_KEY), before);
+});
+
+test('guarded occurrence changes preserve disjoint overrides and reject overlapping inherited or overridden fields', () => {
+  const repository = repo(memory());
+  const baseline = repository.create({ ...draft, recurrence: { frequency: 'weekly', interval: 1 } }).events[0];
+  const id = baseline.id;
+  const occurrenceDate = '2026-09-21';
+  const options = { scope: 'occurrence', occurrenceDate };
+  repository.update(id, { title: 'Muudetud sari' }, { scope: 'series' });
+  repository.update(id, { time: '13:00' }, options);
+  const outcome = repository.update(id, { notes: 'Kohalik märkus' }, { ...options, baseline }).events[0];
+  assert.equal(outcome.title, 'Muudetud sari');
+  assert.deepEqual(outcome.overrides[occurrenceDate], { time: '13:00', notes: 'Kohalik märkus' });
+  for (const patch of [{ title: 'Vana pealkirja põhjal' }, { time: null }]) {
+    assert.throws(() => repository.update(id, patch, { ...options, baseline }), { code: 'CALENDAR_EDIT_CONFLICT' });
+  }
+});
+
+test('a stale occurrence cannot apply its notes to a series that became a standalone event', () => {
+  const repository = repo(memory());
+  const baseline = repository.create({ ...draft, recurrence: { frequency: 'weekly', interval: 1 } }).events[0];
+  repository.update(baseline.id, { recurrence: { frequency: 'none', interval: 1 } }, { scope: 'series' });
+  assert.throws(
+    () => repository.update(baseline.id, { notes: 'Ainult see kord' }, { scope: 'occurrence', occurrenceDate: '2026-09-21', baseline }),
+    { code: 'CALENDAR_EDIT_CONFLICT' },
+  );
+  assert.equal(repository.load().events[0].notes, '');
+});
+
+test('guarded imported edits preserve newer source fields and still reject source-field writes', () => {
+  const baseline = { ...make(), source: 'imported' };
+  const refreshed = { ...baseline, title: 'Teenusepakkuja uus pealkiri', date: '2026-09-15' };
+  const repository = repo(memory({ [EVENT_STORAGE_KEY]: JSON.stringify({ version: 1, events: [refreshed] }) }));
+  const result = repository.update(baseline.id, { notes: 'Minu märkus' }, { baseline });
+  assert.deepEqual(result.events[0], { ...refreshed, notes: 'Minu märkus' });
+  assert.throws(() => repository.update(baseline.id, { date: '2026-09-16' }, { baseline }), /allika hallata/);
+});
+
+test('guarded category edits conflict if part of the category identity changed concurrently', () => {
+  const repository = repo(memory());
+  const baseline = repository.create(draft).events[0];
+  repository.update(baseline.id, { subtype: 'bio' });
+  assert.throws(
+    () => repository.update(baseline.id, { category: 'culture' }, { baseline }),
+    { code: 'CALENDAR_EDIT_CONFLICT' },
+  );
+});
+
+test('guarded notes save migrates retained payment while preserving a newer title', () => {
+  const repository = repo(memory());
+  const baseline = repository.create({ ...draft, category: 'payment' }).events[0];
+  repository.update(baseline.id, { title: 'Uus pealkiri', category: 'payment' });
+  const [saved] = repository.update(baseline.id, { notes: 'Uus märkus' }, { baseline }).events;
+  assert.equal(saved.category, 'general');
+  assert.equal(saved.title, 'Uus pealkiri');
+  assert.equal(saved.notes, 'Uus märkus');
+});
+
+test('guarded payment notes save preserves a concurrently chosen category', () => {
+  const repository = repo(memory());
+  const baseline = repository.create({ ...draft, category: 'payment' }).events[0];
+  repository.update(baseline.id, { category: 'culture' });
+  const [saved] = repository.update(baseline.id, { notes: 'Uus märkus' }, { baseline }).events;
+  assert.equal(saved.category, 'culture');
+  assert.equal(saved.notes, 'Uus märkus');
+});
+
+test('guarded payment occurrence save migrates only that occurrence and preserves series exceptions', () => {
+  const repository = repo(memory());
+  const recurrence = { frequency: 'weekly', interval: 1 };
+  const options = { scope: 'occurrence', occurrenceDate: '2026-09-21' };
+  const { id } = repository.create({ ...draft, category: 'payment', recurrence }).events[0];
+  const baseline = repository.remove(id, { scope: 'occurrence', occurrenceDate: '2026-09-28' }).events[0];
+  const [saved] = repository.update(id, {}, { ...options, baseline }).events;
+  assert.equal(saved.category, 'payment');
+  assert.equal(saved.overrides[options.occurrenceDate].category, 'general');
+  assert.deepEqual(saved.recurrence, recurrence);
+  assert.deepEqual(saved.excludedDates, baseline.excludedDates);
+});
+
+test('guarded imported payment keeps the source category and rejects explicitly changing it', () => {
+  const baseline = { ...make({ category: 'payment' }), source: 'imported' };
+  const repository = repo(memory({ [EVENT_STORAGE_KEY]: JSON.stringify({ version: 1, events: [baseline] }) }));
+  const [saved] = repository.update(baseline.id, { notes: 'Lubatud märkus' }, { baseline }).events;
+  assert.equal(saved.category, 'payment');
+  assert.equal(saved.notes, 'Lubatud märkus');
+  assert.throws(() => repository.update(baseline.id, { category: 'general' }, { baseline }), /allika hallata/);
+});
 test('local calendar helpers are deterministic across DST and never shift date-only values', () => {
   assert.equal(addDays('2026-03-28',2),'2026-03-30');
   assert.equal(addMonths('2026-01-31',1),'2026-02-28');

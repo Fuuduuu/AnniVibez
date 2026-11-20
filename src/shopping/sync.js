@@ -1,3 +1,5 @@
+import { isClientUpgradeRequired, MERGE_EVIDENCE_HEADERS } from '../sync/clientCapabilities.js';
+
 export function createShoppingSync({store,fetchImpl,isReady=()=>true}) {
   const listeners=new Set();let disposed=false,running,rerun=false;
   let view={status:'local',active:false,error:null};
@@ -5,7 +7,8 @@ export function createShoppingSync({store,fetchImpl,isReady=()=>true}) {
   async function api(path,auth,body){
     if(disposed||!isReady())throw new Error('Shopping storage is unavailable');
     let response;
-    try{response=await fetchImpl(path,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${auth.deviceToken}`,...(body===undefined?{}:{'Content-Type':'application/json'})},
+    try{response=await fetchImpl(path,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${auth.deviceToken}`,
+      ...(path==='/api/shopping/push'?MERGE_EVIDENCE_HEADERS:{}),...(body===undefined?{}:{'Content-Type':'application/json'})},
       ...(body===undefined?{}:{body:JSON.stringify(body)}),credentials:'omit',cache:'no-store',redirect:'error'});}
     catch{const error=new Error('Shopping network unavailable');error.network=true;throw error;}
     if(!response.ok){const error=new Error('Shopping request failed');error.status=response.status;try{error.code=(await response.json())?.error?.code}catch{}throw error;}
@@ -26,20 +29,30 @@ export function createShoppingSync({store,fetchImpl,isReady=()=>true}) {
         const response=await api('/api/shopping/push',auth,{mutations:[{mutationId:item.mutationId,entityType:'shopping_item',entityId:item.entityId,operation:item.operation,baseRevision:item.baseRevision,patch:item.patch}]});
         if(!Array.isArray(response.results)||response.results.length!==1||response.results[0].mutationId!==item.mutationId)throw new TypeError('Invalid shopping acknowledgement');
         const result=response.results[0].status==='REPLAYED'?response.results[0].result:response.results[0];
-        if(['APPLIED','MERGED'].includes(result?.status))await store.acknowledge(item.mutationId,result.revision);
-        else if(['CONFLICT','REJECTED'].includes(result?.status))await store.reject(item.mutationId,result);
+        if(['APPLIED','MERGED'].includes(result?.status)){
+          await store.acknowledge(item.mutationId,result.revision,result.status==='MERGED'?result.merge??null:undefined);
+        } else if(['CONFLICT','REJECTED'].includes(result?.status))await store.reject(item.mutationId,result);
         else throw new TypeError('Invalid shopping mutation result');
       }
       const current=await store.snapshot();
-      try{
-        const response=await api(`/api/shopping/pull?after=${current.state.serverCursor}`,auth);
-        if(!Array.isArray(response.changes)||response.changes.some(row=>row.entityType!=='shopping_item'))throw new TypeError('Invalid shopping delta');
-        await store.applyRemote(response.changes.map(row=>row.record),response.cursor);
-      }catch(error){if(error.status!==409||error.code!=='RESYNC_REQUIRED')throw error;await bootstrap(auth);}
+      if (!current.state.bootstrapCompleted) await bootstrap(auth);
+      else {
+        try{
+          const response=await api(`/api/shopping/pull?after=${current.state.serverCursor}`,auth);
+          if(!Array.isArray(response.changes)||response.changes.some(row=>row.entityType!=='shopping_item'))throw new TypeError('Invalid shopping delta');
+          await store.applyRemote(response.changes.map(row=>row.record),response.cursor);
+        }catch(error){if(error.status!==409||error.code!=='RESYNC_REQUIRED')throw error;await bootstrap(auth);}
+      }
       const conflicts=(await store.snapshot()).conflicts.length;
       publish({status:conflicts?'attention':'synced',error:conflicts?'Ostu muudatus vajab tähelepanu. Sinu kohalik muudatus on alles.':null});
-    }catch(error){publish({status:error.network||error.status>=500?'waiting':'attention',error:error.network||error.status>=500
-      ?'Ostud ootavad võrguühendust. Kohalikud muudatused on alles.':'Ostude sünkroonimine vajab tähelepanu. Kohalikud muudatused on alles.'});}
+    } catch (error) {
+      const waiting = error.network || error.status >= 500;
+      const message = isClientUpgradeRequired(error)
+        ? 'Rakendus vajab uuendamist. Ostud on seadmes alles. Pärast uuendust proovi uuesti.'
+        : waiting ? 'Ostud ootavad võrguühendust. Kohalikud muudatused on alles.'
+          : 'Ostude sünkroonimine vajab tähelepanu. Kohalikud muudatused on alles.';
+      publish({ status: waiting ? 'waiting' : 'attention', error: message });
+    }
   }
   function run(){
     if(disposed)return Promise.resolve();

@@ -152,7 +152,7 @@ test('shopping CRUD, acknowledgement and remote apply retain calendar records, c
       const item = await client.store.add({ name: 'Pesugeel', category: 'home' });
       await client.store.update(item.id, { quantity: '1 pudel' });
       await client.store.check(item.id, true);
-      await client.store.clearChecked();
+      await client.store.clearChecked(client.store.getSnapshot().items.filter(item => item.checkedAt));
       const shopping = await client.snapshot();
       const first = shopping.outbox[0];
       await client.store.attempt(first.mutationId);
@@ -287,7 +287,7 @@ test('shopping generic sequence exhaustion aborts a multi-item clear and a new a
       await client.store.check(first.id, true); await client.store.check(second.id, true);
       await client.replica.putMeta({ key: 'outboxSequence', value: Number.MAX_SAFE_INTEGER - 1 });
       const beforeClear = await edge.dump();
-      const clearError = await edge.attempt(() => client.store.clearChecked());
+      const clearError = await edge.attempt(() => client.store.clearChecked(client.store.getSnapshot().items.filter(item => item.checkedAt)));
       const afterClear = await edge.dump();
       await client.store.add({ name: 'Viimane lubatud järjekorranumber' });
       const beforeAdd = await edge.dump();

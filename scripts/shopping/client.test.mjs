@@ -44,11 +44,52 @@ test('two same-origin tabs serialize distinct adds and clearing purchased re-rea
     assert.ok(first.records.every(row=>row.syncStatus==='local'&&row.revision===0));
     assert.equal(first.records.filter(row=>row.payload.name.startsWith('A ')).length,4);
     assert.equal(first.records.filter(row=>row.payload.name.startsWith('B ')).length,4);
-    const cleared=await a.evaluate(`(async()=>{const rows=(await client.snapshot()).records;await client.store.check(rows[0].id,true);await client.store.check(rows[1].id,true);await client.store.clearChecked();return client.store.getSnapshot();})()`);
+    const cleared=await a.evaluate(`(async()=>{
+      const rows=(await client.snapshot()).records;
+      await client.store.check(rows[0].id,true);
+      await client.store.check(rows[1].id,true);
+      await client.store.clearChecked(client.store.getSnapshot().items.filter(item => item.checkedAt));
+      return client.store.getSnapshot();
+    })()`);
     assert.equal(cleared.items.length,6);assert.ok(cleared.items.every(item=>item.checkedAt===null));
     await b.evaluate('client.store.refresh()');
     assert.deepEqual(await b.evaluate('client.store.getSnapshot().items'),cleared.items);
   }finally{await b?.close();await a.close();}
+});
+test('bulk deletion confirms a fixed selection and rejects a changed selection atomically across tabs', options, async () => {
+  const a = await shoppingHarness();
+  let b;
+  try {
+    const confirmed = await a.evaluate(`(async () => {
+      for (const name of ['Kinnitatud ost', 'Uus ostetud ost', 'Muutumatu ost']) await client.store.add({ name });
+      await client.store.check((await client.row('Kinnitatud ost')).id, true);
+      return client.store.getSnapshot().items.filter(item => item.checkedAt);
+    })()`);
+    b = await a.newTab();
+    await b.evaluate("client.row('Uus ostetud ost').then(item => client.store.check(item.id, true))");
+    await a.evaluate(`client.store.clearChecked(${JSON.stringify(confirmed)})`);
+    await b.evaluate('client.store.refresh()');
+    const remaining = await b.evaluate('client.store.getSnapshot().items');
+    assert.deepEqual(remaining.map(item => item.name).sort(), ['Muutumatu ost', 'Uus ostetud ost']);
+    assert.ok(remaining.find(item => item.name === 'Uus ostetud ost').checkedAt);
+
+    await a.evaluate(`(async () => {
+      await client.store.check((await client.row('Muutumatu ost')).id, true);
+    })()`);
+    for (const action of ["update(item.id, { quantity: '2 tk' })", 'check(item.id, false)']) {
+      await a.evaluate('client.store.refresh()');
+      const stale = await a.evaluate('client.store.getSnapshot().items.filter(item => item.checkedAt)');
+      await b.evaluate(`client.row('Uus ostetud ost').then(item => client.store.${action})`);
+      const result = await a.evaluate(`(async () => {
+        const before = await client.snapshot();
+        let error = null;
+        try { await client.store.clearChecked(${JSON.stringify(stale)}); } catch (failure) { error = failure.message; }
+        return { before, after: await client.snapshot(), error };
+      })()`);
+      assert.match(result.error, /Ostude valik muutus/);
+      assert.deepEqual(result.after, result.before, 'the changed selection must not partially delete other confirmed items');
+    }
+  } finally { await b?.close(); await a.close(); }
 });
 test('shopping shared state filters generic calendar outbox and keeps its own cursor',options,async()=>{
   const h=await shoppingHarness();

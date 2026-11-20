@@ -1,5 +1,6 @@
 import { createCalendarSyncStore } from './calendarSyncStore.js';
 import { readDeviceLink, deviceLinkUrl } from './deviceLink.js';
+import { isClientUpgradeRequired, MERGE_EVIDENCE_HEADERS } from './clientCapabilities.js';
 
 // Device credentials are private to this closure and IndexedDB auth, never part of the UI snapshot.
 export function createCalendarSync({ replica, authority, fetchImpl, newId, clock, initialDeviceLink = null, isReady = () => true, onCommitted = () => {} }) {
@@ -23,6 +24,7 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
     let response;
     try { response = await fetchImpl(path, { method: body === undefined ? 'GET' : 'POST',
       headers: { ...(auth ? { Authorization: `Bearer ${auth.deviceToken}` } : {}),
+        ...(path === '/api/sync/push' ? MERGE_EVIDENCE_HEADERS : {}),
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), credentials: 'omit', cache: 'no-store', redirect: 'error' });
     } catch {
@@ -71,7 +73,9 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
           baseRevision: item.baseRevision, patch: item.patch }] });
         if (!Array.isArray(response.results) || response.results.length !== 1 || response.results[0].mutationId !== item.mutationId) throw new TypeError('Invalid push acknowledgement');
         const result = response.results[0].status === 'REPLAYED' ? response.results[0].result : response.results[0];
-        if (['APPLIED', 'MERGED'].includes(result?.status)) await store.acknowledge(item.mutationId, result.revision);
+        if (['APPLIED', 'MERGED'].includes(result?.status)) {
+          await store.acknowledge(item.mutationId, result.revision, result.status === 'MERGED' ? result.merge ?? null : undefined);
+        }
         else if (['REJECTED', 'CONFLICT'].includes(result?.status)) await store.reject(item.mutationId, result);
         else throw new TypeError('Invalid mutation result');
       }
@@ -98,7 +102,10 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
       const unresolved = await store.snapshot().then(current => current.conflicts.length > 0).catch(() => false);
       const attention = unresolved || !(error.network || error.status >= 500);
       onCommitted();
-      publish({ status: attention ? 'attention' : 'waiting', error: attention
+      const upgradeRequired = isClientUpgradeRequired(error);
+      publish({ status: attention ? 'attention' : 'waiting', error: upgradeRequired
+        ? 'Rakendus vajab uuendamist. Kalendri muudatused on seadmes alles. Pärast uuendust proovi uuesti.'
+        : attention
         ? 'Sünkroonimine vajab tähelepanu. Kalender on seadmes alles.'
         : 'Sünkroonimine ootab võrguühendust. Kalender on seadmes alles.' });
     }

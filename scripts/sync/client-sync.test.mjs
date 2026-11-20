@@ -47,6 +47,7 @@ const fixture = `
 import { createStorageAuthorityController } from './src/storage/storageAuthority.js';
 import { createReplicaRepositories } from './src/storage/replicaRepositories.js';
 import { createCalendarSync } from './src/sync/calendarSync.js';
+import { MERGE_EVIDENCE_HEADERS } from './src/sync/clientCapabilities.js';
 import { createEvent } from './src/calendar/eventModel.js';
 import { EVENT_STORAGE_KEY } from './src/calendar/eventRepository.js';
 const clock = () => '2026-09-30T08:00:00.000Z';
@@ -112,7 +113,7 @@ async function mount() {
     async remote(mutation) {
       const auth = await controller.replica.getAuth();
       const response = await nativeFetch('/api/sync/push', {method:'POST',
-        headers:{'Content-Type':'application/json',Authorization:'Bearer ' + auth.deviceToken},
+        headers:{'Content-Type':'application/json',Authorization:'Bearer ' + auth.deviceToken,...MERGE_EVIDENCE_HEADERS},
         body:JSON.stringify({mutations:[mutation]})});
       if (!response.ok) throw Error('Remote fixture write failed');
       return response.json();
@@ -529,6 +530,77 @@ test('MERGED uses the actual server revision, while CONFLICT and REJECTED retain
     assert.equal(rejected.syncStatus, 'conflict');
     assert.equal(conflicts.conflicts.find(item => item.entityId === rejected.id).result.status, 'REJECTED');
     assert.equal(await h.evaluate('window.client.sync.getSnapshot().status'), 'attention');
+  } finally { await h.close(); }
+});
+
+test('MERGED calendar predecessor cannot erase a remote field through a later queued edit or deletion', {timeout:60000}, async () => {
+  const h = await harness();
+  try {
+    await h.evaluate('window.client.enable()');
+    const updated = await h.evaluate(`(async () => {
+      const id = 'existing-owner-event';
+      const calendar = window.client.repositories.calendar;
+      await calendar.update(id, {notes:'Local note'});
+      await calendar.update(id, {time:'12:30'});
+      await calendar.update(id, {title:'Local title'});
+      await window.client.remote({mutationId:'remote-title',entityType:'calendar_event',entityId:id,operation:'UPDATE',baseRevision:1,patch:{title:'Remote title'}});
+      await window.client.sync.run();
+      return window.client.snapshot();
+    })()`);
+    const edited = await h.db.prepare("SELECT payload_json FROM calendar_events WHERE id='existing-owner-event'").first();
+    assert.equal(JSON.parse(edited.payload_json).title, 'Remote title');
+    assert.equal(JSON.parse(edited.payload_json).notes, 'Local note');
+    assert.equal(JSON.parse(edited.payload_json).time, '12:30');
+    assert.equal(updated.conflicts[0].localRecord.payload.title, 'Local title');
+    assert.equal(updated.conflicts[0].remoteRecord.payload.title, 'Remote title');
+    assert.ok(updated.outbox.some(item => item.patch.title === 'Local title' && item.attemptCount === 0));
+    const deleted = await h.evaluate(`(async () => {
+      const calendar = window.client.repositories.calendar;
+      await calendar.create({title:'Delete candidate',category:'general',date:'2026-10-08'});
+      await window.client.sync.run();
+      const id = (await window.client.snapshot()).calendar.find(item => item.payload.title === 'Delete candidate').id;
+      await calendar.update(id, {notes:'Local note'});
+      await calendar.remove(id);
+      await window.client.remote({mutationId:'remote-retain',entityType:'calendar_event',entityId:id,operation:'UPDATE',baseRevision:1,patch:{title:'Keep this event'}});
+      await window.client.sync.run();
+      return {id, ...await window.client.snapshot()};
+    })()`);
+    const retained = await h.db.prepare('SELECT payload_json,deleted_at FROM calendar_events WHERE id=?').bind(deleted.id).first();
+    assert.equal(JSON.parse(retained.payload_json).title, 'Keep this event');
+    assert.equal(retained.deleted_at, null);
+    const conflict = deleted.conflicts.find(item => item.entityId === deleted.id);
+    assert.equal(conflict?.mutation.operation, 'DELETE');
+    assert.ok(conflict.localRecord.deletedAt);
+    assert.equal(conflict.remoteRecord.payload.title, 'Keep this event');
+  } finally { await h.close(); }
+});
+
+test('MERGED calendar predecessors preserve remote exclusions when a queued series edit changes its date', {timeout:60000}, async () => {
+  const h = await harness();
+  try {
+    const result = await h.evaluate(`(async () => {
+      const calendar = window.client.repositories.calendar;
+      await window.client.enable();
+      await calendar.create({title:'Weekly event', category:'general', date:'2026-10-08',
+        recurrence:{frequency:'weekly', interval:1}});
+      await window.client.sync.run();
+      const id = (await window.client.snapshot()).calendar.find(item => item.payload.title === 'Weekly event').id;
+      await calendar.update(id, {notes:'Local note'}, {scope:'series'});
+      await calendar.update(id, {date:'2026-10-09'}, {scope:'series'});
+      await window.client.remote({mutationId:'remote-exclusion',entityType:'calendar_event',entityId:id,
+        operation:'UPDATE',baseRevision:1,patch:{excludedDates:['2026-10-15']}});
+      await window.client.sync.run();
+      return {id, ...await window.client.snapshot()};
+    })()`);
+    const row = await h.db.prepare('SELECT payload_json FROM calendar_events WHERE id=?').bind(result.id).first();
+    const payload = JSON.parse(row.payload_json);
+    assert.equal(payload.date, '2026-10-08');
+    assert.deepEqual(payload.excludedDates, ['2026-10-15']);
+    assert.equal(payload.notes, 'Local note');
+    const conflict = result.conflicts.find(item => item.entityId === result.id);
+    assert.equal(conflict.result.code, 'FIELD_OVERLAP');
+    assert.equal(conflict.localRecord.payload.date, '2026-10-09');
+    assert.deepEqual(conflict.remoteRecord.payload.excludedDates, ['2026-10-15']);
   } finally { await h.close(); }
 });
 

@@ -23,7 +23,7 @@ export function ShoppingTab({ shopping }) {
   const [editing, setEditing] = useState(null);
   const [pendingItems, setPendingItems] = useState(new Set());
   const [checkedOpen, setCheckedOpen] = useState(false);
-  const [clearing, setClearing] = useState(false);
+  const [clearSelection, setClearSelection] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const refreshBusy = useRef(false);
   const itemBusy = useRef(new Set());
@@ -80,7 +80,8 @@ export function ShoppingTab({ shopping }) {
     {!!checked.length && <details className="mm-section mm-shopping-checked" open={checkedOpen} onToggle={event => setCheckedOpen(event.currentTarget.open)}>
       <summary>OSTETUD · {checked.length}</summary>
       <ul className="mm-card mm-shopping-list">{checked.map(row)}</ul>
-      <button className="mm-button mm-button-danger-text mm-shopping-clear" type="button" disabled={!shopping.writable} onClick={() => setClearing(true)}>Kustuta ostetud</button>
+      <button className="mm-button mm-button-danger-text mm-shopping-clear" type="button" disabled={!shopping.writable}
+        onClick={() => setClearSelection(checked)}>Kustuta ostetud</button>
     </details>}
     {!shopping.items.length && !shopping.loading && !shopping.error && <section className="mm-card mm-shopping-empty"><ShellIcon name="shopping" />
       <h2>Ostunimekiri on tühi</h2><p>Lisa esimene ost ülal.</p></section>}
@@ -91,7 +92,7 @@ export function ShoppingTab({ shopping }) {
     {conflictCount > 0 && <p className="mm-shopping-sync-note">Sinu kohalik muudatus on alles. Sünkroonimine vajab tähelepanu.</p>}
     {!conflictCount && sync.status === 'attention' && sync.error && <p className="mm-shopping-sync-note">{sync.error}</p>}
     {editing && <ShoppingDialog key={editing.id} item={editing} shopping={shopping} onClose={() => setEditing(null)} />}
-    {clearing && <ShoppingClearDialog count={checked.length} shopping={shopping} onClose={() => setClearing(false)} />}
+    {clearSelection && <ShoppingClearDialog items={clearSelection} shopping={shopping} onClose={() => setClearSelection(null)} />}
   </div>;
 }
 

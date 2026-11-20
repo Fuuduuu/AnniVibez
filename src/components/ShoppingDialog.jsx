@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { SHOPPING_CATEGORIES } from '../shopping/model.js';
+import { ShoppingSelectionChangedError } from '../shopping/shoppingStore.js';
 
 const fields = item => ({ name: item.name, quantity: item.quantity, category: item.category, note: item.note });
 
@@ -71,11 +72,13 @@ export function ShoppingDialog({ item, shopping, onClose }) {
   </dialog>;
 }
 
-export function ShoppingClearDialog({ count, shopping, onClose }) {
+export function ShoppingClearDialog({ items, shopping, onClose }) {
   const dialog = useRef(null);
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const selectionChanged = error instanceof ShoppingSelectionChangedError;
+  const count = items.length;
   useEffect(() => { const element = dialog.current; element.showModal(); return () => element.close(); }, []);
   useEffect(() => {
     if (!pending) return;
@@ -85,10 +88,10 @@ export function ShoppingClearDialog({ count, shopping, onClose }) {
     return () => owner.removeEventListener('keydown', preventEscape, true);
   }, [pending]);
   async function clear() {
-    if (busy.current || !count || !shopping.writable) return;
-    busy.current = true; setPending(true); setError('');
-    try { await shopping.clearChecked(); onClose(); }
-    catch { setError('Ostetud asjade kustutamine ei õnnestunud. Nimekiri on alles. Proovi uuesti.'); }
+    if (busy.current || selectionChanged || !count || !shopping.writable) return;
+    busy.current = true; setPending(true); setError(null);
+    try { await shopping.clearChecked(items); onClose(); }
+    catch (failure) { setError(failure); }
     finally { busy.current = false; setPending(false); }
   }
   return <dialog ref={dialog} role="dialog" className="mm-event-dialog mm-shopping-dialog" aria-labelledby="shopping-clear-title"
@@ -96,9 +99,12 @@ export function ShoppingClearDialog({ count, shopping, onClose }) {
     <header className="mm-dialog-heading"><h2 id="shopping-clear-title">Kustuta ostetud asjad</h2>
       <button className="mm-button mm-button-secondary" type="button" disabled={pending} onClick={onClose}>Tühista</button></header>
     <div className="mm-dialog-body">
-      {error && <p role="alert" className="mm-notice mm-shopping-error">{error}</p>}
+      {error && <p role="alert" className="mm-notice mm-shopping-error">
+        {selectionChanged ? error.message : 'Ostetud asjade kustutamine ei õnnestunud. Nimekiri on alles. Proovi uuesti.'}
+      </p>}
       <p>{count === 1 ? 'Nimekirjast eemaldatakse 1 ostetud asi.' : `Nimekirjast eemaldatakse ${count} ostetud asja.`} Ostmata asjad jäävad alles.</p>
-      <div className="mm-shopping-dialog-actions"><button className="mm-button mm-button-danger" type="button" disabled={pending || !count || !shopping.writable} onClick={clear}>Kustuta ostetud</button></div>
+      <div className="mm-shopping-dialog-actions"><button className="mm-button mm-button-danger" type="button"
+        disabled={pending || selectionChanged || !count || !shopping.writable} onClick={clear}>Kustuta ostetud</button></div>
     </div>
   </dialog>;
 }
