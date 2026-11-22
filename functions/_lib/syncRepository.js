@@ -111,7 +111,7 @@ function appliedStatement(db, record) {
   return bind(db,
     "INSERT INTO applied_mutations (mutation_id, household_id, result_json, created_at) VALUES (?, ?, ?, ?)",
     [record.mutationId, record.householdId,
-      mutationJournalJson(record, "calendar_event"), record.timestamp]);
+      mutationJournalJson(record, "calendar_event", { calendarEntityId: record.entityId }), record.timestamp]);
 }
 
 export function commitCalendarCreate(db, record) {

@@ -1,15 +1,74 @@
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { PageHeader } from './ShellViews';
 import { ShellIcon } from './ShellIcon';
 import { EventRows, CalendarError } from './CalendarEvents';
 import { CATEGORIES } from '../calendar/eventModel';
+import { getEventEditTarget } from '../calendar/eventRepository.js';
 import { categoryPresentation } from '../calendar/categoryModel.js';
 import { AV, CALENDAR_COLORS, calendarEventColors, calendarEventInk } from '../design/tokens';
 import { expandOccurrences } from '../calendar/recurrence';
 import { addDays, addMonths, agendaGroup, formatDate, localDate, monthDays } from '../calendar/dates';
 import { useCalendarNow } from '../calendar/useCalendarNow';
 
-export function KalenderTab({calendar,onAdd,onOpen}) {
+const emptySync = { oversizedEventIds: [] };
+const getEmptySync = () => emptySync;
+const subscribeEmpty = () => () => {};
+const fullDate = { day:'numeric', month:'long', year:'numeric' };
+
+function SizeRecoveryEvent({ event, onRecover }) {
+  const occurrences = Object.keys(event.overrides).sort().flatMap(occurrenceDate => {
+    const occurrence = getEventEditTarget(event, { scope:'occurrence', occurrenceDate });
+    return occurrence ? [{ occurrenceDate, occurrence }] : [];
+  });
+  const scope = event.recurrence.frequency === 'none' ? null : 'series';
+  return <article className="mm-card mm-calendar-size-event">
+    <h3>{event.title}</h3>
+    <p className="mm-footnote">{formatDate(event.date, fullDate)}</p>
+    <button type="button" className="mm-button mm-button-secondary" aria-label={`Ava sündmus: ${event.title}`}
+      onClick={() => onRecover(event.id, scope)}>Ava sündmus</button>
+    {occurrences.length > 0 && <details>
+      <summary>Muudetud üksikkorrad ({occurrences.length})</summary>
+      <ul>{occurrences.map(({ occurrenceDate, occurrence }) => {
+        const date = formatDate(occurrence.date, fullDate);
+        const label = occurrence.date === occurrenceDate ? date : `${date} (algselt ${formatDate(occurrenceDate, fullDate)})`;
+        return <li key={occurrenceDate}><button type="button" className="mm-text-button"
+          aria-label={`Ava üksikkord: ${event.title}, ${label}`} onClick={() => onRecover(event.id, 'occurrence', occurrenceDate)}>{label}</button></li>;
+      })}</ul>
+    </details>}
+  </article>;
+}
+
+function CalendarSyncWarnings({ sync, events, onRecover }) {
+  const view = useSyncExternalStore(sync?.subscribe ?? subscribeEmpty, sync?.getSnapshot ?? getEmptySync);
+  const oversized = new Set(view.oversizedEventIds);
+  const uncertain = new Set(view.uncertainEventIds);
+  const conflicts = new Set(view.fieldConflictEventIds);
+  if (!oversized.size && !uncertain.size && !conflicts.size) return null;
+  const needsSizeEdit = events.filter(event => oversized.has(event.id));
+  const titles = ids => {
+    const affected = events.filter(event => ids.has(event.id));
+    return affected.length > 0 && <ul>{affected.map(event => <li key={event.id}>{event.title}</li>)}</ul>;
+  };
+  return <>
+    {needsSizeEdit.length > 0 && <section className="mm-section" aria-label="Mahukad sündmused">
+      <p className="mm-notice mm-calendar-error" role="alert">Sündmus on sünkroonimiseks liiga mahukas. Sündmus on seadmes alles.</p>
+      <p className="mm-footnote">Lühenda sündmuse või muudetud üksikkordade märkmeid ja salvesta. Sünkroonimist proovitakse uuesti.</p>
+      {needsSizeEdit.map(event => <SizeRecoveryEvent key={event.id} event={event} onRecover={onRecover} />)}
+    </section>}
+    {uncertain.size > 0 && <section className="mm-section" aria-label="Kinnitust ootavad muudatused">
+      <p className="mm-notice mm-calendar-error" role="alert">Sünkroonimise tulemus pole veel kinnitatud. Kohalik muudatus on alles.</p>
+      {titles(uncertain)}
+      <button type="button" className="mm-button mm-button-secondary" disabled={!view.ready || view.status === 'syncing'}
+        onClick={() => sync.retryUncertain()}>Proovi uuesti</button>
+    </section>}
+    {conflicts.size > 0 && <section className="mm-section" aria-label="Sündmuste konfliktid">
+      <p className="mm-notice mm-calendar-error" role="alert">Sündmust muudeti ka teises seadmes. Sinu kohalik muudatus on alles.</p>
+      {titles(conflicts)}
+    </section>}
+  </>;
+}
+
+export function KalenderTab({calendar,sync,onAdd,onOpen,onRecover}) {
   const now=useCalendarNow(), today=localDate(now);
   const [selected,setSelected]=useState(today);
   const days=monthDays(selected);
@@ -25,6 +84,7 @@ export function KalenderTab({calendar,onAdd,onOpen}) {
       </button>
     </div>
     <CalendarError error={calendar.error} />
+    <CalendarSyncWarnings sync={sync} events={calendar.events} onRecover={onRecover} />
     <section className="mm-card mm-month" aria-label="Kuukalender">
       <div className="mm-month-heading">
         <button className="mm-button mm-button-secondary" aria-label="Eelmine kuu" disabled={selected.startsWith('1000-01')} onClick={()=>setSelected(addMonths(selected,-1))}><ShellIcon name="back" /></button>

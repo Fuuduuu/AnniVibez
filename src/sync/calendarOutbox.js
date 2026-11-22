@@ -1,6 +1,26 @@
 import { validateDeviceAuthRecord, validateOutboxRecord } from '../storage/localReplica.js';
 import { CATEGORY_IDENTITY_FIELDS } from '../calendar/categoryModel.js';
 
+// The Calendar push endpoint applies this limit to the entire UTF-8 request body.
+export const MAX_CALENDAR_PUSH_BYTES = 65_536;
+export const CALENDAR_PUSH_TOO_LARGE = 'PAYLOAD_TOO_LARGE';
+export const CALENDAR_MUTATION_UNKNOWN = 'MUTATION_OUTCOME_UNKNOWN';
+const encoder = new TextEncoder();
+
+export function calendarPushRequest({ mutationId, entityType, entityId, operation, baseRevision, patch }) {
+  const body = JSON.stringify({ mutations: [{ mutationId, entityType, entityId, operation, baseRevision, patch }] });
+  return { body, bytes: encoder.encode(body).byteLength };
+}
+
+export const isOversizedCalendarConflict = record => record.result?.code === CALENDAR_PUSH_TOO_LARGE;
+export const isUncertainCalendarConflict = record => record.result?.code === CALENDAR_MUTATION_UNKNOWN;
+export const isDefiniteSizeRejection = result => ['unsent', 'rejected'].includes(result?.submission);
+
+export function calendarMutationBlocked(conflict, mutationId) {
+  return !!conflict && !(isOversizedCalendarConflict(conflict) && isDefiniteSizeRejection(conflict.result)
+    && conflict.retryMutationId === mutationId);
+}
+
 // This planner runs synchronously inside the existing calendar readwrite transaction.
 // A mutation's contents never change after an attempt; retries retain the same mutationId.
 export function planCalendarOutbox(snapshot, plan, { newId, clock }) {

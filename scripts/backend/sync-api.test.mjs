@@ -9,7 +9,8 @@ import * as bootstrapEndpoint from "../../functions/api/sync/bootstrap.js";
 import * as pullEndpoint from "../../functions/api/sync/pull.js";
 import * as pushEndpoint from "../../functions/api/sync/push.js";
 import { insertHouseholdCreation } from "../../functions/_lib/db.js";
-import { applyCalendarMutation, validateCalendarEventPayload } from "../../functions/_lib/sync.js";
+import { applyCalendarMutation, calendarMutationDigest, validateCalendarEventPayload } from "../../functions/_lib/sync.js";
+import { digestCanonicalCalendarMutation } from "../../shared/calendarMutationDigest.js";
 import { validateEvent } from "../../src/calendar/eventModel.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -178,6 +179,116 @@ function event(id, title = `Event ${id}`) {
 function mutation(operation, mutationId, entityId, patch, baseRevision = operation === "CREATE" ? 0 : 1) {
   return { mutationId, entityType: "calendar_event", entityId, operation, baseRevision, patch };
 }
+
+const mergeEvidence = { "X-Annivibe-Sync-Capabilities": "merge-evidence-v1" };
+const statusRequest = (owner, mutationId, entityId, digest, headers = mergeEvidence) =>
+  request(`/api/sync/mutation-status?${new URLSearchParams({ mutationId, entityId, digest })}`, owner, { headers });
+
+test("Calendar mutation status is authenticated, read-only and scoped by household and immutable digest", async () => {
+  const statusEndpoint = await import("../../functions/api/sync/mutation-status.js");
+  await withFreshDb(async ({ db, a, b }) => {
+    const value = mutation("CREATE", "status_create", "status_event", event("status_event", "Private calendar"));
+    const digest = await calendarMutationDigest(value);
+    assert.equal(await digestCanonicalCalendarMutation(value), digest);
+    await apply(db, a, value);
+    const legacyResult = JSON.stringify({ digest, result: { status: "APPLIED", revision: 1 } });
+    const shoppingResult = JSON.stringify({ digest, shoppingEntityId: value.entityId, result: { status: "APPLIED", revision: 1 } });
+    for (const [id, result] of [["old_calendar", legacyResult], ["other_domain", shoppingResult]]) {
+      await db.prepare("INSERT INTO applied_mutations (mutation_id, household_id, result_json, created_at) VALUES (?, ?, ?, ?)")
+        .bind(id, a.householdId, result, NOW).run();
+    }
+    const observed = observeDbBoundaries(db);
+    const status = req => statusEndpoint.onRequestGet({ request: req, env: { DB: observed.db } });
+    const confirmed = await status(statusRequest(a, value.mutationId, value.entityId, digest));
+    assert.equal(confirmed.status, 200);
+    assert.equal(confirmed.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await confirmed.json(), { outcome: "COMMITTED", result: { status: "APPLIED", revision: 1 } });
+
+    for (const req of [
+      statusRequest(a, "status_missing", value.entityId, digest),
+      statusRequest(a, "old_calendar", value.entityId, digest),
+      statusRequest(a, "other_domain", value.entityId, digest),
+      statusRequest(a, value.mutationId, value.entityId, "a".repeat(64)),
+      statusRequest(a, value.mutationId, "wrong_entity", digest),
+      statusRequest(b, value.mutationId, value.entityId, digest),
+    ]) {
+      const response = await status(req);
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { outcome: "UNKNOWN" });
+    }
+    const noCapability = await status(statusRequest(a, value.mutationId, value.entityId, digest, {}));
+    assert.equal(noCapability.status, 409);
+    assert.equal((await noCapability.json()).error.code, "CLIENT_UPGRADE_REQUIRED");
+    assert.equal((await status(statusRequest(null, value.mutationId, value.entityId, digest))).status, 401);
+    for (const query of [
+      "",
+      "?mutationId=status_create&entityId=status_event&digest=bad",
+      `?mutationId=status_create&mutationId=another&digest=${digest}`,
+      `?mutationId=status_create&entityId=status_event&digest=${digest}&householdId=hld_b`,
+    ]) {
+      const invalid = await status(request("/api/sync/mutation-status" + query, a, { headers: mergeEvidence }));
+      assert.equal(invalid.status, 400);
+    }
+    const method = statusEndpoint.onRequest({ request: request("/api/sync/mutation-status", a, { method: "POST" }) });
+    assert.equal(method.status, 405);
+    assert.equal(method.headers.get("allow"), "GET");
+    assert.deepEqual(observed.batches, []);
+    assert.ok(observed.standalone.every(method => method === "first"), "status uses only SELECT paths");
+    const journal = await db.prepare("SELECT COUNT(*) AS count FROM applied_mutations").first();
+    assert.equal(journal.count, 3);
+  });
+});
+
+test("Calendar mutation status never treats an in-flight or unobserved write as rejected", async () => {
+  const statusEndpoint = await import("../../functions/api/sync/mutation-status.js");
+  await withFreshDb(async ({ db, a }) => {
+    const value = mutation("CREATE", "status_delayed", "delayed_event", event("delayed_event"));
+    const digest = await calendarMutationDigest(value);
+    const lookup = () => statusEndpoint.onRequestGet({
+      request: statusRequest(a, value.mutationId, value.entityId, digest), env: { DB: db },
+    });
+    const entered = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    const delayedDb = { prepare: sql => db.prepare(sql), async batch(statements) {
+      entered.resolve();
+      await release.promise;
+      return db.batch(statements);
+    } };
+    const write = apply(delayedDb, a, value);
+    try {
+      await Promise.race([entered.promise, write.then(() => assert.fail("mutation did not reach the held transaction"))]);
+      assert.deepEqual(await (await lookup()).json(), { outcome: "UNKNOWN" });
+    } finally {
+      release.resolve();
+      await write;
+    }
+    assert.deepEqual(await (await lookup()).json(), { outcome: "COMMITTED", result: { status: "APPLIED", revision: 1 } });
+    assert.deepEqual(await apply(db, a, value), { status: "REPLAYED", result: { status: "APPLIED", revision: 1 } });
+    const journal = await db.prepare("SELECT COUNT(*) AS count FROM applied_mutations").first();
+    assert.equal(journal.count, 1);
+  });
+});
+
+test("Calendar mutation status returns the original MERGED field evidence to a capable client", async () => {
+  const statusEndpoint = await import("../../functions/api/sync/mutation-status.js");
+  await withFreshDb(async ({ db, a }) => {
+    const entityId = "status_merge_event";
+    await apply(db, a, mutation("CREATE", "status_merge_create", entityId, event(entityId)));
+    await apply(db, a, mutation("UPDATE", "status_merge_remote", entityId, { title: "Remote title" }));
+    const value = mutation("UPDATE", "status_merge_pending", entityId, { notes: "Local notes" });
+    const result = await applyCalendarMutation({
+      db, context: a, mutation: value, clock: () => NOW, supportsMergeEvidence: true,
+    });
+    assert.equal(result.status, "MERGED");
+    assert.deepEqual(result.merge.fields, ["title"]);
+    const digest = await digestCanonicalCalendarMutation(value);
+    const response = await statusEndpoint.onRequestGet({
+      request: statusRequest(a, value.mutationId, value.entityId, digest), env: { DB: db },
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { outcome: "COMMITTED", result });
+  });
+});
 
 async function apply(db, owner, value) {
   return applyCalendarMutation({

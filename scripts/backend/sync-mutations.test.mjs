@@ -297,6 +297,7 @@ test("13 CREATE at base 0 writes revision 1, calendar row, CREATE log and idempo
     const applied = await one(db, "SELECT * FROM applied_mutations WHERE mutation_id = ?", "mut_create");
     assert.equal(applied.household_id, CONTEXT_A.householdId);
     assert.deepEqual(JSON.parse(applied.result_json), {
+      calendarEntityId: "evt_1",
       digest: await calendarMutationDigest(mutation("CREATE", { mutationId: "mut_create" })),
       result,
     });

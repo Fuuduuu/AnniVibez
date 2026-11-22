@@ -8,6 +8,9 @@ import {
   findChangedFieldsSince,
 } from "./syncRepository.js";
 import { clientUpgradeRequired, requiresMergeEvidence } from "./mergeCapability.js";
+import { canonicalJson, digestCanonicalCalendarMutation } from "../../shared/calendarMutationDigest.js";
+
+export { canonicalJson };
 
 const EVENT_FIELDS = [
   "id", "title", "category", "subtype", "categoryLabel", "categoryColor", "date", "time", "recurrence",
@@ -23,7 +26,6 @@ const WASTE_SUBTYPES = new Set(["mixed", "bio", "paper", "packaging", "other"]);
 const FREQUENCY_MAXIMUM = { none: 1, weekly: 52, monthly: 12, yearly: 1 };
 const MUTATION_FIELDS = ["mutationId", "entityType", "entityId", "operation", "baseRevision", "patch"];
 const UPDATE_FIELDS = EVENT_FIELDS.filter(key => !["id", "householdId", "source"].includes(key));
-const DIGEST_PREFIX = "majandus:v1:sync-mutation:";
 
 function requireCondition(condition) {
   if (!condition) throw new TypeError("Invalid calendar mutation");
@@ -268,28 +270,8 @@ function mutationValue(value) {
   };
 }
 
-function sortedJsonValue(value) {
-  if (Array.isArray(value)) return value.map(sortedJsonValue);
-  if (isRecord(value)) return Object.fromEntries(Object.keys(value).sort().map(key => [key, sortedJsonValue(value[key])]));
-  return value;
-}
-
-export function canonicalJson(value) {
-  return JSON.stringify(sortedJsonValue(value));
-}
-
-async function digestCanonicalMutation(value) {
-  const digestInput = {
-    v: 1, entityType: value.entityType, entityId: value.entityId,
-    operation: value.operation, baseRevision: value.baseRevision, patch: value.patch,
-  };
-  const bytes = new TextEncoder().encode(DIGEST_PREFIX + canonicalJson(digestInput));
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
-}
-
 export async function calendarMutationDigest(value) {
-  return digestCanonicalMutation(mutationValue(value));
+  return digestCanonicalCalendarMutation(mutationValue(value));
 }
 
 function groupOf(field) {
@@ -367,7 +349,7 @@ export async function applyCalendarMutation({ db, context, mutation, clock, supp
   let value;
   try { value = mutationValue(mutation); }
   catch (error) { return rejected(error.code === "IMMUTABLE_FIELD" ? error.code : "INVALID_REQUEST"); }
-  const digest = await digestCanonicalMutation(value);
+  const digest = await digestCanonicalCalendarMutation(value);
   const existingMutation = await findAppliedMutation(db, value.mutationId);
   if (existingMutation) return replay(db, existingMutation, context.householdId, value, digest, supportsMergeEvidence);
   if (value.operation === "CREATE" ? value.baseRevision !== 0 : value.baseRevision <= 0)

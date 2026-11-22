@@ -420,6 +420,7 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
 
   const openAdd = (date,onSaved) => setEventSelection({date,onSaved,defaults:withReminderDefault({},reminders.preferences)});
   const openEvent = (item,onSaved) => setEventSelection({item,onSaved});
+  const openRecovery = (eventId, editScope, occurrenceDate) => setEventSelection({item:{eventId,occurrenceDate},editScope});
   const openWaste = date => setEventSelection({date,defaults:withReminderDefault({category:'waste',subtype:'mixed',recurrence:{frequency:'weekly',interval:1}},reminders.preferences)});
   const openSchedule = event => setEventSelection({item:{...event,eventId:event.id,occurrenceDate:event.date},seriesOnly:true});
 
@@ -433,7 +434,7 @@ function SharedApp({ session, state, result, actions, wasteLookup, notificationS
       {tab === 'kodu' && <KoduTab savedPlaces={places} onNavigate={navigate} calendar={calendar} onAdd={openAdd} onOpen={openEvent} timetable={timetable} homework={homework}
         shoppingHomeCard={<ShoppingHomeCard shopping={shopping} onOpen={()=>navigate('shopping')} />} />}
       {tab === 'shopping' && <ShoppingTab shopping={shopping} />}
-      {tab === 'kalender' && <KalenderTab calendar={calendar} onAdd={openAdd} onOpen={openEvent} />}
+      {tab === 'kalender' && <KalenderTab calendar={calendar} sync={session.sync} onAdd={openAdd} onOpen={openEvent} onRecover={openRecovery} />}
       {deviceTab(tab, places, navigate, timetable, homework)}
       {tab === 'seaded' && <SeadedTab profile={profile} saveName={saveName} places={places} placesWritable={placesWritable} placesError={placesError}
         updatePlace={updatePlace} initialSection={settingsSection} household={household} calendar={calendar} sync={session.sync}

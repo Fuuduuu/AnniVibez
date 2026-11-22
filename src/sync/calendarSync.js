@@ -1,6 +1,25 @@
 import { createCalendarSyncStore } from './calendarSyncStore.js';
 import { readDeviceLink, deviceLinkUrl } from './deviceLink.js';
 import { isClientUpgradeRequired, MERGE_EVIDENCE_HEADERS } from './clientCapabilities.js';
+import { calendarMutationBlocked, isOversizedCalendarConflict, isUncertainCalendarConflict } from './calendarOutbox.js';
+import { digestCanonicalCalendarMutation } from '../../shared/calendarMutationDigest.js';
+
+const mutationStatusPath = '/api/sync/mutation-status';
+const recoveryView = ({ conflicts }) => ({
+  oversizedEventIds: conflicts.filter(isOversizedCalendarConflict).map(record => record.entityId),
+  uncertainEventIds: conflicts.filter(isUncertainCalendarConflict).map(record => record.entityId),
+  fieldConflictEventIds: conflicts.filter(item => item.result?.code === 'FIELD_OVERLAP').map(record => record.entityId),
+});
+const noRecovery = recoveryView({ conflicts: [] });
+const sizeWarning = 'Sündmus on sünkroonimiseks liiga mahukas. Sündmus on seadmes alles. Ava sündmus kalendris.';
+const unknownWarning = 'Sündmuse eelmise sünkroonimise tulemus on kinnitamata. Muudatused on seadmes alles.';
+const fieldWarning = 'Sama sündmuse välja muudeti ka teises seadmes. Mõlemad versioonid on alles.';
+
+function recoveryMessage({ uncertainEventIds, fieldConflictEventIds, oversizedEventIds }) {
+  if (uncertainEventIds.length) return unknownWarning;
+  if (fieldConflictEventIds.length) return fieldWarning;
+  return oversizedEventIds.length ? sizeWarning : null;
+}
 
 // Device credentials are private to this closure and IndexedDB auth, never part of the UI snapshot.
 export function createCalendarSync({ replica, authority, fetchImpl, newId, clock, initialDeviceLink = null, isReady = () => true, onCommitted = () => {} }) {
@@ -8,12 +27,13 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
   const listeners = new Set();
   let incomingLink = readDeviceLink(initialDeviceLink);
   let view = { status: 'unset', active: false, ready: isReady(), loaded: false,
-    setupBlocked: false, setupPending: false, error: null, recoveryCode: null,
+    setupBlocked: false, setupPending: false, error: null, recoveryCode: null, ...noRecovery,
     hasIncomingLink: typeof initialDeviceLink === 'string', deviceLinkUrl: null, deviceLinkExpiresAt: null, linkPending: false };
   let running;
   let enabling = false;
   let disposed = false;
   let rerun = false;
+  let retryRequested = false;
   const publish = patch => {
     if (disposed) return;
     view = { ...view, ...patch, ready: isReady() };
@@ -21,12 +41,14 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
   };
   async function api(path, auth, body) {
     if (!isReady() || disposed) throw new Error('Storage is not READY');
+    const mergeCapable = path === '/api/sync/push' || path.startsWith(mutationStatusPath + '?');
     let response;
     try { response = await fetchImpl(path, { method: body === undefined ? 'GET' : 'POST',
       headers: { ...(auth ? { Authorization: `Bearer ${auth.deviceToken}` } : {}),
-        ...(path === '/api/sync/push' ? MERGE_EVIDENCE_HEADERS : {}),
+        ...(mergeCapable ? MERGE_EVIDENCE_HEADERS : {}),
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }), credentials: 'omit', cache: 'no-store', redirect: 'error' });
+      ...(body === undefined ? {} : { body: typeof body === 'string' ? body : JSON.stringify(body) }),
+      credentials: 'omit', cache: 'no-store', redirect: 'error' });
     } catch {
       const error = new Error('Network unavailable');
       error.network = true;
@@ -40,7 +62,54 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
     }
     return response.json();
   }
-  async function runOnce() {
+  async function confirmOriginal(mutation, auth) {
+    if (!mutation) return;
+    let proof;
+    try {
+      const digest = await digestCanonicalCalendarMutation(mutation);
+      const query = new URLSearchParams({ mutationId: mutation.mutationId, entityId: mutation.entityId, digest });
+      proof = await api(`${mutationStatusPath}?${query}`, auth);
+    } catch {
+      // Offline or an older server: preserve the exact original, and let unrelated work proceed.
+      return;
+    }
+    if (proof?.outcome !== 'COMMITTED') return;
+    const result = proof.result;
+    const nextRevision = mutation.baseRevision + 1;
+    if (!Number.isSafeInteger(result?.revision)) return;
+    if (result.status === 'APPLIED' && result.revision === nextRevision) {
+      await store.acknowledge(mutation.mutationId, result.revision);
+    } else if (result.status === 'MERGED' && mutation.operation === 'UPDATE' && result.revision > nextRevision && result.merge) {
+      await store.acknowledge(mutation.mutationId, result.revision, result.merge);
+    }
+  }
+  async function recoverSize(entityId, auth) {
+    const original = await store.recoverOversized(entityId);
+    if (original) await confirmOriginal(original, auth);
+  }
+  async function pushAttempt({ item, body, bytes }, auth) {
+    let response;
+    try { response = await api('/api/sync/push', auth, body); }
+    catch (error) {
+      if (error.status !== 413) throw error;
+      const uncertain = await store.rejectPushSize(item, bytes, error.code);
+      if (uncertain) await confirmOriginal(uncertain, auth);
+      else await recoverSize(item.entityId, auth);
+      return;
+    }
+    if (!Array.isArray(response.results) || response.results.length !== 1 || response.results[0].mutationId !== item.mutationId) {
+      throw new TypeError('Invalid push acknowledgement');
+    }
+    const result = response.results[0].status === 'REPLAYED' ? response.results[0].result : response.results[0];
+    if (['APPLIED', 'MERGED'].includes(result?.status)) {
+      await store.acknowledge(item.mutationId, result.revision, result.status === 'MERGED' ? result.merge ?? null : undefined);
+    } else if (['REJECTED', 'CONFLICT'].includes(result?.status)) {
+      const uncertain = await store.reject(item.mutationId, result);
+      if (uncertain) await confirmOriginal(uncertain, auth);
+    }
+    else throw new TypeError('Invalid mutation result');
+  }
+  async function runOnce(retryUncertain) {
     if (disposed || !isReady()) return;
     let current = await store.snapshot();
     if (!current.auth && !enabling && current.state.setupStatus === 'claiming') {
@@ -51,33 +120,43 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
       if (enabling) return;
       const claimUnknown = ['claiming', 'claim-unknown'].includes(current.state.setupStatus);
       publish({ status: current.state.setupStatus ? 'attention' : 'unset', active: false,
-        loaded: true, setupBlocked: !!current.state.setupStatus,
+        loaded: true, setupBlocked: !!current.state.setupStatus, ...noRecovery,
         error: current.state.setupStatus ? claimUnknown
           ? 'Seadme ühendamise tulemust ei saanud kinnitada. Küsi esimesest seadmest uus link.'
           : 'Majapidamise loomise tulemust ei saanud kinnitada. Uut majapidamist automaatselt ei looda.' : null });
       return;
     }
-    publish({ status: 'syncing', active: true, loaded: true, setupBlocked: false, hasIncomingLink: false, error: null });
+    publish({ status: 'syncing', active: true, loaded: true, setupBlocked: false, hasIncomingLink: false,
+      error: null, ...recoveryView(current) });
     try {
       await store.beginAttempt();
+      for (const conflict of current.conflicts) {
+        if (isUncertainCalendarConflict(conflict)) {
+          await confirmOriginal(conflict.mutation, current.auth);
+          if (retryUncertain && conflict.mutation) {
+            const attempt = await store.attempt(conflict.mutation.mutationId, true);
+            if (attempt) {
+              try { await pushAttempt(attempt, current.auth); }
+              catch (error) {
+                if (!(error.network || error.status >= 500)) throw error;
+              }
+            }
+          }
+        } else if (isOversizedCalendarConflict(conflict)) await recoverSize(conflict.entityId, current.auth);
+      }
       while (true) {
         const latest = await store.snapshot();
-        const blocked = new Set(latest.conflicts.map(record => record.entityId));
-        const queued = latest.outbox.find(item => !blocked.has(item.entityId));
+        const conflicts = new Map(latest.conflicts.map(record => [record.entityId, record]));
+        const queued = latest.outbox.find(item => !calendarMutationBlocked(conflicts.get(item.entityId), item.mutationId));
         if (!queued) break;
-        const item = await store.attempt(queued.mutationId);
-        if (!item) continue;
-        // One mutation per request preserves dependent revision ordering and stays below the cap of eight.
-        const response = await api('/api/sync/push', current.auth, { mutations: [{ mutationId: item.mutationId,
-          entityType: item.entityType, entityId: item.entityId, operation: item.operation,
-          baseRevision: item.baseRevision, patch: item.patch }] });
-        if (!Array.isArray(response.results) || response.results.length !== 1 || response.results[0].mutationId !== item.mutationId) throw new TypeError('Invalid push acknowledgement');
-        const result = response.results[0].status === 'REPLAYED' ? response.results[0].result : response.results[0];
-        if (['APPLIED', 'MERGED'].includes(result?.status)) {
-          await store.acknowledge(item.mutationId, result.revision, result.status === 'MERGED' ? result.merge ?? null : undefined);
+        const attempt = await store.attempt(queued.mutationId);
+        if (!attempt) continue;
+        if (attempt.blocked) {
+          if (attempt.uncertain) await confirmOriginal(attempt.blocked, current.auth);
+          else await recoverSize(attempt.blocked.entityId, current.auth);
+          continue;
         }
-        else if (['REJECTED', 'CONFLICT'].includes(result?.status)) await store.reject(item.mutationId, result);
-        else throw new TypeError('Invalid mutation result');
+        await pushAttempt(attempt, current.auth);
       }
       const state = (await store.snapshot()).state;
       if (!state.bootstrapCompleted) {
@@ -95,27 +174,41 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
         }
       }
       onCommitted();
-      const unresolved = (await store.snapshot()).conflicts.length > 0;
-      publish({ status: unresolved ? 'attention' : 'synced', error: unresolved
-        ? 'Kalendri muudatus vajab tähelepanu. Kohalik muudatus on alles.' : null });
+      const final = await store.snapshot();
+      const recovery = recoveryView(final);
+      const unresolved = final.conflicts.length > 0;
+      publish({ status: unresolved ? 'attention' : 'synced', ...recovery,
+        error: recoveryMessage(recovery) ?? (unresolved ? 'Kalendri muudatus vajab tähelepanu. Kohalik muudatus on alles.' : null) });
     } catch (error) {
-      const unresolved = await store.snapshot().then(current => current.conflicts.length > 0).catch(() => false);
-      const attention = unresolved || !(error.network || error.status >= 500);
+      const latest = await store.snapshot().catch(() => null);
+      const recovery = latest ? recoveryView(latest) : {
+        oversizedEventIds: view.oversizedEventIds, uncertainEventIds: view.uncertainEventIds, fieldConflictEventIds: view.fieldConflictEventIds,
+      };
+      const otherConflicts = latest?.conflicts.some(record => !isOversizedCalendarConflict(record) && !isUncertainCalendarConflict(record));
+      const attention = otherConflicts || !(error.network || error.status >= 500);
       onCommitted();
       const upgradeRequired = isClientUpgradeRequired(error);
-      publish({ status: attention ? 'attention' : 'waiting', error: upgradeRequired
+      publish({ status: attention ? 'attention' : 'waiting', ...recovery, error: upgradeRequired
         ? 'Rakendus vajab uuendamist. Kalendri muudatused on seadmes alles. Pärast uuendust proovi uuesti.'
-        : attention
-        ? 'Sünkroonimine vajab tähelepanu. Kalender on seadmes alles.'
+        : attention ? recoveryMessage(recovery) ?? 'Sünkroonimine vajab tähelepanu. Kalender on seadmes alles.'
         : 'Sünkroonimine ootab võrguühendust. Kalender on seadmes alles.' });
     }
   }
   function run() {
     if (running) { rerun = true; return running; }
     running = (async () => {
-      do { rerun = false; await runOnce(); } while (rerun && !disposed && isReady());
+      do {
+        rerun = false;
+        const retryUncertain = retryRequested;
+        retryRequested = false;
+        await runOnce(retryUncertain);
+      } while (rerun && !disposed && isReady());
     })().catch(() => publish({ status: 'attention', error: 'Sünkroonimine vajab tähelepanu. Kalender on seadmes alles.' })).finally(() => { running = undefined; });
     return running;
+  }
+  function retryUncertain() {
+    retryRequested = true;
+    return run();
   }
   async function enable(input) {
     if (disposed || !isReady() || enabling || view.hasIncomingLink) return false;
@@ -202,7 +295,7 @@ export function createCalendarSync({ replica, authority, fetchImpl, newId, clock
       return false;
     } finally { enabling = false; publish({ setupPending: false }); }
   }
-  return { enable, run, createDeviceLink, claimDevice, getSnapshot: () => view,
+  return { enable, run, retryUncertain, createDeviceLink, claimDevice, getSnapshot: () => view,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
     dismissRecovery: () => publish({ recoveryCode: null }),
     dismissIncomingLink: () => { incomingLink = null; publish({ hasIncomingLink: false }); },

@@ -6,9 +6,19 @@ const UPGRADE_REQUIRED = "CLIENT_UPGRADE_REQUIRED";
 
 export const clientUpgradeRequired = () => ({ status: "RETRYABLE", code: UPGRADE_REQUIRED });
 
-export function mutationJournalJson({ digest, result }, entityType) {
-  // Keep the domain discriminator inside the durable journal, outside the wire result.
-  return JSON.stringify(result.merge ? { digest, result, mergeEntityType: entityType } : { digest, result });
+export function mutationJournalJson({ digest, result }, entityType, metadata = {}) {
+  // Keep binding metadata inside the durable journal, outside the wire result.
+  const mergeMarker = result.merge ? { mergeEntityType: entityType } : {};
+  return JSON.stringify({ ...metadata, digest, result, ...mergeMarker });
+}
+
+export function supportsMergeEvidence(request) {
+  const capabilities = request.headers.get(HEADER)?.split(",").map(value => value.trim()) ?? [];
+  return capabilities.includes(MERGE_EVIDENCE);
+}
+
+export function clientUpgradeResponse() {
+  return apiError(409, UPGRADE_REQUIRED, "Update the app to continue synchronization.");
 }
 
 export async function requiresMergeEvidence(db, householdId, mutation, status, supportsMergeEvidence) {
@@ -29,15 +39,14 @@ export async function requiresMergeEvidence(db, householdId, mutation, status, s
 }
 
 export async function pushMutations(request, mutations, apply) {
-  const capabilities = request.headers.get(HEADER)?.split(",").map(value => value.trim()) ?? [];
-  const supportsMergeEvidence = capabilities.includes(MERGE_EVIDENCE);
+  const hasMergeEvidence = supportsMergeEvidence(request);
   const results = [];
   let blocked = false;
   for (const mutation of mutations) {
     const mutationId = typeof mutation?.mutationId === "string" ? mutation.mutationId : null;
-    const result = blocked ? clientUpgradeRequired() : await apply(mutation, supportsMergeEvidence);
+    const result = blocked ? clientUpgradeRequired() : await apply(mutation, hasMergeEvidence);
     if (result.code === UPGRADE_REQUIRED) {
-      if (mutations.length === 1) return apiError(409, UPGRADE_REQUIRED, "Update the app to continue synchronization.");
+      if (mutations.length === 1) return clientUpgradeResponse();
       // The already written prefix remains durable. A later dependent can match the
       // current revision only because its predecessor was withheld, so stop here.
       blocked = true;

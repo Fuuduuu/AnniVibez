@@ -29,17 +29,34 @@ function changedFields(current, original) {
   return patch;
 }
 
+function prepareEdit(record, scope, occurrenceDate) {
+  const target = getEventEditTarget(record, { scope, occurrenceDate });
+  if (!target) return null;
+  const values = fields(target);
+  const imported = record.source === 'imported';
+  return {
+    values,
+    opening: { event:record, fields:submitFields(values, imported), legacyPayment:!imported && target.category === 'payment' },
+    advancedOpen: imported || hasAdvanced(values),
+  };
+}
+
 export function EventDialog({selection,calendar,onClose}) {
   const now=useCalendarNow();
   const source=selection.item ? calendar.events.find(e=>e.id === selection.item.eventId) : null;
-  const [mode,setMode]=useState(selection.item ? 'view' : 'edit');
-  const [scope,setScope]=useState(null);
-  const [form,setForm]=useState(()=>fields(selection.item || {date:selection.date,...selection.defaults}));
-  const [opening,setOpening]=useState(null);
+  const directEdit = Object.hasOwn(selection, 'editScope');
+  const [initialEdit] = useState(() => directEdit ? prepareEdit(source, selection.editScope, selection.item.occurrenceDate) : null);
+  const [mode,setMode]=useState(() => {
+    if (directEdit) return initialEdit ? 'edit' : 'unavailable';
+    return selection.item ? 'view' : 'edit';
+  });
+  const [scope,setScope]=useState(selection.editScope ?? null);
+  const [form,setForm]=useState(()=>initialEdit?.values ?? fields(selection.item || {date:selection.date,...selection.defaults}));
+  const [opening,setOpening]=useState(initialEdit?.opening ?? null);
   const [conflict,setConflict]=useState(null);
-  const [error,setError]=useState('');
+  const [error,setError]=useState(directEdit && !initialEdit ? 'Sündmus muutus vahepeal. Ava see kalendrist uuesti.' : '');
   const [pending,setPending]=useState(false);
-  const [advancedOpen,setAdvancedOpen]=useState(false);
+  const [advancedOpen,setAdvancedOpen]=useState(initialEdit?.advancedOpen ?? false);
   const dialog=useRef(null);
   const recurring=source?.recurrence.frequency !== 'none' && !!source;
   const imported=(opening?.event ?? source)?.source === 'imported';
@@ -59,20 +76,15 @@ export function EventDialog({selection,calendar,onClose}) {
   },[pending]);
   const set=(key,value)=>setForm(prev=>({...prev,[key]:value}));
   function edit(chosenScope, record = source) {
-    const target = getEventEditTarget(record, { scope: chosenScope, occurrenceDate: selection.item.occurrenceDate });
-    if (!target) {
+    const draft = prepareEdit(record, chosenScope, selection.item.occurrenceDate);
+    if (!draft) {
       setError('Sündmus muutus vahepeal. Ava see kalendrist uuesti.');
       return;
     }
-    const values = fields(target);
     setScope(chosenScope);
-    setOpening({
-      event: record,
-      fields: submitFields(values, record.source === 'imported'),
-      legacyPayment: record.source !== 'imported' && target.category === 'payment',
-    });
-    setForm(values);
-    setAdvancedOpen(record.source === 'imported' || hasAdvanced(values));
+    setOpening(draft.opening);
+    setForm(draft.values);
+    setAdvancedOpen(draft.advancedOpen);
     setConflict(null);
     setError('');
     setMode('edit');
